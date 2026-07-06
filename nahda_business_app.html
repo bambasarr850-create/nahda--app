@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Nahda Business</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B4A40">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nahda Business">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --navy:#0B4A40;
+    --navy-2:#0E6B5C;
+    --red:#C1272D;
+    --gold:#C89B3C;
+    --sand:#F1EAD9;
+    --sand-2:#E7DCC2;
+    --ink:#1B1B1B;
+    --muted:#6B6255;
+    --green:#2F7D5A;
+    --amber:#B8791E;
+    --white:#FFFFFF;
+    --line:#DCD2B8;
+    --radius:16px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#0d1420;font-family:var(--font-body);color:var(--ink);}
+
+  .phone-wrap{display:flex;justify-content:center;align-items:flex-start;padding:24px 8px;min-height:100vh;}
+  .phone{
+    width:400px;max-width:100%;min-height:820px;background:var(--sand);
+    border-radius:34px;overflow:hidden;position:relative;
+    box-shadow:0 30px 60px rgba(0,0,0,.5), 0 0 0 8px #05070c, 0 0 0 9px #2a2f3a;
+    display:flex;flex-direction:column;
+  }
+  .statusbar{height:30px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:var(--sand);font-size:11px;font-family:var(--font-mono);letter-spacing:.5px;flex:none;}
+
+  .screen{display:none;flex-direction:column;flex:1;min-height:0;}
+  .screen.active{display:flex;}
+  .scroll{overflow-y:auto;flex:1;padding:18px 18px 90px;}
+  .scroll::-webkit-scrollbar{width:0;}
+
+  /* ---------- Topbar ---------- */
+  .topbar{background:var(--navy);color:var(--sand);padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
+  .topbar h1{font-family:var(--font-display);font-size:17px;margin:0;font-weight:600;letter-spacing:.2px;}
+  .topbar .sub{font-size:11px;color:#B9C2D4;font-family:var(--font-mono);margin-top:2px;}
+  .back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:var(--sand);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  .back-btn:active{background:rgba(255,255,255,.18);}
+  .topbar-spacer{flex:1;}
+  .logout-btn{background:none;border:1px solid rgba(255,255,255,.25);color:var(--sand);border-radius:20px;padding:6px 12px;font-size:11px;font-family:var(--font-body);cursor:pointer;}
+
+  /* ---------- Logo mark ---------- */
+  .logomark{width:38px;height:38px;border-radius:11px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:none;position:relative;background:var(--navy);}
+  .logomark img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  /* ---------- LOGIN ---------- */
+  #screen-login .scroll{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 30px;}
+  .login-hero{display:flex;flex-direction:column;align-items:center;margin-bottom:34px;}
+  .login-hero .logomark{width:84px;height:84px;border-radius:22px;margin-bottom:16px;}
+  .brand-name{font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--navy);letter-spacing:.3px;text-align:center;}
+  .brand-tag{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;}
+  .route-strip{display:flex;align-items:center;gap:6px;margin-top:14px;font-family:var(--font-mono);font-size:11px;color:var(--navy-2);}
+  .route-strip .dots{flex:1;height:1px;background:repeating-linear-gradient(90deg,var(--gold) 0 4px,transparent 4px 8px);width:60px;position:relative;}
+
+  .field{width:100%;margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-weight:600;color:var(--navy);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--white);font-family:var(--font-body);font-size:14.5px;color:var(--ink);
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);}
+  .login-form{width:100%;}
+  .btn{
+    width:100%;padding:13px;border-radius:12px;border:none;font-family:var(--font-body);
+    font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px;
+  }
+  .btn-primary{background:var(--navy);color:var(--sand);}
+  .btn-primary:active{background:var(--navy-2);}
+  .btn-gold{background:var(--gold);color:var(--navy);}
+  .btn-outline{background:transparent;border:1.5px solid var(--line);color:var(--muted);}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn-row{display:flex;gap:10px;margin-top:6px;}
+  .btn-row .btn{flex:1;}
+  .err-msg{background:#FBE2E2;color:var(--red);font-size:12.5px;padding:9px 12px;border-radius:10px;margin-bottom:12px;width:100%;display:none;font-weight:600;}
+  .demo-hint{margin-top:22px;font-size:10.5px;color:var(--muted);text-align:center;line-height:1.6;font-family:var(--font-mono);}
+
+  /* ---------- Dashboard ---------- */
+  .agent-card{background:var(--navy);color:var(--sand);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;position:relative;overflow:hidden;}
+  .agent-card::after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:rgba(200,155,60,.18);}
+  .agent-card .name{font-family:var(--font-display);font-size:16px;font-weight:600;}
+  .agent-card .loc{font-family:var(--font-mono);font-size:11px;color:#C9D2E4;margin-top:4px;}
+  .agent-card .badge{display:inline-block;margin-top:10px;font-size:10px;background:rgba(200,155,60,.25);color:var(--gold);padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.5px;}
+
+  .grid-menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .menu-btn{
+    background:var(--white);border:1px solid var(--line);border-radius:16px;padding:18px 12px;
+    display:flex;flex-direction:column;align-items:flex-start;gap:10px;cursor:pointer;text-align:left;
+  }
+  .menu-btn:active{background:var(--sand-2);}
+  .menu-btn .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .menu-btn span{font-family:var(--font-display);font-size:13.5px;font-weight:600;color:var(--navy);}
+  .menu-btn.wide{grid-column:1/3;flex-direction:row;align-items:center;}
+
+  .kpi-strip{display:flex;gap:10px;margin-bottom:16px;}
+  .kpi{flex:1;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);}
+  .kpi .n{font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--navy);}
+  .kpi .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+
+  h2.section-title{font-family:var(--font-display);font-size:14px;color:var(--navy);margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;}
+
+  /* ---------- Boarding-pass colis card ---------- */
+  .colis-card{background:var(--white);border-radius:16px;margin-bottom:14px;border:1px solid var(--line);overflow:hidden;position:relative;}
+  .colis-top{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:flex-start;}
+  .colis-ref{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--navy);}
+  .colis-client{font-size:12px;color:var(--muted);margin-top:2px;}
+  .status-pill{font-size:9.5px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+  .st-0{background:#E5E9F2;color:var(--navy-2);}
+  .st-1{background:#FCEBD0;color:var(--amber);}
+  .st-2{background:#DDEFE5;color:var(--green);}
+  .st-3{background:#EDEDED;color:#666;}
+
+  .perf{height:0;border-top:2px dashed var(--sand-2);position:relative;margin:0 16px;}
+  .perf::before,.perf::after{content:"";position:absolute;top:-8px;width:16px;height:16px;border-radius:50%;background:#0d1420;}
+  .perf::before{left:-24px;}
+  .perf::after{right:-24px;}
+
+  .route-line{padding:14px 16px;display:flex;align-items:center;gap:8px;}
+  .route-pt{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;width:44px;}
+  .route-track{flex:1;height:2px;background:var(--sand-2);position:relative;border-radius:2px;}
+  .route-track .fill{position:absolute;left:0;top:0;height:100%;background:var(--gold);border-radius:2px;}
+  .route-track .plane{position:absolute;top:-9px;font-size:16px;transform:translateX(-50%);}
+  .colis-meta{display:flex;justify-content:space-between;padding:0 16px 14px;font-size:11px;color:var(--muted);font-family:var(--font-mono);}
+  .colis-meta b{color:var(--ink);}
+
+  /* ---------- Voyage tabs ---------- */
+  .tabbar{display:flex;background:var(--sand-2);border-radius:12px;padding:4px;margin-bottom:16px;}
+  .tabbar button{flex:1;border:none;background:transparent;padding:9px;border-radius:9px;font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--muted);cursor:pointer;}
+  .tabbar button.active{background:var(--navy);color:var(--sand);}
+
+  .checklist-item{display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;}
+  .checklist-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy);flex:none;}
+  .checklist-item .txt{flex:1;}
+  .checklist-item .txt .r{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--navy);}
+  .checklist-item .txt .d{font-size:11px;color:var(--muted);}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+  .empty-state .em{font-size:34px;margin-bottom:10px;}
+  .empty-state p{font-size:12.5px;line-height:1.6;margin:0;}
+
+  .content-tag{display:inline-flex;align-items:center;gap:6px;background:var(--sand-2);padding:5px 10px;border-radius:20px;font-size:12px;margin:0 6px 6px 0;}
+  .content-tag button{border:none;background:none;color:var(--red);cursor:pointer;font-weight:700;font-size:12px;}
+  .content-tags-wrap{display:flex;flex-wrap:wrap;margin-bottom:6px;}
+  .add-row{display:flex;gap:8px;}
+  .add-row input{flex:1;}
+  .add-row button{flex:none;width:44px;border-radius:12px;border:none;background:var(--navy);color:var(--sand);font-size:18px;cursor:pointer;}
+
+  .total-box{background:var(--navy);color:var(--sand);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;}
+  .total-box .lbl{font-size:11px;color:#C9D2E4;text-transform:uppercase;letter-spacing:.5px;}
+  .total-box .val{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--gold);}
+
+  .photo-box{border:1.5px dashed var(--line);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;background:var(--white);}
+  .photo-box .thumb{width:52px;height:52px;border-radius:10px;background:var(--sand-2);flex:none;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;}
+  .photo-box .thumb img{width:100%;height:100%;object-fit:cover;}
+  .photo-box .txt{flex:1;font-size:11.5px;color:var(--muted);}
+  .photo-box label.upload-btn{background:var(--sand-2);padding:8px 12px;border-radius:10px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;flex:none;}
+  .photo-box input[type=file]{display:none;}
+  .gallery-thumb{position:relative;width:74px;height:74px;border-radius:12px;overflow:hidden;flex:none;background:var(--sand-2);}
+  .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .gallery-thumb button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:1;cursor:pointer;}
+
+  .toast{position:absolute;bottom:20px;left:20px;right:20px;background:var(--navy);color:var(--sand);padding:12px 16px;border-radius:12px;font-size:13px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.3);z-index:50;display:none;font-weight:600;}
+
+  .result-card{background:var(--white);border-radius:16px;border:1px solid var(--line);padding:16px;margin-top:6px;}
+  .result-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--sand-2);font-size:13px;}
+  .result-row:last-child{border-bottom:none;}
+  .result-row .k{color:var(--muted);}
+  .result-row .v{font-weight:600;color:var(--ink);font-family:var(--font-mono);}
+
+  .timeline{display:flex;justify-content:space-between;margin:18px 0 6px;position:relative;}
+  .timeline::before{content:"";position:absolute;top:9px;left:14px;right:14px;height:2px;background:var(--sand-2);}
+  .tl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1;}
+  .tl-dot{width:20px;height:20px;border-radius:50%;background:var(--sand-2);border:2px solid var(--sand-2);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+  .tl-dot.done{background:var(--green);border-color:var(--green);}
+  .tl-dot.current{background:var(--gold);border-color:var(--gold);}
+  .tl-label{font-size:9px;color:var(--muted);text-align:center;}
+
+  .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .bilan-card .l{font-size:12px;color:var(--muted);}
+  .bilan-card .v{font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--navy);}
+  .bilan-card.accent .v{color:var(--green);}
+  .bilan-card .ic{width:40px;height:40px;border-radius:11px;background:var(--sand-2);display:flex;align-items:center;justify-content:center;font-size:18px;}
+
+  .settings-item{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .settings-item .t{font-family:var(--font-display);font-weight:600;font-size:13.5px;color:var(--navy);}
+  .settings-item .d{font-size:11px;color:var(--muted);margin-top:2px;}
+  .settings-panel{display:none;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px;margin:-2px 0 14px;}
+  .settings-panel.open{display:block;}
+
+  .list-mini{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.9;}
+  .list-mini b{color:var(--ink);}
+
+  .banner-demo{background:#FCEBD0;color:var(--amber);font-size:10.5px;padding:8px 12px;border-radius:10px;margin-bottom:14px;text-align:center;font-weight:600;line-height:1.5;}
+</style>
+
+</head>
+<body>
+<div class="phone-wrap">
+<div class="phone" id="phone">
+
+  <div class="statusbar"><span>09:41</span><span>NAHDA · RÉSEAU MA–AFRIQUE</span></div>
+
+  <!-- ============ LOGIN ============ -->
+  <section class="screen active" id="screen-login">
+    <div class="scroll">
+      <div class="login-hero">
+        <div class="logomark">
+          <img src="data:image/png;base64,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" alt="Nahda Business">
+        </div>
+        <div class="brand-name">NAHDA BUSINESS</div>
+        <div class="brand-tag">Fret aérien · Maroc ⇄ Afrique</div>
+        <div class="route-strip">CAS <div class="dots"></div> ✈ <div class="dots"></div> ABJ / BKO / OUA / DKR</div>
+      </div>
+      <div class="login-form">
+        <div class="err-msg" id="login-err">Identifiant ou mot de passe incorrect.</div>
+        <div class="field">
+          <label>ID Agent</label>
+          <input type="text" id="in-agent-id" placeholder="ex : AG-CMN-01" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <input type="password" id="in-agent-pass" placeholder="••••••">
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()">✅ SE CONNECTER</button>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="fillDemo()">🔎 Identifiants démo</button>
+        </div>
+        <button class="btn btn-gold" style="margin-top:10px;" onclick="previewMode()">👁️ APERÇU RAPIDE (sans connexion)</button>
+      </div>
+      <div class="demo-hint">Vérification via Google Sheets (feuille AGENTS)<br>Démo : AG-CAS-01 / 1234 &nbsp;·&nbsp; AG-ABJ-01 / 1234</div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="screen" id="screen-dashboard">
+    <div class="topbar">
+      <div class="logomark" style="width:34px;height:34px;border-radius:9px;"><img src="data:image/png;base64,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" alt="Nahda Business"></div>
+      <div><h1>Tableau de bord</h1><div class="sub" id="dash-date"></div></div>
+      <div class="topbar-spacer"></div>
+      <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    </div>
+    <div class="scroll">
+      <div class="banner-demo">MODE DÉMO — données simulées localement. Backend Google Sheets / Apps Script à connecter à l'étape suivante.</div>
+      <div class="agent-card">
+        <div class="name" id="dash-agent-name">—</div>
+        <div class="loc" id="dash-agent-loc">—</div>
+        <div class="badge" id="dash-agent-role">AGENT</div>
+      </div>
+
+      <div class="kpi-strip">
+        <div class="kpi"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
+        <div class="kpi"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
+        <div class="kpi"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
+        <div class="kpi"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
+      </div>
+
+      <div class="grid-menu">
+        <div class="menu-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
+        <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
+        <div class="menu-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
+        <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NOUVEAU COLIS ============ -->
+  <section class="screen" id="screen-newcolis">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Nouveau Colis</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
+      <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
+      <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
+      <div class="field">
+        <label>Destination</label>
+        <select id="nc-dest" onchange="onDestChange()"></select>
+      </div>
+      <div class="field"><label>Poids (kg)</label><input id="nc-poids" type="number" step="0.1" oninput="calcTotal()" placeholder="0.0"></div>
+      <div class="field"><label>Prix par kg (MAD)</label><input id="nc-prixkg" type="number" oninput="calcTotal()"></div>
+
+      <div class="field">
+        <label>Contenu du colis</label>
+        <div class="content-tags-wrap" id="nc-contenu-tags"></div>
+        <div class="add-row">
+          <input id="nc-contenu-input" placeholder="ex : vêtements, chaussures..." onkeydown="if(event.key==='Enter'){event.preventDefault();addContenu();}">
+          <button onclick="addContenu()">+</button>
+        </div>
+      </div>
+
+      <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
+
+      <div class="field">
+        <label>Statut paiement départ</label>
+        <select id="nc-statutpaie">
+          <option>Payé</option><option>Partiel</option><option>Non payé</option>
+        </select>
+      </div>
+      <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
+
+      <div class="field">
+        <label>Photos du colis (plusieurs prises autorisées)</label>
+        <div id="nc-photo-gallery" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+        <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;">
+          📷 PRENDRE UNE PHOTO
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
+        </label>
+      </div>
+
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-outline" onclick="resetNewColis(); goto('screen-dashboard')">❌ ANNULER</button>
+        <button class="btn btn-primary" onclick="saveColis()">💾 ENREGISTRER</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECHERCHE COLIS ============ -->
+  <section class="screen" id="screen-search">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Recherche Colis</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label><input id="sr-ref" placeholder="ex : NB-2026-0451"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="document.getElementById('sr-ref').value='';document.getElementById('sr-result').innerHTML='';">❌ EFFACER</button>
+        <button class="btn btn-primary" onclick="searchColis()">🔍 RECHERCHER</button>
+      </div>
+      <div id="sr-result"></div>
+    </div>
+  </section>
+
+  <!-- ============ VOYAGE ============ -->
+  <section class="screen" id="screen-voyage">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Voyage</h1></div>
+    <div class="scroll">
+      <div class="tabbar">
+        <button id="tab-depart" class="active" onclick="switchVoyageTab('depart')">🚛 Départ</button>
+        <button id="tab-arrivee" onclick="switchVoyageTab('arrivee')">🛬 Arrivée</button>
+      </div>
+
+      <div id="voyage-depart-panel">
+        <h2 class="section-title">Colis enregistrés — sélectionner</h2>
+        <div id="depart-list"></div>
+        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
+        <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
+        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
+        <button class="btn btn-primary" onclick="lancerVoyage()">🚀 LANCER VOYAGE</button>
+      </div>
+
+      <div id="voyage-arrivee-panel" style="display:none;">
+        <div class="field">
+          <label>Numéro de voyage</label>
+          <select id="va-select" onchange="renderArriveeList()"></select>
+        </div>
+        <h2 class="section-title">Colis du voyage</h2>
+        <div id="arrivee-list"></div>
+        <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
+        <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RETRAIT ============ -->
+  <section class="screen" id="screen-retrait">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Retrait</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label>
+        <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button></div>
+      </div>
+      <div id="rt-fiche"></div>
+      <div class="field"><label>Montant payé à destination</label><input id="rt-montant" type="number" placeholder="0"></div>
+      <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
+      <div class="field">
+        <label>Compte de retrait</label>
+        <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
+        <button class="btn btn-green" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BILAN ============ -->
+  <section class="screen" id="screen-bilan">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Bilan Trésorerie</h1></div>
+    <div class="scroll" id="bilan-scroll"></div>
+  </section>
+
+  <!-- ============ PARAMÈTRES ============ -->
+  <section class="screen" id="screen-settings">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Paramètres</h1></div>
+    <div class="scroll">
+
+      <div class="settings-item" onclick="togglePanel('p-agent')"><div><div class="t">➕ Ajouter un agent</div><div class="d">Créer un accès agence</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-agent">
+        <div class="field"><label>ID Agent</label><input id="ps-agent-id" placeholder="ex : AG-ABJ-01"></div>
+        <div class="field"><label>Nom</label><input id="ps-agent-nom"></div>
+        <div class="field"><label>Pays / Agence</label><input id="ps-agent-agence" placeholder="ex : Abidjan, Côte d'Ivoire"></div>
+        <div class="field"><label>Mot de passe</label><input id="ps-agent-pass" type="password"></div>
+        <button class="btn btn-primary" onclick="addAgent()">Enregistrer l'agent</button>
+        <div class="list-mini" id="agents-list"></div>
+      </div>
+
+      <div class="settings-item" onclick="togglePanel('p-prix')"><div><div class="t">💱 Modifier prix / kg</div><div class="d">Tarifs par destination</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-prix">
+        <div class="field"><label>Destination</label><select id="ps-prix-dest"></select></div>
+        <div class="field"><label>Nouveau prix (MAD/kg)</label><input id="ps-prix-val" type="number"></div>
+        <button class="btn btn-primary" onclick="updatePrix()">Mettre à jour</button>
+      </div>
+
+      <div class="settings-item" onclick="togglePanel('p-dest')"><div><div class="t">🌍 Ajouter une destination</div><div class="d">Nouveau pays desservi</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-dest">
+        <div class="field"><label>Ville, Pays</label><input id="ps-dest-nom" placeholder="ex : Lomé, Togo"></div>
+        <div class="field"><label>Drapeau (emoji)</label><input id="ps-dest-flag" placeholder="🇹🇬"></div>
+        <div class="field"><label>Prix / kg (MAD)</label><input id="ps-dest-prix" type="number"></div>
+        <button class="btn btn-primary" onclick="addDestination()">Ajouter</button>
+      </div>
+
+      <div class="settings-item" onclick="togglePanel('p-pass')"><div><div class="t">🔑 Modifier mot de passe</div><div class="d">Sécurité du compte agent</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-pass">
+        <div class="field"><label>Nouveau mot de passe</label><input id="ps-newpass" type="password"></div>
+        <button class="btn btn-primary" onclick="changePassword()">Confirmer</button>
+      </div>
+
+      <div class="settings-item" onclick="saveBackup()"><div><div class="t">☁️ Sauvegarde</div><div class="d">Synchroniser vers Google Sheets</div></div><span>›</span></div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+</div>
+
+<script>
+/* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxjIaFqltcKUcK_dnIeBJRUpo65YFw81-q2eatKfFggUv-uTEgq-sc8dVCx_lIWALhd/exec';
+const FLAG_EMOJI = {CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
+function flagEmoji(v){ return FLAG_EMOJI[v] || v || '🏳️'; }
+
+async function api(action, payload={}){
+  try{
+    const res = await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action, ...payload})
+    });
+    const out = await res.json();
+    if(!out.ok){ showToast('⚠️ '+out.error); throw new Error(out.error); }
+    return out.data;
+  }catch(err){
+    if(!err.message || err.message.indexOf('⚠️')===-1) showToast('⚠️ Connexion API impossible — vérifie l\'URL /exec');
+    throw err;
+  }
+}
+
+let currentAgent = null;
+let newColisContenu = [];
+let newColisPhotos = [];
+let voyageTab = 'depart';
+let DESTINATIONS_CACHE = [];
+
+const STATUT_LABELS = ['Enregistré','En voyage','Arrivé','Retiré'];
+
+/* ================= NAVIGATION ================= */
+function goto(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='screen-newcolis') prepNewColis();
+  if(id==='screen-voyage') prepVoyage();
+  if(id==='screen-bilan') renderBilan();
+  if(id==='screen-settings') prepSettings();
+  if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; }
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none', 2600);
+}
+
+/* ================= LOGIN ================= */
+function fillDemo(){ document.getElementById('in-agent-id').value='AG-CAS-01'; document.getElementById('in-agent-pass').value='1234'; }
+function previewMode(){ goto('screen-dashboard'); showToast('👁️ Aperçu — connecte-toi normalement pour écrire des données'); }
+
+async function doLogin(){
+  const id = document.getElementById('in-agent-id').value.trim();
+  const pass = document.getElementById('in-agent-pass').value.trim();
+  const err = document.getElementById('login-err');
+  err.style.display='none';
+  try{
+    const agent = await api('login', {id, motdepasse: pass});
+    currentAgent = agent;
+    document.getElementById('dash-agent-name').textContent = agent.nom;
+    document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
+    document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
+    document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    await updateKpis();
+    goto('screen-dashboard');
+  }catch(e){ err.style.display='block'; }
+}
+function doLogout(){ currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value=''; goto('screen-login'); }
+
+async function updateKpis(){
+  try{
+    const b = await api('bilan');
+    document.getElementById('kpi-total').textContent = b.totalColis;
+    document.getElementById('kpi-attente').textContent = b.enAttente;
+    document.getElementById('kpi-voyage').textContent = b.totalColis - b.enAttente - b.arrives;
+    document.getElementById('kpi-retires').textContent = b.retires;
+  }catch(e){}
+}
+
+/* ================= NOUVEAU COLIS ================= */
+async function prepNewColis(){
+  const sel = document.getElementById('nc-dest');
+  sel.innerHTML = '<option>Chargement...</option>';
+  try{
+    DESTINATIONS_CACHE = await api('listDestinations');
+    sel.innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.agence}</option>`).join('');
+    onDestChange();
+  }catch(e){}
+  document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+}
+function onDestChange(){
+  const pays = document.getElementById('nc-dest').value;
+  const d = DESTINATIONS_CACHE.find(x=>x.pays===pays) || DESTINATIONS_CACHE[0];
+  document.getElementById('nc-prixkg').value = d ? d.prix_kg : 0;
+  calcTotal();
+}
+function addContenu(){
+  const inp = document.getElementById('nc-contenu-input');
+  const v = inp.value.trim();
+  if(!v) return;
+  newColisContenu.push(v); inp.value='';
+  renderContenuTags();
+}
+function removeContenu(i){ newColisContenu.splice(i,1); renderContenuTags(); }
+function renderContenuTags(){
+  document.getElementById('nc-contenu-tags').innerHTML = newColisContenu.map((c,i)=>
+    `<span class="content-tag">${c}<button onclick="removeContenu(${i})">×</button></span>`).join('');
+}
+function calcTotal(){
+  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
+  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
+  document.getElementById('nc-total').textContent = (poids*prixkg).toLocaleString('fr-FR')+' MAD';
+}
+function onPhoto(e){
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{ newColisPhotos.push(ev.target.result); renderPhotoGallery(); };
+  reader.readAsDataURL(f);
+  e.target.value = ''; // permet de reprendre une nouvelle photo immédiatement
+}
+function removePhoto(i){ newColisPhotos.splice(i,1); renderPhotoGallery(); }
+function renderPhotoGallery(){
+  document.getElementById('nc-photo-gallery').innerHTML = newColisPhotos.map((p,i)=>
+    `<div class="gallery-thumb"><img src="${p}"><button onclick="removePhoto(${i})">×</button></div>`).join('');
+}
+function resetNewColis(){ newColisContenu=[]; newColisPhotos=[]; renderPhotoGallery(); renderContenuTags(); }
+async function saveColis(){
+  const ref = document.getElementById('nc-ref').value.trim();
+  const nom = document.getElementById('nc-nom').value.trim();
+  if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
+  const paysDestination = document.getElementById('nc-dest').value;
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
+  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
+  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
+  let photoUrls = [];
+  try{
+    if(newColisPhotos.length) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
+    for(let i=0;i<newColisPhotos.length;i++){
+      const up = await api('uploadPhoto', {base64:newColisPhotos[i], nom: ref+'_'+(i+1)});
+      photoUrls.push(up.url);
+    }
+  }catch(e){ return; }
+  try{
+    await api('saveColis', {
+      reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
+      paysDestination, agenceDestination: destInfo.agence || '',
+      poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
+      statutPaiementDepart: document.getElementById('nc-statutpaie').value,
+      valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
+      photoUrls: photoUrls.join(',')
+    });
+    showToast('✅ Colis '+ref+' enregistré sur Google Sheets');
+    resetNewColis();
+    await updateKpis();
+    goto('screen-dashboard');
+  }catch(e){}
+}
+
+/* ================= RECHERCHE ================= */
+async function searchColis(){
+  const ref = document.getElementById('sr-ref').value.trim();
+  const box = document.getElementById('sr-result');
+  if(!ref) return;
+  box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Recherche...</p></div>';
+  try{
+    const c = await api('searchColis', {reference: ref});
+    box.innerHTML = renderResultCard(c);
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de reçu.</p></div>`;
+  }
+}
+function toEmbeddableUrl(url){
+  if(!url) return url;
+  const m = String(url).match(/id=([^&]+)/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000` : url;
+}
+function renderResultCard(c){
+  const statut = Number(c.statut)||0;
+  const steps = STATUT_LABELS.map((l,i)=>{
+    const cls = i<statut ? 'done' : (i===statut ? 'current' : '');
+    const ic = i<statut ? '✓' : (i===statut?'●':'');
+    return `<div class="tl-step"><div class="tl-dot ${cls}">${ic}</div><div class="tl-label">${l}</div></div>`;
+  }).join('');
+  const photoUrls = String(c.photo_url||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const photoBlock = photoUrls.length
+    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:90px;height:90px;border-radius:12px;object-fit:cover;flex:none;" onerror="this.style.display='none'">`).join('')}</div>`
+    : `<div class="empty-state" style="padding:16px;"><div class="em">🖼️</div><p>Aucune photo enregistrée pour ce colis.</p></div>`;
+  return `<div class="result-card">
+    ${photoBlock}
+    <div class="result-row"><span class="k">Référence</span><span class="v">${c.reference}</span></div>
+    <div class="result-row"><span class="k">Client</span><span class="v">${c.nom_client}</span></div>
+    <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
+    <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
+    <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>
+    <div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
+    <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD</span></div>
+    <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
+    <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
+    <div class="timeline">${steps}</div>
+  </div>`;
+}
+
+/* ================= VOYAGE ================= */
+async function prepVoyage(){ await switchVoyageTab(voyageTab); }
+async function switchVoyageTab(tab){
+  voyageTab = tab;
+  document.getElementById('tab-depart').classList.toggle('active', tab==='depart');
+  document.getElementById('tab-arrivee').classList.toggle('active', tab==='arrivee');
+  document.getElementById('voyage-depart-panel').style.display = tab==='depart' ? 'block':'none';
+  document.getElementById('voyage-arrivee-panel').style.display = tab==='arrivee' ? 'block':'none';
+  if(tab==='depart') await renderDepartList(); else await renderArriveeSelect();
+}
+async function renderDepartList(){
+  const box = document.getElementById('depart-list');
+  box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+  try{
+    const list = await api('listColis', {statut:0});
+    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📦</div><p>Aucun colis en attente de départ.</p></div>`; return; }
+    box.innerHTML = list.map(c=>`
+      <label class="checklist-item">
+        <input type="checkbox" class="dep-check" value="${c.reference}" data-pays="${c.pays_destination}" data-agence="${c.agence_destination}">
+        <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination} · ${c.poids}kg</div></div>
+      </label>`).join('');
+  }catch(e){ box.innerHTML = ''; }
+}
+async function lancerVoyage(){
+  const checks = Array.from(document.querySelectorAll('.dep-check:checked'));
+  const refs = checks.map(i=>i.value);
+  const numero = document.getElementById('vd-numero').value.trim();
+  const date = document.getElementById('vd-date').value;
+  const transporteur = document.getElementById('vd-transporteur').value.trim();
+  if(!refs.length){ showToast('⚠️ Sélectionnez au moins un colis'); return; }
+  if(!numero){ showToast('⚠️ Numéro de voyage requis'); return; }
+  try{
+    await api('lancerVoyage', {
+      numero, paysDestination: checks[0].dataset.pays, agenceDestination: checks[0].dataset.agence,
+      dateDepart: date, transporteur, references: refs
+    });
+    showToast('🚀 Voyage '+numero+' lancé — '+refs.length+' colis');
+    document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
+    await updateKpis(); await renderDepartList();
+  }catch(e){}
+}
+async function renderArriveeSelect(){
+  const sel = document.getElementById('va-select');
+  sel.innerHTML = '<option value="">Chargement...</option>';
+  try{
+    const enVoyage = await api('listColis', {statut:1});
+    const numeros = [...new Set(enVoyage.map(c=>c.voyage))].filter(Boolean);
+    sel.innerHTML = numeros.length ? numeros.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">Aucun voyage en cours</option>';
+  }catch(e){}
+  await renderArriveeList();
+}
+async function renderArriveeList(){
+  const num = document.getElementById('va-select').value;
+  const box = document.getElementById('arrivee-list');
+  if(!num){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun voyage en cours.</p></div>`; return; }
+  try{
+    const list = (await api('listColis', {statut:1})).filter(c=>c.voyage===num);
+    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
+    box.innerHTML = list.map(c=>`
+      <label class="checklist-item">
+        <input type="checkbox" class="arr-check" value="${c.reference}" checked>
+        <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination}</div></div>
+      </label>`).join('');
+  }catch(e){ box.innerHTML=''; }
+}
+async function confirmerArrivee(){
+  const num = document.getElementById('va-select').value;
+  const refs = Array.from(document.querySelectorAll('.arr-check:checked')).map(i=>i.value);
+  const comment = document.getElementById('va-comment').value.trim();
+  if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
+  try{
+    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment});
+    showToast('✅ Arrivée confirmée pour '+refs.length+' colis');
+    document.getElementById('va-comment').value='';
+    await updateKpis(); await renderArriveeSelect();
+  }catch(e){}
+}
+
+/* ================= RETRAIT ================= */
+let retraitCourant=null;
+async function chargerRetrait(){
+  const ref = document.getElementById('rt-ref').value.trim();
+  const box = document.getElementById('rt-fiche');
+  if(!ref) return;
+  try{
+    const c = await api('searchColis', {reference: ref});
+    if(Number(c.statut) !== 2){
+      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p>Ce colis n'est pas encore "Arrivé" (statut actuel : ${STATUT_LABELS[Number(c.statut)]}).</p></div>`;
+      retraitCourant = null; return;
+    }
+    retraitCourant = c;
+    box.innerHTML = renderResultCard(c);
+    document.getElementById('rt-montant').value = c.total;
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
+    retraitCourant = null;
+  }
+}
+async function validerPaiementRetrait(){
+  if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  const montant = parseFloat(document.getElementById('rt-montant').value)||0;
+  try{
+    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value});
+    showToast('💰 Paiement validé — '+montant.toLocaleString('fr-FR')+' MAD');
+  }catch(e){}
+}
+async function marquerRetire(){
+  if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  try{
+    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value});
+    showToast('📦 Colis '+retraitCourant.reference+' marqué RETIRÉ');
+    await updateKpis();
+    document.getElementById('rt-fiche').innerHTML='';
+    document.getElementById('rt-ref').value='';
+    retraitCourant=null;
+  }catch(e){}
+}
+
+/* ================= BILAN ================= */
+async function renderBilan(){
+  const box = document.getElementById('bilan-scroll');
+  box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+  try{
+    const b = await api('bilan');
+    box.innerHTML = `
+      <div class="bilan-card accent"><div><div class="l">Total payé au départ</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
+      <div class="bilan-card accent"><div><div class="l">Total encaissé au retrait</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+      <div class="bilan-card"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
+      <div class="bilan-card"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
+      <div class="bilan-card"><div><div class="l">Colis arrivés</div><div class="v">${b.arrives}</div></div><div class="ic">🛬</div></div>
+      <div class="bilan-card"><div><div class="l">Colis retirés</div><div class="v">${b.retires}</div></div><div class="ic">✅</div></div>
+    `;
+  }catch(e){ box.innerHTML=''; }
+}
+
+/* ================= PARAMÈTRES ================= */
+function togglePanel(id){
+  document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
+  if(id==='p-agent') renderAgentsList();
+}
+async function prepSettings(){
+  try{
+    DESTINATIONS_CACHE = await api('listDestinations');
+    document.getElementById('ps-prix-dest').innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.prix_kg} MAD/kg</option>`).join('');
+  }catch(e){}
+}
+function renderAgentsList(){
+  document.getElementById('agents-list').innerHTML = `<a href="https://docs.google.com/spreadsheets/d/1lyLPGMtyfwZ5rCFiP8-KtyzBHj38IOtaPubs_SkteQs/edit" target="_blank" style="color:var(--navy);font-weight:700;">📄 Voir / gérer la liste des agents dans le Sheet</a>`;
+}
+async function addAgent(){
+  const id=document.getElementById('ps-agent-id').value.trim();
+  const nom=document.getElementById('ps-agent-nom').value.trim();
+  const agence=document.getElementById('ps-agent-agence').value.trim();
+  const pass=document.getElementById('ps-agent-pass').value.trim();
+  if(!id||!nom||!pass){ showToast('⚠️ Champs requis manquants'); return; }
+  try{
+    await api('addAgent', {id, nom, motdepasse: pass, pays:'', agence, role:'Agent'});
+    showToast('✅ Agent '+id+' ajouté sur Google Sheets');
+    ['ps-agent-id','ps-agent-nom','ps-agent-agence','ps-agent-pass'].forEach(i=>document.getElementById(i).value='');
+  }catch(e){}
+}
+async function updatePrix(){
+  const pays = document.getElementById('ps-prix-dest').value;
+  const val = parseFloat(document.getElementById('ps-prix-val').value);
+  if(!val){ showToast('⚠️ Entrez un prix valide'); return; }
+  try{
+    await api('updatePrix', {pays, prixKg: val});
+    showToast('✅ Prix mis à jour pour '+pays);
+    await prepSettings();
+  }catch(e){}
+}
+async function addDestination(){
+  const nom=document.getElementById('ps-dest-nom').value.trim();
+  const flag=document.getElementById('ps-dest-flag').value.trim()||'';
+  const prix=parseFloat(document.getElementById('ps-dest-prix').value)||0;
+  if(!nom){ showToast('⚠️ Nom de destination requis'); return; }
+  try{
+    await api('addDestination', {pays: nom, agence:'', flag, prixKg: prix});
+    showToast('✅ Destination '+nom+' ajoutée');
+    ['ps-dest-nom','ps-dest-flag','ps-dest-prix'].forEach(i=>document.getElementById(i).value='');
+    await prepSettings();
+  }catch(e){}
+}
+async function changePassword(){
+  const val = document.getElementById('ps-newpass').value.trim();
+  if(!val || !currentAgent){ showToast('⚠️ Mot de passe invalide'); return; }
+  try{
+    await api('changePassword', {id: currentAgent.id, nouveauMotDePasse: val});
+    showToast('🔑 Mot de passe mis à jour');
+    document.getElementById('ps-newpass').value='';
+  }catch(e){}
+}
+function saveBackup(){ showToast('☁️ Toutes les données sont déjà en direct sur Google Sheets'); }
+
+/* init */
+renderContenuTags();
+
+/* PWA — installation écran d'accueil + cache offline */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // Echec normal si le fichier est ouvert en local (file://) au lieu d'être hébergé en http(s)
+    });
+  });
+}
+
+</script>
+</body>
+</html>
