@@ -279,7 +279,7 @@
         <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
         <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
         <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
-        <div class="menu-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
+        <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
         <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
       </div>
     </div>
@@ -287,7 +287,7 @@
 
   <!-- ============ NOUVEAU COLIS ============ -->
   <section class="screen" id="screen-newcolis">
-    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Nouveau Colis</h1></div>
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1 id="nc-title">Nouveau Colis</h1></div>
     <div class="scroll">
       <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
       <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
@@ -309,12 +309,17 @@
       </div>
 
       <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
+      <div id="nc-total-devise" style="text-align:right;margin-top:-10px;margin-bottom:14px;font-size:11.5px;color:var(--muted);font-family:var(--font-mono);"></div>
 
       <div class="field">
         <label>Statut paiement départ</label>
-        <select id="nc-statutpaie">
+        <select id="nc-statutpaie" onchange="onStatutPaieChange()">
           <option>Payé</option><option>Partiel</option><option>Non payé</option>
         </select>
+      </div>
+      <div class="field" id="nc-commentaire-wrap" style="display:none;">
+        <label>Commentaire (paiement partiel)</label>
+        <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : 300 MAD restant, à régler à l'arrivée"></textarea>
       </div>
       <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
 
@@ -329,7 +334,7 @@
 
       <div class="btn-row" style="margin-top:8px;">
         <button class="btn btn-outline" onclick="resetNewColis(); goto('screen-dashboard')">❌ ANNULER</button>
-        <button class="btn btn-primary" onclick="saveColis()">💾 ENREGISTRER</button>
+        <button class="btn btn-primary" id="nc-save-btn" onclick="saveColis()">💾 ENREGISTRER</button>
       </div>
     </div>
   </section>
@@ -445,10 +450,20 @@
     </div>
   </section>
 
-  <div class="toast" id="toast"></div>
+  <!-- ============ SUIVI PUBLIC (sans connexion, via QR code) ============ -->
+  <section class="screen" id="screen-suivi-public">
+    <div class="topbar"><div class="logomark" style="width:34px;height:34px;border-radius:9px;"><img src="icons/icon-192.png" alt="Nahda"></div><h1>Suivi de colis</h1></div>
+    <div class="scroll" id="suivi-public-content"></div>
+  </section>
+  <div id="lightbox" onclick="closeLightbox()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;">
+    <img id="lightbox-img" src="" style="max-width:92%;max-height:80%;border-radius:8px;object-fit:contain;">
+    <button onclick="closeLightbox()" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
+  </div>
 </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 /* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
 const API_URL = 'https://script.google.com/macros/s/AKfycbxjIaFqltcKUcK_dnIeBJRUpo65YFw81-q2eatKfFggUv-uTEgq-sc8dVCx_lIWALhd/exec';
@@ -476,11 +491,18 @@ let newColisContenu = [];
 let newColisPhotos = [];
 let voyageTab = 'depart';
 let DESTINATIONS_CACHE = [];
+let selectedDestInfo = null;
+let editingRef = null; // reference du colis en cours de modification (admin), null = mode creation
 
 const STATUT_LABELS = ['Enregistré','En voyage','Arrivé','Retiré'];
+const APP_LOGO_B64 = document.querySelector('.login-hero .logomark img') ? document.querySelector('.login-hero .logomark img').src : '';
 
 /* ================= NAVIGATION ================= */
 function goto(id){
+  if(id==='screen-settings' && (!currentAgent || currentAgent.role!=='Admin')){
+    showToast('⚠️ Paramètres réservés à l\'administrateur');
+    id='screen-dashboard';
+  }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id==='screen-newcolis') prepNewColis();
@@ -511,6 +533,7 @@ async function doLogin(){
     document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
     document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
     document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
     await updateKpis();
     goto('screen-dashboard');
   }catch(e){ err.style.display='block'; }
@@ -519,13 +542,21 @@ function doLogout(){ currentAgent=null; document.getElementById('in-agent-id').v
 
 async function updateKpis(){
   try{
-    const b = await api('bilan');
+    const filtre = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const b = await api('bilan', filtre);
     document.getElementById('kpi-total').textContent = b.totalColis;
     document.getElementById('kpi-attente').textContent = b.enAttente;
     document.getElementById('kpi-voyage').textContent = b.totalColis - b.enAttente - b.arrives;
     document.getElementById('kpi-retires').textContent = b.retires;
   }catch(e){}
 }
+
+/* ================= LIGHTBOX PHOTO ================= */
+function openLightbox(url){
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox(){ document.getElementById('lightbox').style.display = 'none'; }
 
 /* ================= NOUVEAU COLIS ================= */
 async function prepNewColis(){
@@ -536,13 +567,19 @@ async function prepNewColis(){
     sel.innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.agence}</option>`).join('');
     onDestChange();
   }catch(e){}
-  document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+  if(!editingRef){
+    document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+  }
 }
 function onDestChange(){
   const pays = document.getElementById('nc-dest').value;
-  const d = DESTINATIONS_CACHE.find(x=>x.pays===pays) || DESTINATIONS_CACHE[0];
-  document.getElementById('nc-prixkg').value = d ? d.prix_kg : 0;
+  selectedDestInfo = DESTINATIONS_CACHE.find(x=>x.pays===pays) || DESTINATIONS_CACHE[0] || null;
+  document.getElementById('nc-prixkg').value = selectedDestInfo ? selectedDestInfo.prix_kg : 0;
   calcTotal();
+}
+function onStatutPaieChange(){
+  const val = document.getElementById('nc-statutpaie').value;
+  document.getElementById('nc-commentaire-wrap').style.display = (val==='Partiel') ? 'block' : 'none';
 }
 function addContenu(){
   const inp = document.getElementById('nc-contenu-input');
@@ -559,21 +596,36 @@ function renderContenuTags(){
 function calcTotal(){
   const poids = parseFloat(document.getElementById('nc-poids').value)||0;
   const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
-  document.getElementById('nc-total').textContent = (poids*prixkg).toLocaleString('fr-FR')+' MAD';
+  const total = poids*prixkg;
+  document.getElementById('nc-total').textContent = total.toLocaleString('fr-FR')+' MAD';
+  const devLine = document.getElementById('nc-total-devise');
+  if(selectedDestInfo && selectedDestInfo.devise && selectedDestInfo.taux_mad && Number(selectedDestInfo.taux_mad) !== 1){
+    const converti = total * Number(selectedDestInfo.taux_mad);
+    devLine.textContent = `≈ ${converti.toLocaleString('fr-FR',{maximumFractionDigits:0})} ${selectedDestInfo.devise} (taux indicatif)`;
+  } else {
+    devLine.textContent = '';
+  }
 }
 function onPhoto(e){
   const f = e.target.files[0]; if(!f) return;
   const reader = new FileReader();
   reader.onload = ev=>{ newColisPhotos.push(ev.target.result); renderPhotoGallery(); };
   reader.readAsDataURL(f);
-  e.target.value = ''; // permet de reprendre une nouvelle photo immédiatement
+  e.target.value = '';
 }
 function removePhoto(i){ newColisPhotos.splice(i,1); renderPhotoGallery(); }
 function renderPhotoGallery(){
   document.getElementById('nc-photo-gallery').innerHTML = newColisPhotos.map((p,i)=>
     `<div class="gallery-thumb"><img src="${p}"><button onclick="removePhoto(${i})">×</button></div>`).join('');
 }
-function resetNewColis(){ newColisContenu=[]; newColisPhotos=[]; renderPhotoGallery(); renderContenuTags(); }
+function resetNewColis(){
+  newColisContenu=[]; newColisPhotos=[]; editingRef=null;
+  renderPhotoGallery(); renderContenuTags();
+  document.getElementById('nc-title').textContent = 'Nouveau Colis';
+  document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
+  document.getElementById('nc-commentaire-wrap').style.display = 'none';
+  document.getElementById('nc-commentaire-paiement').value = '';
+}
 async function saveColis(){
   const ref = document.getElementById('nc-ref').value.trim();
   const nom = document.getElementById('nc-nom').value.trim();
@@ -582,28 +634,161 @@ async function saveColis(){
   const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
   const poids = parseFloat(document.getElementById('nc-poids').value)||0;
   const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
+  const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
+  const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
   let photoUrls = [];
   try{
-    if(newColisPhotos.length) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
+    if(newColisPhotos.length && !editingRef) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
     for(let i=0;i<newColisPhotos.length;i++){
       const up = await api('uploadPhoto', {base64:newColisPhotos[i], nom: ref+'_'+(i+1)});
       photoUrls.push(up.url);
     }
   }catch(e){ return; }
+
+  const payload = {
+    reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
+    paysDestination, agenceDestination: destInfo.agence || '',
+    poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
+    statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
+    commentairePaiement,
+    agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : ''
+  };
+  if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
+
   try{
-    await api('saveColis', {
-      reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
-      paysDestination, agenceDestination: destInfo.agence || '',
-      poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
-      statutPaiementDepart: document.getElementById('nc-statutpaie').value,
-      valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
-      photoUrls: photoUrls.join(',')
-    });
-    showToast('✅ Colis '+ref+' enregistré sur Google Sheets');
+    if(editingRef){
+      await api('updateColis', {...payload, reference: editingRef});
+      showToast('✅ Colis '+editingRef+' mis à jour');
+    } else {
+      await api('saveColis', payload);
+      showToast('✅ Colis '+ref+' enregistré sur Google Sheets');
+      generateReceiptPDF({...payload, reference: ref});
+    }
     resetNewColis();
     await updateKpis();
     goto('screen-dashboard');
   }catch(e){}
+}
+
+/* ================= REÇU PDF + QR ================= */
+async function generateReceiptPDF(c){
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
+  try{
+    const trackingUrl = window.location.origin + window.location.pathname + '?suivi=' + encodeURIComponent(c.reference);
+    // Génération vectorielle synchrone du QR (pas de canvas, pas de timing async -> pas de corruption possible)
+    const qr = qrcode(0, 'H');
+    qr.addData(trackingUrl);
+    qr.make();
+    const qrCount = qr.getModuleCount();
+
+    const { jsPDF } = window.jspdf;
+    // A5 paysage : 210 x 148 mm
+    const doc = new jsPDF({ unit:'mm', format:'a5', orientation:'landscape' });
+    const W = 210, H = 148;
+    const navy = '#0B4A40', navy2 = '#0E6B5C', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255', sand = '#F1EAD9';
+
+    // ---- Bandeau supérieur ----
+    doc.setFillColor(navy);
+    doc.rect(0, 0, W, 26, 'F');
+    doc.setFillColor(gold);
+    doc.rect(0, 26, W, 1.2, 'F');
+    if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 18, 18);
+    doc.setTextColor('#FFFFFF');
+    doc.setFont(undefined, 'bold'); doc.setFontSize(15);
+    doc.text('NAHDA BUSINESS', 30, 12);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8);
+    doc.text('Fret aerien - Maroc / Afrique Centrale et Ouest', 30, 18);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.text('RECU N° ' + c.reference, W - 8, 15, { align: 'right' });
+
+    // ---- Colonne gauche : details colis (0 - 128mm) ----
+    let y = 36;
+    const leftX = 8, labelW = 40;
+    const row = (label, value, bold) => {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(9);
+      doc.text(label, leftX, y);
+      doc.setTextColor(ink); doc.setFont(undefined, bold ? 'bold' : 'normal'); doc.setFontSize(10);
+      doc.text(String(value || '-'), leftX + labelW, y);
+      y += 7.5;
+    };
+    row('Client', c.nomClient, true);
+    row('Telephone', c.telephone);
+    row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
+    row('Poids', c.poids + ' kg');
+    row('Prix / kg', (c.prixKg||0) + ' MAD');
+    row('Contenu', (c.contenu||[]).join(', '));
+    row('Paiement depart', c.statutPaiementDepart);
+    if (c.statutPaiementDepart === 'Partiel' && c.commentairePaiement) row('Commentaire', c.commentairePaiement);
+    row('Valeur declaree', (c.valeurDeclaree||0) + ' MAD');
+
+    // Bloc total (encadre, en bas de colonne gauche)
+    doc.setFillColor(navy);
+    doc.roundedRect(leftX, y + 2, 118, 14, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+    doc.text('TOTAL A PAYER', leftX + 5, y + 10.5);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(14);
+    doc.text(Number(c.total||0).toLocaleString('fr-FR') + ' MAD', leftX + 113, y + 10.5, { align: 'right' });
+
+    // ---- Separateur vertical ----
+    doc.setDrawColor(sand); doc.setLineWidth(0.6);
+    doc.line(132, 32, 132, H - 8);
+
+    // ---- Colonne droite : QR + statut (132 - 202mm) ----
+    const rightX = 140;
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(9);
+    doc.text('STATUT ACTUEL', rightX, 36);
+    const statutLabels = ['Enregistre','En voyage','Arrive','Retire'];
+    const statutIdx = Number(c.statut) || 0;
+    doc.setFillColor(navy2);
+    doc.roundedRect(rightX, 39, 62, 8, 2, 2, 'F');
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9);
+    doc.text(statutLabels[statutIdx].toUpperCase(), rightX + 31, 44.5, { align: 'center' });
+
+    if (qrCount) {
+      const qrSize = 42, qx0 = rightX + 8, qy0 = 55;
+      const cell = qrSize / qrCount;
+      const quiet = cell * 4; // marge de silence conforme (4 modules), proportionnelle a la densite reelle
+      doc.setFillColor('#FFFFFF');
+      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'F');
+      doc.setDrawColor(gold); doc.setLineWidth(0.8);
+      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'S');
+      doc.setFillColor('#000000');
+      for (let r = 0; r < qrCount; r++) {
+        for (let cI = 0; cI < qrCount; cI++) {
+          if (qr.isDark(r, cI)) {
+            doc.rect(qx0 + cI * cell, qy0 + r * cell, cell + 0.03, cell + 0.03, 'F');
+          }
+        }
+      }
+    }
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
+    doc.text('Scannez pour suivre votre colis', rightX + 31, 109, { align: 'center' });
+    doc.text('en temps reel', rightX + 31, 113, { align: 'center' });
+
+    // ---- Pied de page ----
+    doc.setDrawColor(sand); doc.setLineWidth(0.4);
+    doc.line(8, H - 14, W - 8, H - 14);
+    doc.setTextColor(muted); doc.setFontSize(7);
+    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), 8, H - 9);
+    doc.text('Nahda Business - Document genere electroniquement, valable comme preuve de depot', W - 8, H - 9, { align: 'right' });
+
+    doc.save('Recu_' + c.reference + '.pdf');
+  }catch(e){ showToast('⚠️ Reçu PDF non généré (voir console)'); console.error(e); }
+}
+
+/* ================= SUIVI PUBLIC (QR code, sans connexion) ================= */
+async function renderPublicTracking(ref){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-suivi-public').classList.add('active');
+  const box = document.getElementById('suivi-public-content');
+  box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+  try{
+    const c = await api('searchColis', {reference: ref});
+    box.innerHTML = renderResultCard(c, false);
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
+  }
 }
 
 /* ================= RECHERCHE ================= */
@@ -613,8 +798,9 @@ async function searchColis(){
   if(!ref) return;
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Recherche...</p></div>';
   try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
     const c = await api('searchColis', {reference: ref});
-    box.innerHTML = renderResultCard(c);
+    box.innerHTML = renderResultCard(c, true);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de reçu.</p></div>`;
   }
@@ -624,7 +810,7 @@ function toEmbeddableUrl(url){
   const m = String(url).match(/id=([^&]+)/);
   return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000` : url;
 }
-function renderResultCard(c){
+function renderResultCard(c, showAdminActions){
   const statut = Number(c.statut)||0;
   const steps = STATUT_LABELS.map((l,i)=>{
     const cls = i<statut ? 'done' : (i===statut ? 'current' : '');
@@ -633,8 +819,23 @@ function renderResultCard(c){
   }).join('');
   const photoUrls = String(c.photo_url||'').split(',').map(s=>s.trim()).filter(Boolean);
   const photoBlock = photoUrls.length
-    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:90px;height:90px;border-radius:12px;object-fit:cover;flex:none;" onerror="this.style.display='none'">`).join('')}</div>`
+    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:90px;height:90px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer;" onclick="openLightbox('${toEmbeddableUrl(u)}')" onerror="this.style.display='none'">`).join('')}</div>`
     : `<div class="empty-state" style="padding:16px;"><div class="em">🖼️</div><p>Aucune photo enregistrée pour ce colis.</p></div>`;
+
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_destination);
+  let deviseLine = '';
+  if(destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad)!==1){
+    const converti = Number(c.total||0) * Number(destInfo.taux_mad);
+    deviseLine = ` <span style="color:var(--muted);font-size:11px;">(≈ ${converti.toLocaleString('fr-FR',{maximumFractionDigits:0})} ${destInfo.devise})</span>`;
+  }
+
+  const adminActions = (showAdminActions && currentAgent && currentAgent.role==='Admin') ? `
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-outline" onclick='editColis(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
+      <button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>
+    </div>` : '';
+  const receiptBtn = showAdminActions ? `<button class="btn btn-gold" style="margin-top:10px;width:100%;" onclick='generateReceiptPDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🧾 Télécharger le reçu PDF</button>` : '';
+
   return `<div class="result-card">
     ${photoBlock}
     <div class="result-row"><span class="k">Référence</span><span class="v">${c.reference}</span></div>
@@ -643,11 +844,60 @@ function renderResultCard(c){
     <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
     <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>
     <div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
-    <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD</span></div>
+    <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
+    ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
     <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
     <div class="timeline">${steps}</div>
+    ${receiptBtn}
+    ${adminActions}
   </div>`;
+}
+
+/* Convertit un colis brut (API) au format attendu par le générateur de reçu */
+function colisToReceiptPayload(c){
+  return {
+    reference: c.reference, nomClient: c.nom_client, telephone: c.telephone,
+    paysDestination: c.pays_destination, agenceDestination: c.agence_destination,
+    poids: c.poids, prixKg: c.prix_kg,
+    contenu: String(c.contenu||'').split(',').map(s=>s.trim()).filter(Boolean),
+    total: c.total, statutPaiementDepart: c.statut_paiement_depart,
+    commentairePaiement: c.commentaire_paiement, valeurDeclaree: c.valeur_declaree,
+    statut: c.statut
+  };
+}
+
+/* ---- Edition / suppression (admin) ---- */
+async function editColis(c){
+  editingRef = c.reference;
+  goto('screen-newcolis');
+  await new Promise(r=>setTimeout(r, 400)); // laisser prepNewColis charger les destinations
+  document.getElementById('nc-title').textContent = 'Modifier colis '+c.reference;
+  document.getElementById('nc-save-btn').textContent = '💾 METTRE À JOUR';
+  document.getElementById('nc-ref').value = c.reference;
+  document.getElementById('nc-nom').value = c.nom_client;
+  document.getElementById('nc-tel').value = c.telephone;
+  document.getElementById('nc-dest').value = c.pays_destination;
+  onDestChange();
+  document.getElementById('nc-poids').value = c.poids;
+  document.getElementById('nc-prixkg').value = c.prix_kg;
+  newColisContenu = String(c.contenu||'').split(',').map(s=>s.trim()).filter(Boolean);
+  renderContenuTags();
+  document.getElementById('nc-statutpaie').value = c.statut_paiement_depart;
+  onStatutPaieChange();
+  document.getElementById('nc-commentaire-paiement').value = c.commentaire_paiement || '';
+  document.getElementById('nc-valeur').value = c.valeur_declaree;
+  calcTotal();
+}
+async function deleteColisConfirm(reference){
+  if(!confirm('Supprimer définitivement le colis '+reference+' ? Cette action est irréversible.')) return;
+  try{
+    await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('🗑️ Colis '+reference+' supprimé');
+    document.getElementById('sr-result').innerHTML='';
+    document.getElementById('sr-ref').value='';
+    await updateKpis();
+  }catch(e){}
 }
 
 /* ================= VOYAGE ================= */
@@ -695,9 +945,12 @@ async function renderArriveeSelect(){
   const sel = document.getElementById('va-select');
   sel.innerHTML = '<option value="">Chargement...</option>';
   try{
-    const enVoyage = await api('listColis', {statut:1});
+    let enVoyage = await api('listColis', {statut:1});
+    if(currentAgent && currentAgent.role!=='Admin'){
+      enVoyage = enVoyage.filter(c=>c.pays_destination===currentAgent.pays);
+    }
     const numeros = [...new Set(enVoyage.map(c=>c.voyage))].filter(Boolean);
-    sel.innerHTML = numeros.length ? numeros.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">Aucun voyage en cours</option>';
+    sel.innerHTML = numeros.length ? numeros.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">Aucun voyage en cours pour votre pays</option>';
   }catch(e){}
   await renderArriveeList();
 }
@@ -706,7 +959,8 @@ async function renderArriveeList(){
   const box = document.getElementById('arrivee-list');
   if(!num){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun voyage en cours.</p></div>`; return; }
   try{
-    const list = (await api('listColis', {statut:1})).filter(c=>c.voyage===num);
+    let list = (await api('listColis', {statut:1})).filter(c=>c.voyage===num);
+    if(currentAgent && currentAgent.role!=='Admin') list = list.filter(c=>c.pays_destination===currentAgent.pays);
     if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
     box.innerHTML = list.map(c=>`
       <label class="checklist-item">
@@ -721,7 +975,7 @@ async function confirmerArrivee(){
   const comment = document.getElementById('va-comment').value.trim();
   if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
   try{
-    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment});
+    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays});
     showToast('✅ Arrivée confirmée pour '+refs.length+' colis');
     document.getElementById('va-comment').value='';
     await updateKpis(); await renderArriveeSelect();
@@ -735,13 +989,18 @@ async function chargerRetrait(){
   const box = document.getElementById('rt-fiche');
   if(!ref) return;
   try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
     const c = await api('searchColis', {reference: ref});
+    if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!==c.pays_destination){
+      box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p>Retrait réservé à l'agence de destination : ${c.pays_destination}</p></div>`;
+      retraitCourant = null; return;
+    }
     if(Number(c.statut) !== 2){
       box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p>Ce colis n'est pas encore "Arrivé" (statut actuel : ${STATUT_LABELS[Number(c.statut)]}).</p></div>`;
       retraitCourant = null; return;
     }
     retraitCourant = c;
-    box.innerHTML = renderResultCard(c);
+    box.innerHTML = renderResultCard(c, false);
     document.getElementById('rt-montant').value = c.total;
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
@@ -752,14 +1011,14 @@ async function validerPaiementRetrait(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
   const montant = parseFloat(document.getElementById('rt-montant').value)||0;
   try{
-    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value});
+    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
     showToast('💰 Paiement validé — '+montant.toLocaleString('fr-FR')+' MAD');
   }catch(e){}
 }
 async function marquerRetire(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
   try{
-    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value});
+    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
     showToast('📦 Colis '+retraitCourant.reference+' marqué RETIRÉ');
     await updateKpis();
     document.getElementById('rt-fiche').innerHTML='';
@@ -773,8 +1032,10 @@ async function renderBilan(){
   const box = document.getElementById('bilan-scroll');
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
   try{
-    const b = await api('bilan');
-    box.innerHTML = `
+    const filtre = (currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const b = await api('bilan', filtre);
+    const scopeLabel = (currentAgent.role!=='Admin') ? `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>` : `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
+    box.innerHTML = scopeLabel + `
       <div class="bilan-card accent"><div><div class="l">Total payé au départ</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
       <div class="bilan-card accent"><div><div class="l">Total encaissé au retrait</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
       <div class="bilan-card"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
@@ -785,7 +1046,7 @@ async function renderBilan(){
   }catch(e){ box.innerHTML=''; }
 }
 
-/* ================= PARAMÈTRES ================= */
+/* ================= PARAMÈTRES (admin uniquement) ================= */
 function togglePanel(id){
   document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
   document.getElementById(id).classList.toggle('open');
@@ -794,7 +1055,7 @@ function togglePanel(id){
 async function prepSettings(){
   try{
     DESTINATIONS_CACHE = await api('listDestinations');
-    document.getElementById('ps-prix-dest').innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.prix_kg} MAD/kg</option>`).join('');
+    document.getElementById('ps-prix-dest').innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.prix_kg} MAD/kg${d.devise?' — '+d.devise:''}</option>`).join('');
   }catch(e){}
 }
 function renderAgentsList(){
@@ -807,7 +1068,7 @@ async function addAgent(){
   const pass=document.getElementById('ps-agent-pass').value.trim();
   if(!id||!nom||!pass){ showToast('⚠️ Champs requis manquants'); return; }
   try{
-    await api('addAgent', {id, nom, motdepasse: pass, pays:'', agence, role:'Agent'});
+    await api('addAgent', {id, nom, motdepasse: pass, pays:'', agence, role:'Agent', agentRole: currentAgent.role});
     showToast('✅ Agent '+id+' ajouté sur Google Sheets');
     ['ps-agent-id','ps-agent-nom','ps-agent-agence','ps-agent-pass'].forEach(i=>document.getElementById(i).value='');
   }catch(e){}
@@ -817,7 +1078,7 @@ async function updatePrix(){
   const val = parseFloat(document.getElementById('ps-prix-val').value);
   if(!val){ showToast('⚠️ Entrez un prix valide'); return; }
   try{
-    await api('updatePrix', {pays, prixKg: val});
+    await api('updatePrix', {pays, prixKg: val, agentRole: currentAgent.role});
     showToast('✅ Prix mis à jour pour '+pays);
     await prepSettings();
   }catch(e){}
@@ -828,7 +1089,7 @@ async function addDestination(){
   const prix=parseFloat(document.getElementById('ps-dest-prix').value)||0;
   if(!nom){ showToast('⚠️ Nom de destination requis'); return; }
   try{
-    await api('addDestination', {pays: nom, agence:'', flag, prixKg: prix});
+    await api('addDestination', {pays: nom, agence:'', flag, prixKg: prix, agentRole: currentAgent.role});
     showToast('✅ Destination '+nom+' ajoutée');
     ['ps-dest-nom','ps-dest-flag','ps-dest-prix'].forEach(i=>document.getElementById(i).value='');
     await prepSettings();
@@ -847,6 +1108,13 @@ function saveBackup(){ showToast('☁️ Toutes les données sont déjà en dire
 
 /* init */
 renderContenuTags();
+const suiviParam = new URLSearchParams(location.search).get('suivi');
+if (suiviParam) {
+  renderPublicTracking(suiviParam);
+} else if (location.hash.startsWith('#suivi=')) {
+  renderPublicTracking(decodeURIComponent(location.hash.replace('#suivi=','')));
+}
+
 
 /* PWA — installation écran d'accueil + cache offline */
 if ('serviceWorker' in navigator) {
