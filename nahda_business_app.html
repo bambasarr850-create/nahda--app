@@ -516,6 +516,25 @@ async function api(action, payload={}){
   }
 }
 
+/* Upload photo avec 1 nouvelle tentative silencieuse en cas d'echec (connexion lente) */
+async function uploadPhotoWithRetry(base64, nom, tentatives=2){
+  for(let i=0;i<tentatives;i++){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({action:'uploadPhoto', base64, nom})
+      });
+      const out = await res.json();
+      if(out.ok) return out.data;
+      if(i === tentatives-1) throw new Error(out.error || 'Echec upload photo');
+    }catch(e){
+      if(i === tentatives-1) throw e;
+      await new Promise(r=>setTimeout(r, 1200)); // pause avant nouvelle tentative
+    }
+  }
+}
+
 let currentAgent = null;
 let newColisContenu = [];
 let newColisPhotos = [];
@@ -669,13 +688,16 @@ async function saveColis(){
   const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
   const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
   let photoUrls = [];
-  try{
-    if(newColisPhotos.length && !editingRef) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
-    for(let i=0;i<newColisPhotos.length;i++){
-      const up = await api('uploadPhoto', {base64:newColisPhotos[i], nom: ref+'_'+(i+1)});
+  if(newColisPhotos.length && !editingRef) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
+  for(let i=0;i<newColisPhotos.length;i++){
+    try{
+      const up = await uploadPhotoWithRetry(newColisPhotos[i], ref+'_'+(i+1));
       photoUrls.push(up.url);
+    }catch(e){
+      showToast('⚠️ Echec envoi photo '+(i+1)+' — colis NON enregistre. Reessaie (photos conservees).');
+      return; // on annule tout : les photos restent dans la galerie, rien n'est perdu
     }
-  }catch(e){ return; }
+  }
 
   const payload = {
     reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
