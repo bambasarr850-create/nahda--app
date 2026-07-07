@@ -882,7 +882,7 @@ async function renderPublicTracking(ref){
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
   try{
     const c = await api('searchColis', {reference: ref});
-    box.innerHTML = renderResultCard(c, false);
+    box.innerHTML = renderResultCard(c, false, true);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
   }
@@ -907,7 +907,7 @@ function toEmbeddableUrl(url){
   const m = String(url).match(/id=([^&]+)/);
   return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000` : url;
 }
-function renderResultCard(c, showAdminActions){
+function renderResultCard(c, showAdminActions, isPublic){
   const statut = Number(c.statut)||0;
   const steps = STATUT_LABELS.map((l,i)=>{
     const cls = i<statut ? 'done' : (i===statut ? 'current' : '');
@@ -940,7 +940,7 @@ function renderResultCard(c, showAdminActions){
     <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
     <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
     ${statut>=1 && c.voyage ? `<div class="result-row"><span class="k">N° voyage</span><span class="v">${c.voyage}</span></div>` : ''}
-    ${statut>=1 && c.voyage_transporteur ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
+    ${statut>=1 && c.voyage_transporteur && !isPublic ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
     ${statut>=1 && c.voyage_date_depart ? `<div class="result-row"><span class="k">Date de départ</span><span class="v">${new Date(c.voyage_date_depart).toLocaleDateString('fr-FR')}</span></div>` : ''}
     <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>
     <div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
