@@ -709,13 +709,14 @@ async function saveColis(){
   const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
   const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
   let photoUrls = [];
-  if(newColisPhotos.length && !editingRef) showToast('📤 Envoi de '+newColisPhotos.length+' photo(s)...');
   for(let i=0;i<newColisPhotos.length;i++){
+    showToast('📤 Envoi photo '+(i+1)+'/'+newColisPhotos.length+'...');
     try{
       const up = await uploadPhotoWithRetry(newColisPhotos[i], ref+'_'+(i+1));
+      if(!up || !up.url) throw new Error('Reponse serveur invalide (pas d\'URL retournee)');
       photoUrls.push(up.url);
     }catch(e){
-      showToast('⚠️ Echec envoi photo '+(i+1)+' — colis NON enregistre. Reessaie (photos conservees).');
+      showToast('⚠️ ÉCHEC photo '+(i+1)+' : '+(e.message||'erreur inconnue')+' — colis NON enregistré');
       saveBtn.disabled = false; saveBtn.textContent = labelOrigine;
       return; // on annule tout : les photos restent dans la galerie, rien n'est perdu
     }
@@ -735,16 +736,32 @@ async function saveColis(){
 
   try{
     if(editingRef){
+      showToast('💾 Mise à jour en cours...');
       await api('updateColis', {...payload, reference: editingRef});
       showConfirmModal(editingRef);
     } else {
+      showToast('💾 Enregistrement des données...');
       await api('saveColis', payload);
+
+      // Verification automatique : le lien photo a-t-il bien ete ecrit sur le Sheet ?
+      if(photoUrls.length){
+        try{
+          const verif = await api('searchColis', {reference: ref});
+          if(!verif.photo_url || verif.photo_url.trim()===''){
+            showToast('⚠️ Colis enregistré MAIS le lien photo est absent du Sheet (bug backend à signaler)');
+            console.error('Photo envoyee (', photoUrls.join(', '), ') mais photo_url vide dans la fiche colis retournee :', verif);
+          }
+        }catch(e){}
+      }
+
+      showToast('🧾 Génération du reçu...');
       await generateReceiptPDF({...payload, reference: ref});
       showConfirmModal(ref);
     }
     await updateKpis();
     resetNewColis();
   }catch(e){
+    showToast('⚠️ Erreur : '+(e.message||'échec inconnu'));
   }finally{
     saveBtn.disabled = false;
     saveBtn.textContent = labelOrigine;
