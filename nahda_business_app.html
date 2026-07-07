@@ -469,6 +469,10 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxjIaFqltcKUcK_dnIeBJRUpo65YFw81-q2eatKfFggUv-uTEgq-sc8dVCx_lIWALhd/exec';
 const FLAG_EMOJI = {CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
 const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
+function formatPdfNum(n){
+  // toLocaleString('fr-FR') utilise un espace insecable etroit (U+202F) non supporte par la police PDF -> glyphe casse ("/")
+  return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
 function flagEmoji(v){ return FLAG_EMOJI[v] || v || '🏳️'; }
 
 async function api(action, payload={}){
@@ -721,15 +725,15 @@ async function generateReceiptPDF(c){
     row('Contenu', (c.contenu||[]).join(', '));
     row('Paiement depart', c.statutPaiementDepart);
     if (c.statutPaiementDepart === 'Partiel' && c.commentairePaiement) row('Commentaire', c.commentairePaiement);
-    row('Valeur declaree', (c.valeurDeclaree||0) + ' MAD');
+    row('Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD');
 
     // Bloc total (encadre, en bas de colonne gauche)
     doc.setFillColor(navy);
     doc.roundedRect(leftX, y + 2, 118, 14, 2, 2, 'F');
-    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(12);
     doc.text('TOTAL A PAYER', leftX + 5, y + 10.5);
-    doc.setTextColor('#FFFFFF'); doc.setFontSize(14);
-    doc.text(Number(c.total||0).toLocaleString('fr-FR') + ' MAD', leftX + 113, y + 10.5, { align: 'right' });
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(13);
+    doc.text(formatPdfNum(c.total) + ' MAD', leftX + 111, y + 10.5, { align: 'right' });
 
     // ---- Separateur vertical ----
     doc.setDrawColor(sand); doc.setLineWidth(0.6);
