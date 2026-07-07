@@ -477,6 +477,12 @@
     <img id="lightbox-img" src="" style="max-width:92%;max-height:80%;border-radius:8px;object-fit:contain;">
     <button onclick="closeLightbox()" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
   </div>
+  <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(11,74,64,.96);z-index:110;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+    <div style="font-size:56px;margin-bottom:16px;">✅</div>
+    <div style="color:#fff;font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:8px;">Colis enregistré</div>
+    <div id="confirm-modal-ref" style="color:var(--gold);font-family:var(--font-mono);font-size:16px;margin-bottom:24px;"></div>
+    <button class="btn btn-gold" style="width:100%;max-width:280px;" onclick="closeConfirmModal()">OK — Retour au tableau de bord</button>
+  </div>
 </div>
 </div>
 
@@ -686,17 +692,23 @@ async function saveColis(){
   try{
     if(editingRef){
       await api('updateColis', {...payload, reference: editingRef});
-      showToast('✅ Colis '+editingRef+' mis à jour');
+      showConfirmModal(editingRef);
     } else {
       await api('saveColis', payload);
       await generateReceiptPDF({...payload, reference: ref});
-      showToast('✅ Colis '+ref+' enregistré sur Google Sheets');
+      showConfirmModal(ref);
     }
     await updateKpis();
-    await new Promise(r=>setTimeout(r, 1000)); // laisse le temps de voir la confirmation avant de changer d'ecran
     resetNewColis();
-    goto('screen-dashboard');
   }catch(e){}
+}
+function showConfirmModal(ref){
+  document.getElementById('confirm-modal-ref').textContent = 'Référence : ' + ref;
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function closeConfirmModal(){
+  document.getElementById('confirm-modal').style.display = 'none';
+  goto('screen-dashboard');
 }
 
 /* ================= REÇU PDF + QR ================= */
