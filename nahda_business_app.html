@@ -197,6 +197,10 @@
   .tl-label{font-size:9px;color:var(--muted);text-align:center;}
 
   .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .date-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .date-nav button{border:1px solid var(--line);background:var(--white);border-radius:10px;width:36px;height:36px;font-size:18px;color:var(--navy);cursor:pointer;flex:none;}
+  .date-nav input[type=date]{flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-family:var(--font-mono);font-size:13px;background:var(--white);color:var(--ink);}
+  .date-nav .today-btn{width:auto;padding:0 12px;font-size:11px;font-weight:700;font-family:var(--font-body);color:var(--navy);}
   .bilan-card .l{font-size:12px;color:var(--muted);}
   .bilan-card .v{font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--navy);}
   .bilan-card.accent .v{color:var(--green);}
@@ -294,6 +298,8 @@
       <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
       <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
       <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
+      <div class="field"><label>Nom du déposant (personne qui remet le colis)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
+      <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00"></div>
       <div class="field">
         <label>Destination</label>
         <select id="nc-dest" onchange="onDestChange()"></select>
@@ -409,7 +415,15 @@
   <!-- ============ BILAN ============ -->
   <section class="screen" id="screen-bilan">
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Bilan Trésorerie</h1></div>
-    <div class="scroll" id="bilan-scroll"></div>
+    <div class="scroll">
+      <div class="date-nav">
+        <button onclick="shiftBilanDate(-1)">‹</button>
+        <input type="date" id="bilan-date" onchange="renderBilan()">
+        <button onclick="shiftBilanDate(1)">›</button>
+        <button class="today-btn" onclick="setBilanToday()">Aujourd'hui</button>
+      </div>
+      <div id="bilan-scroll"></div>
+    </div>
   </section>
 
   <!-- ============ PARAMÈTRES ============ -->
@@ -633,6 +647,8 @@ function resetNewColis(){
   document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
   document.getElementById('nc-commentaire-wrap').style.display = 'none';
   document.getElementById('nc-commentaire-paiement').value = '';
+  document.getElementById('nc-depositaire-nom').value = '';
+  document.getElementById('nc-depositaire-tel').value = '';
 }
 async function saveColis(){
   const ref = document.getElementById('nc-ref').value.trim();
@@ -655,6 +671,8 @@ async function saveColis(){
 
   const payload = {
     reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
+    nomDepositaire: document.getElementById('nc-depositaire-nom').value.trim(),
+    telephoneDepositaire: document.getElementById('nc-depositaire-tel').value.trim(),
     paysDestination, agenceDestination: destInfo.agence || '',
     poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
     statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
@@ -722,6 +740,7 @@ async function generateReceiptPDF(c){
     };
     row('Client', c.nomClient, true);
     row('Telephone', c.telephone);
+    if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
     row('Poids', c.poids + ' kg');
     row('Prix / kg', (c.prixKg||0) + ' MAD');
@@ -863,6 +882,7 @@ function renderResultCard(c, showAdminActions){
 function colisToReceiptPayload(c){
   return {
     reference: c.reference, nomClient: c.nom_client, telephone: c.telephone,
+    nomDepositaire: c.nom_depositaire, telephoneDepositaire: c.telephone_depositaire,
     paysDestination: c.pays_destination, agenceDestination: c.agence_destination,
     poids: c.poids, prixKg: c.prix_kg,
     contenu: String(c.contenu||'').split(',').map(s=>s.trim()).filter(Boolean),
@@ -882,6 +902,8 @@ async function editColis(c){
   document.getElementById('nc-ref').value = c.reference;
   document.getElementById('nc-nom').value = c.nom_client;
   document.getElementById('nc-tel').value = c.telephone;
+  document.getElementById('nc-depositaire-nom').value = c.nom_depositaire || '';
+  document.getElementById('nc-depositaire-tel').value = c.telephone_depositaire || '';
   document.getElementById('nc-dest').value = c.pays_destination;
   onDestChange();
   document.getElementById('nc-poids').value = c.poids;
@@ -1033,16 +1055,36 @@ async function marquerRetire(){
 }
 
 /* ================= BILAN ================= */
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function setBilanToday(){
+  document.getElementById('bilan-date').value = todayISO();
+  renderBilan();
+}
+function shiftBilanDate(delta){
+  const input = document.getElementById('bilan-date');
+  const d = new Date(input.value || todayISO());
+  d.setDate(d.getDate() + delta);
+  input.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  renderBilan();
+}
 async function renderBilan(){
+  const dateInput = document.getElementById('bilan-date');
+  if(!dateInput.value) dateInput.value = todayISO();
   const box = document.getElementById('bilan-scroll');
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
   try{
-    const filtre = (currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const filtre = { date: dateInput.value };
+    if(currentAgent.role!=='Admin') filtre.pays = currentAgent.pays;
     const b = await api('bilan', filtre);
     const scopeLabel = (currentAgent.role!=='Admin') ? `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>` : `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
-    box.innerHTML = scopeLabel + `
-      <div class="bilan-card accent"><div><div class="l">Total payé au départ</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
-      <div class="bilan-card accent"><div><div class="l">Total encaissé au retrait</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+    const jourLabel = dateInput.value === todayISO() ? "Aujourd'hui" : new Date(dateInput.value).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
+      <div class="bilan-card accent"><div><div class="l">Payé au départ ce jour</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
+      <div class="bilan-card accent"><div><div class="l">Encaissé au retrait ce jour</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+      <h2 class="section-title" style="margin-top:18px;">Vue d'ensemble (toutes dates)</h2>
       <div class="bilan-card"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
       <div class="bilan-card"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
       <div class="bilan-card"><div><div class="l">Colis arrivés</div><div class="v">${b.arrives}</div></div><div class="ic">🛬</div></div>
