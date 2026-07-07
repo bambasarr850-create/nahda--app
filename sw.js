@@ -1,9 +1,7 @@
-const CACHE_NAME = 'nahda-business-v1';
+const CACHE_NAME = 'nahda-business-v3';
 const ASSETS = [
   './nahda_business_app.html',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -22,11 +20,9 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Stratégie : essaye le réseau (données à jour), retombe sur le cache si hors-ligne.
-// Les appels vers script.google.com (API) ne sont jamais mis en cache : on veut toujours du frais.
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  if (url.includes('script.google.com')) return; // laisser passer, pas de cache sur l'API
+  if (url.includes('script.google.com')) return; // API : toujours du frais, jamais de cache
 
   event.respondWith(
     fetch(event.request)
