@@ -292,13 +292,13 @@
       </div>
 
       <div class="grid-menu">
-        <div class="menu-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;"><svg viewBox="0 0 24 24" fill="none" stroke="#2F7D5A" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div><span>Nouveau Colis</span></div>
-        <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;"><svg viewBox="0 0 24 24" fill="none" stroke="#0E3A6B" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg></div><span>Recherche Colis</span></div>
-        <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;"><svg viewBox="0 0 24 24" fill="#B8791E"><path d="M21 16v-2l-8-5V4.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-5.5l8 2.5z"/></svg></div><span>Voyage</span></div>
-        <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="1.8"><path d="M3 7h18l-1.5 12h-15z"/><path d="M8 7V5a4 4 0 018 0v2"/></svg></div><span>Retrait</span></div>
-        <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;"><svg viewBox="0 0 24 24" fill="none" stroke="#5B3E96" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg></div><span>Bilan Trésorerie</span></div>
-        <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;"><svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div><span>Paramètres</span></div>
-        <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></div><span>Déconnexion</span></div>
+        <div class="menu-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
+        <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
+        <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
+        <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
       </div>
     </div>
   </section>
@@ -384,15 +384,15 @@
       </div>
 
       <div id="voyage-depart-panel">
+        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
+        <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
+        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
         <h2 class="section-title">Colis enregistrés — sélectionner</h2>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="depart-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterDepartList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
           <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForCheckbox('.dep-check', renderDepartList)">📷</button>
         </div>
         <div id="depart-list"></div>
-        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
-        <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
-        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
         <button class="btn btn-primary" onclick="lancerVoyage()">🚀 LANCER VOYAGE</button>
       </div>
 
@@ -401,13 +401,13 @@
           <label>Numéro de voyage</label>
           <select id="va-select" onchange="renderArriveeList()"></select>
         </div>
+        <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
         <h2 class="section-title">Colis du voyage</h2>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="arrivee-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterArriveeList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
           <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForCheckbox('.arr-check')">📷</button>
         </div>
         <div id="arrivee-list"></div>
-        <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
         <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
       </div>
 
