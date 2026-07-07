@@ -214,7 +214,8 @@
   .tl-dot.current{background:var(--gold);border-color:var(--gold);}
   .tl-label{font-size:9px;color:var(--muted);text-align:center;}
 
-  .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:transform .12s;}
+  .bilan-card:active{transform:scale(.98);background:var(--sand-2);}
   .date-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
   .date-nav button{border:1px solid var(--line);background:var(--white);border-radius:10px;width:36px;height:36px;font-size:18px;color:var(--navy);cursor:pointer;flex:none;}
   .date-nav input[type=date]{flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-family:var(--font-mono);font-size:13px;background:var(--white);color:var(--ink);}
@@ -456,6 +457,7 @@
         </select>
       </div>
       <div id="bilan-scroll"></div>
+      <button class="btn btn-gold" id="bilan-pdf-btn" style="display:none;margin-top:8px;" onclick="generateBilanPDF()">📄 Générer le bilan en PDF</button>
     </div>
   </section>
 
@@ -525,6 +527,15 @@
     <div style="color:#fff;font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:8px;">Colis enregistré</div>
     <div id="confirm-modal-ref" style="color:var(--gold);font-family:var(--font-mono);font-size:16px;margin-bottom:24px;"></div>
     <button class="btn btn-gold" style="width:100%;max-width:280px;" onclick="closeConfirmModal()">OK — Retour au tableau de bord</button>
+  </div>
+  <div id="bilan-detail-modal" onclick="if(event.target===this)closeBilanDetail()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:115;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--sand);width:100%;max-height:75%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none;">
+        <span id="bilan-detail-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;"></span>
+        <button onclick="closeBilanDetail()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
+      </div>
+      <div id="bilan-detail-body" style="overflow-y:auto;flex:1;"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -1397,18 +1408,148 @@ async function renderBilan(){
     if(currentAgent.role!=='Admin') scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>`;
     else if(paysChoisi) scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie filtrée : ${paysChoisi} (Admin)</div>`;
     else scopeLabel = `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
+    BILAN_FILTRE = filtre;
     const jourLabel = dateInput.value === todayISO() ? "Aujourd'hui" : new Date(dateInput.value).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    BILAN_DATA = {
+      b, jourLabel, date: dateInput.value,
+      scopeTexte: currentAgent.role!=='Admin' ? ('Trésorerie de : '+currentAgent.pays) : (paysChoisi ? ('Trésorerie filtrée : '+paysChoisi+' (Admin)') : 'Vue globale — tous pays (Admin)')
+    };
+    document.getElementById('bilan-pdf-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
     box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
-      <div class="bilan-card accent"><div><div class="l">Payé au départ ce jour</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
-      <div class="bilan-card accent"><div><div class="l">Encaissé au retrait ce jour</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+      <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')"><div><div class="l">Payé au départ ce jour</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
+      <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')"><div><div class="l">Encaissé au retrait ce jour</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
       <h2 class="section-title" style="margin-top:18px;">Vue d'ensemble (toutes dates)</h2>
-      <div class="bilan-card"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
-      <div class="bilan-card"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
-      <div class="bilan-card"><div><div class="l">Colis arrivés</div><div class="v">${b.arrives}</div></div><div class="ic">🛬</div></div>
-      <div class="bilan-card"><div><div class="l">Colis retirés</div><div class="v">${b.retires}</div></div><div class="ic">✅</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('totalColis','Tous les colis')"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('enAttente','Colis en attente')"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('arrives','Colis arrivés')"><div><div class="l">Colis arrivés</div><div class="v">${b.arrives}</div></div><div class="ic">🛬</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('retires','Colis retirés')"><div><div class="l">Colis retirés</div><div class="v">${b.retires}</div></div><div class="ic">✅</div></div>
     `;
   }catch(e){ box.innerHTML=''; }
 }
+
+let BILAN_FILTRE = {};
+let BILAN_DATA = null;
+
+async function generateBilanPDF(){
+  if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
+  if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  showToast('📄 Génération du bilan PDF...');
+  try{
+    const { b, jourLabel, date, scopeTexte } = BILAN_DATA;
+    const [listeDepart, listeRetrait] = await Promise.all([
+      api('bilanDetail', {...BILAN_FILTRE, type:'payeDepart'}),
+      api('bilanDetail', {...BILAN_FILTRE, type:'encaisseRetrait'})
+    ]);
+    const lignes = [
+      ...listeDepart.map(c=>({...c, typeLabel:'Paiement dépôt', montant:c.total})),
+      ...listeRetrait.map(c=>({...c, typeLabel:'Paiement retrait', montant:c.montant_retrait}))
+    ];
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const W = 210, H = 297;
+    const navy = '#0B4A40', navy2='#0E6B5C', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255', sand = '#F1EAD9';
+
+    function drawHeader(){
+      doc.setFillColor(navy);
+      doc.rect(0, 0, W, 26, 'F');
+      doc.setFillColor(gold);
+      doc.rect(0, 26, W, 1.2, 'F');
+      if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 18, 18);
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(15);
+      doc.text('NAHDA BUSINESS', 30, 12);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Bilan de trésorerie \u2014 ' + jourLabel, 30, 19);
+      doc.setTextColor(muted); doc.setFontSize(7);
+      doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' par ' + currentAgent.nom, W-8, H-6, {align:'right'});
+    }
+    function drawTableHeader(y){
+      doc.setFillColor(navy);
+      doc.rect(8, y, W-16, 9, 'F');
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+      doc.text('N° Reçu', 10, y+6);
+      doc.text('Client', 42, y+6);
+      doc.text('Poids', 96, y+6);
+      doc.text('Prix U.', 116, y+6);
+      doc.text('Total', 140, y+6);
+      doc.text('Type de paiement', 165, y+6);
+      return y + 9;
+    }
+
+    drawHeader();
+    let y = 34;
+    doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    doc.text(scopeTexte, 8, y); y += 6;
+
+    // Bloc synthese
+    doc.setFillColor(navy);
+    doc.roundedRect(8, y, 92, 16, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+    doc.text('PAYÉ AU DÉPÔT', 12, y+6);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(11);
+    doc.text(formatPdfNum(b.totalPayeDepart) + ' MAD', 12, y+12.5);
+
+    doc.setFillColor(navy2);
+    doc.roundedRect(110, y, 92, 16, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+    doc.text('ENCAISSÉ AU RETRAIT', 114, y+6);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(11);
+    doc.text(formatPdfNum(b.totalEncaisseRetrait) + ' MAD', 114, y+12.5);
+    y += 24;
+
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.setTextColor(navy);
+    doc.text('DÉTAIL DES COLIS (' + lignes.length + ')', 8, y);
+    y += 6;
+    y = drawTableHeader(y);
+
+    doc.setFont(undefined,'normal'); doc.setFontSize(8);
+    lignes.forEach((c, i) => {
+      if (y > H - 20) { doc.addPage(); drawHeader(); y = 34; y = drawTableHeader(y); }
+      if (i % 2 === 0) { doc.setFillColor(sand); doc.rect(8, y, W-16, 8, 'F'); }
+      doc.setTextColor(ink);
+      doc.text(String(c.reference||'-'), 10, y+5.5);
+      doc.text(String(c.nom_client||'-').substring(0,22), 42, y+5.5);
+      doc.text(String(c.poids||0) + ' kg', 96, y+5.5);
+      doc.text(formatPdfNum(c.prix_kg) + ' MAD', 116, y+5.5);
+      doc.text(formatPdfNum(c.montant) + ' MAD', 140, y+5.5);
+      doc.setTextColor(c.typeLabel === 'Paiement retrait' ? navy2 : '#B8791E');
+      doc.setFont(undefined,'bold');
+      doc.text(c.typeLabel, 165, y+5.5);
+      doc.setFont(undefined,'normal');
+      y += 8;
+    });
+
+    doc.setDrawColor(sand); doc.setLineWidth(0.4);
+    doc.line(8, H-14, W-8, H-14);
+    doc.setTextColor(muted); doc.setFontSize(7);
+    doc.text(COMPANY_CONTACT.adresse + '  \u2014  Tel : ' + COMPANY_CONTACT.telephone, 8, H-9);
+
+    doc.save('Bilan_Tresorerie_' + date + (BILAN_FILTRE.pays ? '_'+BILAN_FILTRE.pays : '_Global') + '.pdf');
+  }catch(e){ showToast('⚠️ Bilan PDF non généré (voir console)'); console.error(e); }
+}
+
+async function showBilanDetail(type, label){
+  document.getElementById('bilan-detail-title').textContent = label;
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    const list = await api('bilanDetail', {...BILAN_FILTRE, type});
+    const box = document.getElementById('bilan-detail-body');
+    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
+    box.innerHTML = list.map(c=>`
+      <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+        <div class="txt">
+          <div class="r">${c.reference}</div>
+          <div class="d">${c.nom_client||''} · ${c.pays_destination||''}</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = '';
+  }
+}
+function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; }
 
 /* ================= PARAMÈTRES (admin uniquement) ================= */
 function togglePanel(id){
