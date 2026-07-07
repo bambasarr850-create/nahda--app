@@ -468,6 +468,7 @@
 /* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
 const API_URL = 'https://script.google.com/macros/s/AKfycbxjIaFqltcKUcK_dnIeBJRUpo65YFw81-q2eatKfFggUv-uTEgq-sc8dVCx_lIWALhd/exec';
 const FLAG_EMOJI = {CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
+const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
 function flagEmoji(v){ return FLAG_EMOJI[v] || v || '🏳️'; }
 
 async function api(action, payload={}){
@@ -734,19 +735,11 @@ async function generateReceiptPDF(c){
     doc.setDrawColor(sand); doc.setLineWidth(0.6);
     doc.line(132, 32, 132, H - 8);
 
-    // ---- Colonne droite : QR + statut (132 - 202mm) ----
+    // ---- Colonne droite : QR code (132 - 202mm) ----
     const rightX = 140;
-    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(9);
-    doc.text('STATUT ACTUEL', rightX, 36);
-    const statutLabels = ['Enregistre','En voyage','Arrive','Retire'];
-    const statutIdx = Number(c.statut) || 0;
-    doc.setFillColor(navy2);
-    doc.roundedRect(rightX, 39, 62, 8, 2, 2, 'F');
-    doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9);
-    doc.text(statutLabels[statutIdx].toUpperCase(), rightX + 31, 44.5, { align: 'center' });
 
     if (qrCount) {
-      const qrSize = 42, qx0 = rightX + 8, qy0 = 55;
+      const qrSize = 46, qx0 = rightX + 6, qy0 = 44;
       const cell = qrSize / qrCount;
       const quiet = cell * 4; // marge de silence conforme (4 modules), proportionnelle a la densite reelle
       doc.setFillColor('#FFFFFF');
@@ -763,15 +756,20 @@ async function generateReceiptPDF(c){
       }
     }
     doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
-    doc.text('Scannez pour suivre votre colis', rightX + 31, 109, { align: 'center' });
-    doc.text('en temps reel', rightX + 31, 113, { align: 'center' });
+    doc.text('Scannez pour suivre votre colis', rightX + 31, 106, { align: 'center' });
+    doc.text('en temps reel', rightX + 31, 110, { align: 'center' });
 
     // ---- Pied de page ----
     doc.setDrawColor(sand); doc.setLineWidth(0.4);
-    doc.line(8, H - 14, W - 8, H - 14);
+    doc.line(8, H - 18, W - 8, H - 18);
     doc.setTextColor(muted); doc.setFontSize(7);
-    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), 8, H - 9);
-    doc.text('Nahda Business - Document genere electroniquement, valable comme preuve de depot', W - 8, H - 9, { align: 'right' });
+    doc.setFont(undefined,'bold');
+    doc.text(COMPANY_CONTACT.adresse, 8, H - 13);
+    doc.text('Tel : ' + COMPANY_CONTACT.telephone, 8, H - 9);
+    doc.setFont(undefined,'normal');
+    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), W - 8, H - 13, { align: 'right' });
+    doc.text('Document genere electroniquement, valable comme preuve de depot', W - 8, H - 9, { align: 'right' });
+
 
     doc.save('Recu_' + c.reference + '.pdf');
   }catch(e){ showToast('⚠️ Reçu PDF non généré (voir console)'); console.error(e); }
