@@ -709,14 +709,18 @@ async function saveColis(){
   const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
   const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
   let photoUrls = [];
-  for(let i=0;i<newColisPhotos.length;i++){
-    showToast('📤 Envoi photo '+(i+1)+'/'+newColisPhotos.length+'...');
+  if(newColisPhotos.length){
+    showToast('📤 Envoi de '+newColisPhotos.length+' photo(s) en parallèle...');
     try{
-      const up = await uploadPhotoWithRetry(newColisPhotos[i], ref+'_'+(i+1));
-      if(!up || !up.url) throw new Error('Reponse serveur invalide (pas d\'URL retournee)');
-      photoUrls.push(up.url);
+      const uploads = await Promise.all(
+        newColisPhotos.map((photo, i) => uploadPhotoWithRetry(photo, ref+'_'+(i+1)))
+      );
+      photoUrls = uploads.map(up => {
+        if(!up || !up.url) throw new Error('Reponse serveur invalide (pas d\'URL retournee)');
+        return up.url;
+      });
     }catch(e){
-      showToast('⚠️ ÉCHEC photo '+(i+1)+' : '+(e.message||'erreur inconnue')+' — colis NON enregistré');
+      showToast('⚠️ ÉCHEC envoi photo(s) : '+(e.message||'erreur inconnue')+' — colis NON enregistré');
       saveBtn.disabled = false; saveBtn.textContent = labelOrigine;
       return; // on annule tout : les photos restent dans la galerie, rien n'est perdu
     }
@@ -743,15 +747,14 @@ async function saveColis(){
       showToast('💾 Enregistrement des données...');
       await api('saveColis', payload);
 
-      // Verification automatique : le lien photo a-t-il bien ete ecrit sur le Sheet ?
+      // Verification du lien photo en arriere-plan (non bloquant, n'allonge pas l'attente)
       if(photoUrls.length){
-        try{
-          const verif = await api('searchColis', {reference: ref});
+        api('searchColis', {reference: ref}).then(verif => {
           if(!verif.photo_url || verif.photo_url.trim()===''){
             showToast('⚠️ Colis enregistré MAIS le lien photo est absent du Sheet (bug backend à signaler)');
             console.error('Photo envoyee (', photoUrls.join(', '), ') mais photo_url vide dans la fiche colis retournee :', verif);
           }
-        }catch(e){}
+        }).catch(()=>{});
       }
 
       showToast('🧾 Génération du reçu...');
