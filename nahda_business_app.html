@@ -689,11 +689,12 @@ async function saveColis(){
       showToast('✅ Colis '+editingRef+' mis à jour');
     } else {
       await api('saveColis', payload);
+      await generateReceiptPDF({...payload, reference: ref});
       showToast('✅ Colis '+ref+' enregistré sur Google Sheets');
-      generateReceiptPDF({...payload, reference: ref});
     }
-    resetNewColis();
     await updateKpis();
+    await new Promise(r=>setTimeout(r, 1000)); // laisse le temps de voir la confirmation avant de changer d'ecran
+    resetNewColis();
     goto('screen-dashboard');
   }catch(e){}
 }
