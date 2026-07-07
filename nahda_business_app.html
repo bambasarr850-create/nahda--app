@@ -362,6 +362,7 @@
       <div class="field"><label>Numéro de reçu</label><input id="sr-ref" placeholder="ex : NB-2026-0451"></div>
       <div class="btn-row">
         <button class="btn btn-outline" onclick="document.getElementById('sr-ref').value='';document.getElementById('sr-result').innerHTML='';">❌ EFFACER</button>
+        <button class="btn btn-gold" onclick="scanForField('sr-ref', searchColis)">📷 SCANNER</button>
         <button class="btn btn-primary" onclick="searchColis()">🔍 RECHERCHER</button>
       </div>
       <div id="sr-result"></div>
@@ -380,7 +381,10 @@
 
       <div id="voyage-depart-panel">
         <h2 class="section-title">Colis enregistrés — sélectionner</h2>
-        <input type="text" id="depart-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterDepartList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="depart-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterDepartList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
+          <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForCheckbox('.dep-check', renderDepartList)">📷</button>
+        </div>
         <div id="depart-list"></div>
         <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
         <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
@@ -394,7 +398,10 @@
           <select id="va-select" onchange="renderArriveeList()"></select>
         </div>
         <h2 class="section-title">Colis du voyage</h2>
-        <input type="text" id="arrivee-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterArriveeList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="arrivee-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterArriveeList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
+          <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForCheckbox('.arr-check')">📷</button>
+        </div>
         <div id="arrivee-list"></div>
         <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
         <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
@@ -412,7 +419,7 @@
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Retrait</h1></div>
     <div class="scroll">
       <div class="field"><label>Numéro de reçu</label>
-        <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button></div>
+        <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
       </div>
       <div id="rt-fiche"></div>
       <div class="field"><label>Montant payé à destination</label><input id="rt-montant" type="number" placeholder="0"></div>
@@ -496,6 +503,15 @@
     <div class="scroll" id="suivi-public-content"></div>
   </section>
   <div class="toast" id="toast"></div>
+  <div id="scanner-modal" style="display:none;position:absolute;inset:0;background:#000;z-index:120;flex-direction:column;">
+    <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--navy);flex:none;">
+      <span style="color:#fff;font-family:var(--font-display);font-weight:600;font-size:14px;">📷 Scanner un colis</span>
+      <button onclick="closeScanner()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
+    </div>
+    <video id="scanner-video" style="flex:1;width:100%;object-fit:cover;background:#000;" playsinline muted autoplay></video>
+    <canvas id="scanner-canvas" style="display:none;"></canvas>
+    <div style="padding:14px;background:var(--navy);color:var(--sand);text-align:center;font-size:11.5px;flex:none;">Pointez la caméra vers le QR code du reçu</div>
+  </div>
   <div id="lightbox" onclick="closeLightbox()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;">
     <img id="lightbox-img" src="" style="max-width:92%;max-height:80%;border-radius:8px;object-fit:contain;">
     <button onclick="closeLightbox()" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
@@ -511,6 +527,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 <script>
 /* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
 const API_URL = 'https://script.google.com/macros/s/AKfycbxjIaFqltcKUcK_dnIeBJRUpo65YFw81-q2eatKfFggUv-uTEgq-sc8dVCx_lIWALhd/exec';
@@ -624,6 +641,85 @@ async function updateKpis(){
 }
 
 /* ================= LIGHTBOX PHOTO ================= */
+/* ================= SCANNER QR (camera agent) ================= */
+let scannerStream = null;
+let scannerRAF = null;
+let scannerCallback = null;
+
+function extractRefFromQr(text){
+  try{
+    const url = new URL(text);
+    const ref = url.searchParams.get('suivi');
+    if(ref) return ref;
+  }catch(e){}
+  return text; // si ce n'est pas une URL de suivi, on considere que le texte scanne est directement la reference
+}
+
+function openScanner(onDetected){
+  scannerCallback = onDetected;
+  document.getElementById('scanner-modal').style.display = 'flex';
+  const video = document.getElementById('scanner-video');
+  if(typeof jsQR === 'undefined'){ showToast('⚠️ Librairie scanner non chargée — vérifie ta connexion'); closeScanner(); return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scannerStream = stream;
+      video.srcObject = stream;
+      video.play();
+      scannerRAF = requestAnimationFrame(scanFrame);
+    })
+    .catch(err => {
+      showToast('⚠️ Caméra inaccessible : '+(err.message||'permission refusée'));
+      closeScanner();
+    });
+}
+function scanFrame(){
+  const video = document.getElementById('scanner-video');
+  const canvas = document.getElementById('scanner-canvas');
+  if(video && video.readyState === video.HAVE_ENOUGH_DATA){
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if(code && code.data){
+      const ref = extractRefFromQr(code.data);
+      const cb = scannerCallback;
+      closeScanner();
+      if(cb) cb(ref);
+      return;
+    }
+  }
+  scannerRAF = requestAnimationFrame(scanFrame);
+}
+function closeScanner(){
+  if(scannerRAF) cancelAnimationFrame(scannerRAF);
+  if(scannerStream){ scannerStream.getTracks().forEach(t=>t.stop()); scannerStream = null; }
+  document.getElementById('scanner-modal').style.display = 'none';
+  scannerCallback = null;
+}
+/* Scanne et remplit un champ texte, puis lance une action (recherche, retrait...) */
+function scanForField(fieldId, action){
+  openScanner(ref => {
+    document.getElementById(fieldId).value = ref;
+    showToast('📷 '+ref+' scanné');
+    if(action) action();
+  });
+}
+/* Scanne et coche automatiquement la case correspondante dans une liste (Voyage Depart/Arrivee) */
+function scanForCheckbox(selector, reloadFn){
+  openScanner(ref => {
+    const cb = document.querySelector(selector+'[value="'+ref.replace(/"/g,'')+'"]');
+    if(cb){
+      cb.checked = true;
+      cb.scrollIntoView({behavior:'smooth', block:'center'});
+      showToast('✅ '+ref+' sélectionné');
+    } else {
+      showToast('⚠️ Colis '+ref+' introuvable dans cette liste');
+    }
+  });
+}
+
 function openLightbox(url){
   document.getElementById('lightbox-img').src = url;
   document.getElementById('lightbox').style.display = 'flex';
