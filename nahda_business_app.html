@@ -148,6 +148,14 @@
   .tabbar button.active{background:var(--navy);color:var(--sand);}
 
   .checklist-item{display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;}
+  .histo-card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+  .histo-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+  .histo-numero{font-family:var(--font-mono);font-weight:700;font-size:13.5px;color:var(--navy);}
+  .histo-statut{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;}
+  .histo-meta{font-size:12px;color:var(--muted);line-height:1.7;}
+  .histo-meta b{color:var(--ink);}
+  .histo-refs{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;}
+  .histo-refs span{background:var(--sand-2);padding:3px 9px;border-radius:20px;font-family:var(--font-mono);font-size:10.5px;color:var(--navy-2);}
   .checklist-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy);flex:none;}
   .checklist-item .txt{flex:1;}
   .checklist-item .txt .r{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--navy);}
@@ -367,10 +375,12 @@
       <div class="tabbar">
         <button id="tab-depart" class="active" onclick="switchVoyageTab('depart')">🚛 Départ</button>
         <button id="tab-arrivee" onclick="switchVoyageTab('arrivee')">🛬 Arrivée</button>
+        <button id="tab-historique" onclick="switchVoyageTab('historique')">🗂 Historique</button>
       </div>
 
       <div id="voyage-depart-panel">
         <h2 class="section-title">Colis enregistrés — sélectionner</h2>
+        <input type="text" id="depart-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterDepartList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
         <div id="depart-list"></div>
         <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
         <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
@@ -384,9 +394,15 @@
           <select id="va-select" onchange="renderArriveeList()"></select>
         </div>
         <h2 class="section-title">Colis du voyage</h2>
+        <input type="text" id="arrivee-search" placeholder="🔎 Rechercher (référence, client, destination)..." oninput="filterArriveeList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
         <div id="arrivee-list"></div>
         <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
         <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
+      </div>
+
+      <div id="voyage-historique-panel" style="display:none;">
+        <input type="text" id="historique-search" placeholder="🔎 Rechercher (voyageur, n° voyage, destination)..." oninput="filterHistoriqueList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+        <div id="historique-list"></div>
       </div>
     </div>
   </section>
@@ -678,9 +694,14 @@ function resetNewColis(){
   document.getElementById('nc-depositaire-tel').value = '';
 }
 async function saveColis(){
+  const saveBtn = document.getElementById('nc-save-btn');
+  if(saveBtn.disabled) return; // deja en cours de traitement, ignore les clics supplementaires
   const ref = document.getElementById('nc-ref').value.trim();
   const nom = document.getElementById('nc-nom').value.trim();
   if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
+  saveBtn.disabled = true;
+  const labelOrigine = saveBtn.textContent;
+  saveBtn.textContent = '⏳ Enregistrement...';
   const paysDestination = document.getElementById('nc-dest').value;
   const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
   const poids = parseFloat(document.getElementById('nc-poids').value)||0;
@@ -695,6 +716,7 @@ async function saveColis(){
       photoUrls.push(up.url);
     }catch(e){
       showToast('⚠️ Echec envoi photo '+(i+1)+' — colis NON enregistre. Reessaie (photos conservees).');
+      saveBtn.disabled = false; saveBtn.textContent = labelOrigine;
       return; // on annule tout : les photos restent dans la galerie, rien n'est perdu
     }
   }
@@ -722,7 +744,11 @@ async function saveColis(){
     }
     await updateKpis();
     resetNewColis();
-  }catch(e){}
+  }catch(e){
+  }finally{
+    saveBtn.disabled = false;
+    saveBtn.textContent = labelOrigine;
+  }
 }
 function showConfirmModal(ref){
   document.getElementById('confirm-modal-ref').textContent = 'Référence : ' + ref;
@@ -913,6 +939,9 @@ function renderResultCard(c, showAdminActions){
     <div class="result-row"><span class="k">Client</span><span class="v">${c.nom_client}</span></div>
     <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
     <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
+    ${statut>=1 && c.voyage ? `<div class="result-row"><span class="k">N° voyage</span><span class="v">${c.voyage}</span></div>` : ''}
+    ${statut>=1 && c.voyage_transporteur ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
+    ${statut>=1 && c.voyage_date_depart ? `<div class="result-row"><span class="k">Date de départ</span><span class="v">${new Date(c.voyage_date_depart).toLocaleDateString('fr-FR')}</span></div>` : ''}
     <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>
     <div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
     <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
@@ -980,22 +1009,87 @@ async function switchVoyageTab(tab){
   voyageTab = tab;
   document.getElementById('tab-depart').classList.toggle('active', tab==='depart');
   document.getElementById('tab-arrivee').classList.toggle('active', tab==='arrivee');
+  document.getElementById('tab-historique').classList.toggle('active', tab==='historique');
   document.getElementById('voyage-depart-panel').style.display = tab==='depart' ? 'block':'none';
   document.getElementById('voyage-arrivee-panel').style.display = tab==='arrivee' ? 'block':'none';
-  if(tab==='depart') await renderDepartList(); else await renderArriveeSelect();
+  document.getElementById('voyage-historique-panel').style.display = tab==='historique' ? 'block':'none';
+  if(tab==='depart') await renderDepartList();
+  else if(tab==='arrivee') await renderArriveeSelect();
+  else await renderHistoriqueList();
 }
+let HISTORIQUE_CACHE = [];
+const STATUT_VOYAGE_CLASS = { 'En cours': 'st-1', 'Arrive': 'st-2', 'Arrivé': 'st-2' };
+async function renderHistoriqueList(){
+  const box = document.getElementById('historique-list');
+  document.getElementById('historique-search').value = '';
+  box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+  try{
+    let list = await api('listVoyages');
+    if(currentAgent && currentAgent.role!=='Admin') list = list.filter(v=>v.pays_destination===currentAgent.pays);
+    HISTORIQUE_CACHE = list;
+    renderHistoriqueHTML(list);
+  }catch(e){ box.innerHTML=''; }
+}
+function renderHistoriqueHTML(list){
+  const box = document.getElementById('historique-list');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🗂</div><p>Aucun voyage enregistré.</p></div>`; return; }
+  box.innerHTML = list.map(v=>{
+    const cls = STATUT_VOYAGE_CLASS[v.statut] || 'st-0';
+    const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
+    return `<div class="histo-card">
+      <div class="histo-top">
+        <span class="histo-numero">${v.numero}</span>
+        <span class="status-pill ${cls}">${v.statut}</span>
+      </div>
+      <div class="histo-meta">
+        <b>Voyageur :</b> ${v.transporteur || '—'}<br>
+        <b>Date de départ :</b> ${dateStr}<br>
+        <b>Destination :</b> ${v.pays_destination || '—'} — ${v.agence_destination || ''}<br>
+        <b>Colis transportés :</b> ${v.nb_colis}
+      </div>
+      ${v.references && v.references.length ? `<div class="histo-refs">${v.references.map(r=>`<span>${r}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+function filterHistoriqueList(){
+  const q = document.getElementById('historique-search').value.trim().toLowerCase();
+  if(!q){ renderHistoriqueHTML(HISTORIQUE_CACHE); return; }
+  const filtered = HISTORIQUE_CACHE.filter(v =>
+    String(v.numero).toLowerCase().includes(q) ||
+    String(v.transporteur).toLowerCase().includes(q) ||
+    String(v.pays_destination).toLowerCase().includes(q)
+  );
+  renderHistoriqueHTML(filtered);
+}
+
+let DEPART_LIST_CACHE = [];
 async function renderDepartList(){
   const box = document.getElementById('depart-list');
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+  document.getElementById('depart-search').value = '';
   try{
-    const list = await api('listColis', {statut:0});
-    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📦</div><p>Aucun colis en attente de départ.</p></div>`; return; }
-    box.innerHTML = list.map(c=>`
-      <label class="checklist-item">
-        <input type="checkbox" class="dep-check" value="${c.reference}" data-pays="${c.pays_destination}" data-agence="${c.agence_destination}">
-        <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination} · ${c.poids}kg</div></div>
-      </label>`).join('');
+    DEPART_LIST_CACHE = await api('listColis', {statut:0});
+    renderDepartListHTML(DEPART_LIST_CACHE);
   }catch(e){ box.innerHTML = ''; }
+}
+function renderDepartListHTML(list){
+  const box = document.getElementById('depart-list');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📦</div><p>Aucun colis en attente de départ.</p></div>`; return; }
+  box.innerHTML = list.map(c=>`
+    <label class="checklist-item">
+      <input type="checkbox" class="dep-check" value="${c.reference}" data-pays="${c.pays_destination}" data-agence="${c.agence_destination}">
+      <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination} · ${c.poids}kg</div></div>
+    </label>`).join('');
+}
+function filterDepartList(){
+  const q = document.getElementById('depart-search').value.trim().toLowerCase();
+  if(!q){ renderDepartListHTML(DEPART_LIST_CACHE); return; }
+  const filtered = DEPART_LIST_CACHE.filter(c =>
+    String(c.reference).toLowerCase().includes(q) ||
+    String(c.nom_client).toLowerCase().includes(q) ||
+    String(c.pays_destination).toLowerCase().includes(q)
+  );
+  renderDepartListHTML(filtered);
 }
 async function lancerVoyage(){
   const checks = Array.from(document.querySelectorAll('.dep-check:checked'));
@@ -1028,20 +1122,37 @@ async function renderArriveeSelect(){
   }catch(e){}
   await renderArriveeList();
 }
+let ARRIVEE_LIST_CACHE = [];
 async function renderArriveeList(){
   const num = document.getElementById('va-select').value;
   const box = document.getElementById('arrivee-list');
-  if(!num){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun voyage en cours.</p></div>`; return; }
+  document.getElementById('arrivee-search').value = '';
+  if(!num){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun voyage en cours.</p></div>`; ARRIVEE_LIST_CACHE = []; return; }
   try{
     let list = (await api('listColis', {statut:1})).filter(c=>c.voyage===num);
     if(currentAgent && currentAgent.role!=='Admin') list = list.filter(c=>c.pays_destination===currentAgent.pays);
-    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
-    box.innerHTML = list.map(c=>`
-      <label class="checklist-item">
-        <input type="checkbox" class="arr-check" value="${c.reference}" checked>
-        <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination}</div></div>
-      </label>`).join('');
+    ARRIVEE_LIST_CACHE = list;
+    renderArriveeListHTML(list);
   }catch(e){ box.innerHTML=''; }
+}
+function renderArriveeListHTML(list){
+  const box = document.getElementById('arrivee-list');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
+  box.innerHTML = list.map(c=>`
+    <label class="checklist-item">
+      <input type="checkbox" class="arr-check" value="${c.reference}" checked>
+      <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination}</div></div>
+    </label>`).join('');
+}
+function filterArriveeList(){
+  const q = document.getElementById('arrivee-search').value.trim().toLowerCase();
+  if(!q){ renderArriveeListHTML(ARRIVEE_LIST_CACHE); return; }
+  const filtered = ARRIVEE_LIST_CACHE.filter(c =>
+    String(c.reference).toLowerCase().includes(q) ||
+    String(c.nom_client).toLowerCase().includes(q) ||
+    String(c.pays_destination).toLowerCase().includes(q)
+  );
+  renderArriveeListHTML(filtered);
 }
 async function confirmerArrivee(){
   const num = document.getElementById('va-select').value;
