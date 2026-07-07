@@ -438,6 +438,12 @@
         <button onclick="shiftBilanDate(1)">›</button>
         <button class="today-btn" onclick="setBilanToday()">Aujourd'hui</button>
       </div>
+      <div class="field" id="bilan-pays-wrap" style="display:none;">
+        <label>Filtrer par pays (admin)</label>
+        <select id="bilan-pays-filter" onchange="renderBilan()">
+          <option value="">🌍 Tous les pays (vue globale)</option>
+        </select>
+      </div>
       <div id="bilan-scroll"></div>
     </div>
   </section>
@@ -1254,11 +1260,37 @@ async function renderBilan(){
   if(!dateInput.value) dateInput.value = todayISO();
   const box = document.getElementById('bilan-scroll');
   box.innerHTML = '<div class="empty-state"><div class="em">⏳</div><p>Chargement...</p></div>';
+
+  const paysWrap = document.getElementById('bilan-pays-wrap');
+  const paysSelect = document.getElementById('bilan-pays-filter');
+  let paysChoisi = '';
+
+  if(currentAgent.role==='Admin'){
+    paysWrap.style.display = 'block';
+    if(paysSelect.options.length <= 1){
+      try{
+        if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+        DESTINATIONS_CACHE.forEach(d=>{
+          const opt = document.createElement('option');
+          opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays;
+          paysSelect.appendChild(opt);
+        });
+      }catch(e){}
+    }
+    paysChoisi = paysSelect.value;
+  } else {
+    paysWrap.style.display = 'none';
+  }
+
   try{
     const filtre = { date: dateInput.value };
     if(currentAgent.role!=='Admin') filtre.pays = currentAgent.pays;
+    else if(paysChoisi) filtre.pays = paysChoisi;
     const b = await api('bilan', filtre);
-    const scopeLabel = (currentAgent.role!=='Admin') ? `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>` : `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
+    let scopeLabel;
+    if(currentAgent.role!=='Admin') scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>`;
+    else if(paysChoisi) scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie filtrée : ${paysChoisi} (Admin)</div>`;
+    else scopeLabel = `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
     const jourLabel = dateInput.value === todayISO() ? "Aujourd'hui" : new Date(dateInput.value).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
     box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
       <div class="bilan-card accent"><div><div class="l">Payé au départ ce jour</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
