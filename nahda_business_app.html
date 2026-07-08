@@ -88,6 +88,7 @@
     background:var(--white);font-family:var(--font-body);font-size:14.5px;color:var(--ink);
   }
   .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);}
+  .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);cursor:not-allowed;opacity:.75;}
   .login-form{width:100%;position:relative;z-index:1;}
   .btn{
     width:100%;padding:13px;border-radius:12px;border:none;font-family:var(--font-body);
@@ -660,6 +661,8 @@ async function doLogin(){
   err.style.display='none';
   if(!id){ showToast('⚠️ Sélectionne un identifiant'); return; }
   btn.disabled = true;
+  document.getElementById('in-agent-id').disabled = true;
+  document.getElementById('in-agent-pass').disabled = true;
   const labelOrigine = btn.textContent;
   btn.textContent = '⏳ Connexion...';
   try{
@@ -674,7 +677,11 @@ async function doLogin(){
     history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
     goto('screen-dashboard', true);
   }catch(e){ err.style.display='block'; }
-  finally{ btn.disabled = false; btn.textContent = labelOrigine; }
+  finally{
+    btn.disabled = false; btn.textContent = labelOrigine;
+    document.getElementById('in-agent-id').disabled = false;
+    document.getElementById('in-agent-pass').disabled = false;
+  }
 }
 function doLogout(){
   currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
@@ -836,6 +843,9 @@ function resetNewColis(){
   document.getElementById('nc-depositaire-nom').value = '';
   document.getElementById('nc-depositaire-tel').value = '';
 }
+function setNewColisFieldsDisabled(disabled){
+  document.querySelectorAll('#screen-newcolis input, #screen-newcolis select, #screen-newcolis textarea').forEach(el=>{ el.disabled = disabled; });
+}
 async function saveColis(){
   const saveBtn = document.getElementById('nc-save-btn');
   if(saveBtn.disabled) return; // deja en cours de traitement, ignore les clics supplementaires
@@ -843,6 +853,7 @@ async function saveColis(){
   const nom = document.getElementById('nc-nom').value.trim();
   if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
   saveBtn.disabled = true;
+  setNewColisFieldsDisabled(true);
   const labelOrigine = saveBtn.textContent;
   saveBtn.textContent = '⏳ Enregistrement...';
   const paysDestination = document.getElementById('nc-dest').value;
@@ -865,6 +876,7 @@ async function saveColis(){
     }catch(e){
       showToast('⚠️ ÉCHEC envoi photo(s) : '+(e.message||'erreur inconnue')+' — colis NON enregistré');
       saveBtn.disabled = false; saveBtn.textContent = labelOrigine;
+      setNewColisFieldsDisabled(false);
       return; // on annule tout : les photos restent dans la galerie, rien n'est perdu
     }
   }
@@ -911,6 +923,7 @@ async function saveColis(){
   }finally{
     saveBtn.disabled = false;
     saveBtn.textContent = labelOrigine;
+    setNewColisFieldsDisabled(false);
   }
 }
 function showConfirmModal(ref){
