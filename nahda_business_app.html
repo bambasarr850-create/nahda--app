@@ -671,11 +671,16 @@ async function doLogin(){
     document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
     document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
     await updateKpis();
-    goto('screen-dashboard');
+    history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
+    goto('screen-dashboard', true);
   }catch(e){ err.style.display='block'; }
   finally{ btn.disabled = false; btn.textContent = labelOrigine; }
 }
-function doLogout(){ currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value=''; goto('screen-login'); }
+function doLogout(){
+  currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
+  history.replaceState({screen:'screen-login'}, '', '#screen-login');
+  goto('screen-login', true);
+}
 
 async function updateKpis(){
   try{
