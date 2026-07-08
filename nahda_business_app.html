@@ -88,6 +88,7 @@
     background:var(--white);font-family:var(--font-body);font-size:14.5px;color:var(--ink);
   }
   .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);}
+  .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);opacity:.7;cursor:not-allowed;}
   .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);cursor:not-allowed;opacity:.75;}
   .login-form{width:100%;position:relative;z-index:1;}
   .btn{
@@ -100,6 +101,7 @@
   .btn-outline{background:transparent;border:1.5px solid var(--line);color:var(--muted);}
   .btn-red{background:var(--red);color:#fff;}
   .btn-green{background:var(--green);color:#fff;}
+  .btn:disabled{background:var(--sand-2)!important;color:var(--muted)!important;cursor:not-allowed;}
   .btn-row{display:flex;gap:10px;margin-top:6px;}
   .btn-row .btn{flex:1;}
   .err-msg{background:#FBE2E2;color:var(--red);font-size:12.5px;padding:9px 12px;border-radius:10px;margin-bottom:12px;width:100%;display:none;font-weight:600;}
@@ -450,7 +452,7 @@
       </div>
       <div class="btn-row">
         <button class="btn btn-gold" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
-        <button class="btn btn-green" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
+        <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
       </div>
     </div>
   </section>
@@ -1354,38 +1356,50 @@ async function chargerRetrait(){
   const ref = document.getElementById('rt-ref').value.trim();
   const box = document.getElementById('rt-fiche');
   if(!ref) return;
+  retraitPaiementValide = false;
   try{
     if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
     const c = await api('searchColis', {reference: ref});
     if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!==c.pays_destination){
       box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p>Retrait réservé à l'agence de destination : ${c.pays_destination}</p></div>`;
-      retraitCourant = null; return;
+      retraitCourant = null; updateRetireButtonState(); return;
     }
     if(Number(c.statut) !== 2){
       box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p>Ce colis n'est pas encore "Arrivé" (statut actuel : ${STATUT_LABELS[Number(c.statut)]}).</p></div>`;
-      retraitCourant = null; return;
+      retraitCourant = null; updateRetireButtonState(); return;
     }
     retraitCourant = c;
     box.innerHTML = renderResultCard(c, false);
     document.getElementById('rt-montant').value = c.total;
+    updateRetireButtonState();
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
-    retraitCourant = null;
+    retraitCourant = null; updateRetireButtonState();
   }
 }
+function updateRetireButtonState(){
+  const btn = document.getElementById('rt-retire-btn');
+  if(!retraitCourant){ btn.disabled = true; return; }
+  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  btn.disabled = !(paiementDepartOk || retraitPaiementValide);
+}
+let retraitPaiementValide = false;
 async function validerPaiementRetrait(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
   const montant = parseFloat(document.getElementById('rt-montant').value)||0;
+  if(montant <= 0){ showToast('⚠️ Renseigne un montant valide'); return; }
   try{
     await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
     showToast('💰 Paiement validé — '+montant.toLocaleString('fr-FR')+' MAD');
+    retraitPaiementValide = true;
+    updateRetireButtonState();
   }catch(e){}
 }
 async function marquerRetire(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
-  if(!paiementDepartOk && montant <= 0){
+  if(!paiementDepartOk && !retraitPaiementValide && montant <= 0){
     showToast('⚠️ Colis non payé au départ — renseigne le montant et valide le paiement avant de marquer le retrait');
     return;
   }
@@ -1398,6 +1412,7 @@ async function marquerRetire(){
     document.getElementById('rt-fiche').innerHTML='';
     document.getElementById('rt-ref').value='';
     retraitCourant=null;
+    retraitPaiementValide=false;
   }catch(e){}
 }
 
