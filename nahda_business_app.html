@@ -401,6 +401,7 @@
 
       <div id="voyage-depart-panel">
         <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
+        <div class="field"><label>Destination du voyageur</label><select id="vd-destination" onchange="onVdDestinationChange()"><option value="">Sélectionner...</option></select></div>
         <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
         <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
         <h2 class="section-title">Ajouter un colis par numéro de reçu</h2>
@@ -580,7 +581,24 @@ function skeletonHTML(n){
   }
   return out;
 }
+let activeRequests = 0;
+let buttonsLockedByLoader = [];
+function lockAllButtons(){
+  if(buttonsLockedByLoader.length) return;
+  document.querySelectorAll('button').forEach(btn=>{
+    if(!btn.disabled){ btn.disabled = true; buttonsLockedByLoader.push(btn); }
+  });
+}
+function unlockAllButtons(){
+  buttonsLockedByLoader.forEach(btn=>{ btn.disabled = false; });
+  buttonsLockedByLoader = [];
+  if(typeof updateRetireButtonState === 'function' && typeof retraitCourant !== 'undefined') updateRetireButtonState();
+}
+function beginRequest(){ activeRequests++; if(activeRequests===1) lockAllButtons(); }
+function endRequest(){ activeRequests = Math.max(0, activeRequests-1); if(activeRequests===0) unlockAllButtons(); }
+
 async function api(action, payload={}){
+  beginRequest();
   try{
     const res = await fetch(API_URL, {
       method:'POST',
@@ -593,25 +611,32 @@ async function api(action, payload={}){
   }catch(err){
     if(!err.message || err.message.indexOf('⚠️')===-1) showToast('⚠️ Connexion API impossible — vérifie l\'URL /exec');
     throw err;
+  }finally{
+    endRequest();
   }
 }
 
 /* Upload photo avec 1 nouvelle tentative silencieuse en cas d'echec (connexion lente) */
 async function uploadPhotoWithRetry(base64, nom, tentatives=2){
-  for(let i=0;i<tentatives;i++){
-    try{
-      const res = await fetch(API_URL, {
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({action:'uploadPhoto', base64, nom})
-      });
-      const out = await res.json();
-      if(out.ok) return out.data;
-      if(i === tentatives-1) throw new Error(out.error || 'Echec upload photo');
-    }catch(e){
-      if(i === tentatives-1) throw e;
-      await new Promise(r=>setTimeout(r, 1200)); // pause avant nouvelle tentative
+  beginRequest();
+  try{
+    for(let i=0;i<tentatives;i++){
+      try{
+        const res = await fetch(API_URL, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify({action:'uploadPhoto', base64, nom})
+        });
+        const out = await res.json();
+        if(out.ok) return out.data;
+        if(i === tentatives-1) throw new Error(out.error || 'Echec upload photo');
+      }catch(e){
+        if(i === tentatives-1) throw e;
+        await new Promise(r=>setTimeout(r, 1200)); // pause avant nouvelle tentative
+      }
     }
+  }finally{
+    endRequest();
   }
 }
 
@@ -1241,9 +1266,27 @@ function filterHistoriqueList(){
 }
 
 let departSelection = [];
-function renderDepartList(){
+async function renderDepartList(){
   document.getElementById('depart-search').value = '';
+  const sel = document.getElementById('vd-destination');
+  if(sel.options.length <= 1){
+    try{
+      if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+      DESTINATIONS_CACHE.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays+' — '+d.agence;
+        sel.appendChild(opt);
+      });
+    }catch(e){}
+  }
   renderDepartSelectionHTML();
+}
+function onVdDestinationChange(){
+  if(departSelection.length){
+    departSelection = [];
+    renderDepartSelectionHTML();
+    showToast('ℹ️ Sélection de colis réinitialisée (changement de destination)');
+  }
 }
 function renderDepartSelectionHTML(){
   const box = document.getElementById('depart-list');
@@ -1258,9 +1301,12 @@ async function ajouterColisDepart(){
   const input = document.getElementById('depart-search');
   const ref = input.value.trim();
   if(!ref) return;
+  const destinationChoisie = document.getElementById('vd-destination').value;
+  if(!destinationChoisie){ showToast('⚠️ Choisis d\'abord la destination du voyageur'); return; }
   try{
     const c = await api('searchColis', {reference: ref});
     if(Number(c.statut) !== 0){ showToast('⚠️ Colis non disponible pour un départ (statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
+    if(c.pays_destination !== destinationChoisie){ showToast('⚠️ Ce colis est destiné à '+c.pays_destination+', pas à '+destinationChoisie); return; }
     if(departSelection.find(x=>x.reference===c.reference)){ showToast('⚠️ Déjà ajouté'); return; }
     departSelection.push({reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination, agence_destination:c.agence_destination, poids:c.poids});
     renderDepartSelectionHTML();
@@ -1276,11 +1322,14 @@ async function lancerVoyage(){
   const numero = document.getElementById('vd-numero').value.trim();
   const date = document.getElementById('vd-date').value;
   const transporteur = document.getElementById('vd-transporteur').value.trim();
+  const destinationChoisie = document.getElementById('vd-destination').value;
+  if(!destinationChoisie){ showToast('⚠️ Choisis la destination du voyageur'); return; }
   if(!departSelection.length){ showToast('⚠️ Ajoute au moins un colis'); return; }
   if(!numero){ showToast('⚠️ Numéro de voyage requis'); return; }
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===destinationChoisie) || {};
   try{
     await api('lancerVoyage', {
-      numero, paysDestination: departSelection[0].pays_destination, agenceDestination: departSelection[0].agence_destination,
+      numero, paysDestination: destinationChoisie, agenceDestination: destInfo.agence || departSelection[0].agence_destination,
       dateDepart: date, transporteur, references: departSelection.map(c=>c.reference)
     });
     showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
@@ -1379,9 +1428,24 @@ async function chargerRetrait(){
 }
 function updateRetireButtonState(){
   const btn = document.getElementById('rt-retire-btn');
-  if(!retraitCourant){ btn.disabled = true; return; }
+  const compteSelect = document.getElementById('rt-compte');
+  const OPTION_PAYE_DEPART = 'Payé au pays de départ';
+  const existeDeja = Array.from(compteSelect.options).some(o=>o.value===OPTION_PAYE_DEPART);
+  if(!retraitCourant){
+    btn.disabled = true;
+    if(existeDeja) compteSelect.remove(0);
+    return;
+  }
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   btn.disabled = !(paiementDepartOk || retraitPaiementValide);
+  if(paiementDepartOk && !existeDeja){
+    const opt = document.createElement('option');
+    opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
+    compteSelect.insertBefore(opt, compteSelect.firstChild);
+    compteSelect.value = OPTION_PAYE_DEPART;
+  } else if(!paiementDepartOk && existeDeja){
+    compteSelect.remove(0);
+  }
 }
 let retraitPaiementValide = false;
 async function validerPaiementRetrait(){
