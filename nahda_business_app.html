@@ -354,8 +354,11 @@
         </select>
       </div>
       <div class="field" id="nc-commentaire-wrap" style="display:none;">
-        <label>Commentaire (paiement partiel)</label>
-        <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : 300 MAD restant, à régler à l'arrivée"></textarea>
+        <label>Montant versé en avance (MAD) — encaissé au pays de départ</label>
+        <input id="nc-montant-avance" type="number" placeholder="0" oninput="updateResteAPercevoir()">
+        <div id="nc-reste-info" style="font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+        <label style="margin-top:10px;">Commentaire (paiement partiel)</label>
+        <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : reste à régler à l'arrivée"></textarea>
       </div>
       <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
 
@@ -666,7 +669,22 @@ function goto(id, fromPopstate){
   if(id==='screen-settings') prepSettings();
   if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; }
 }
+let lastDashboardBackPress = 0;
 window.addEventListener('popstate', function(e){
+  const activeScreen = document.querySelector('.screen.active');
+  const wasOnDashboard = activeScreen && activeScreen.id === 'screen-dashboard';
+
+  if(wasOnDashboard){
+    const now = Date.now();
+    if(now - lastDashboardBackPress < 2200){
+      return; // deuxieme appui rapide : on laisse l'application se fermer naturellement
+    }
+    lastDashboardBackPress = now;
+    showToast('⬅️ Appuyez de nouveau pour quitter l\'application');
+    history.pushState({screen:'screen-dashboard'}, '', '#screen-dashboard'); // absorbe ce retour, reste sur le tableau de bord
+    return;
+  }
+
   const id = (e.state && e.state.screen) || 'screen-login';
   if(document.getElementById(id)) goto(id, true);
 });
@@ -679,6 +697,13 @@ function showToast(msg){
 
 /* ================= LOGIN ================= */
 
+function applyAgentToDashboard(agent){
+  document.getElementById('dash-agent-name').textContent = agent.nom;
+  document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
+  document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
+}
 async function doLogin(){
   const btn = document.getElementById('login-btn');
   if(btn.disabled) return;
@@ -695,11 +720,8 @@ async function doLogin(){
   try{
     const agent = await api('login', {id, motdepasse: pass});
     currentAgent = agent;
-    document.getElementById('dash-agent-name').textContent = agent.nom;
-    document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
-    document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
-    document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
+    localStorage.setItem('nahda_session', JSON.stringify(agent));
+    applyAgentToDashboard(agent);
     await updateKpis();
     history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
     goto('screen-dashboard', true);
@@ -712,9 +734,22 @@ async function doLogin(){
 }
 function doLogout(){
   currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
+  localStorage.removeItem('nahda_session');
   history.replaceState({screen:'screen-login'}, '', '#screen-login');
   goto('screen-login', true);
 }
+async function restoreSession(){
+  const saved = localStorage.getItem('nahda_session');
+  if(!saved) return;
+  try{
+    currentAgent = JSON.parse(saved);
+    applyAgentToDashboard(currentAgent);
+    history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
+    goto('screen-dashboard', true);
+    await updateKpis();
+  }catch(e){ localStorage.removeItem('nahda_session'); }
+}
+
 
 async function updateKpis(){
   try{
@@ -822,6 +857,15 @@ function onDestChange(){
 function onStatutPaieChange(){
   const val = document.getElementById('nc-statutpaie').value;
   document.getElementById('nc-commentaire-wrap').style.display = (val==='Partiel') ? 'block' : 'none';
+  updateResteAPercevoir();
+}
+function updateResteAPercevoir(){
+  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
+  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
+  const total = poids*prixkg;
+  const avance = parseFloat(document.getElementById('nc-montant-avance').value)||0;
+  const reste = Math.max(0, total - avance);
+  document.getElementById('nc-reste-info').textContent = 'Reste à percevoir au retrait : ' + reste.toLocaleString('fr-FR') + ' MAD';
 }
 function addContenu(){
   const inp = document.getElementById('nc-contenu-input');
@@ -847,6 +891,7 @@ function calcTotal(){
   } else {
     devLine.textContent = '';
   }
+  updateResteAPercevoir();
 }
 function onPhoto(e){
   const f = e.target.files[0]; if(!f) return;
@@ -867,6 +912,7 @@ function resetNewColis(){
   document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
   document.getElementById('nc-commentaire-wrap').style.display = 'none';
   document.getElementById('nc-commentaire-paiement').value = '';
+  document.getElementById('nc-montant-avance').value = '';
   document.getElementById('nc-depositaire-nom').value = '';
   document.getElementById('nc-depositaire-tel').value = '';
 }
@@ -915,7 +961,7 @@ async function saveColis(){
     paysDestination, agenceDestination: destInfo.agence || '',
     poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
     statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
-    commentairePaiement,
+    commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : ''
   };
   if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
@@ -1419,7 +1465,11 @@ async function chargerRetrait(){
     }
     retraitCourant = c;
     box.innerHTML = renderResultCard(c, false);
-    document.getElementById('rt-montant').value = c.total;
+    const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0));
+    document.getElementById('rt-montant').value = resteAPercevoir;
+    if(Number(c.montant_avance||0) > 0){
+      showToast('ℹ️ Avance de '+Number(c.montant_avance).toLocaleString('fr-FR')+' MAD déjà versée au départ — reste à percevoir : '+resteAPercevoir.toLocaleString('fr-FR')+' MAD');
+    }
     updateRetireButtonState();
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
@@ -1753,6 +1803,8 @@ if (suiviParam) {
   renderPublicTracking(suiviParam);
 } else if (location.hash.startsWith('#suivi=')) {
   renderPublicTracking(decodeURIComponent(location.hash.replace('#suivi=','')));
+} else {
+  restoreSession();
 }
 
 
