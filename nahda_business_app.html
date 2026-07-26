@@ -181,6 +181,11 @@
   .content-tag{display:inline-flex;align-items:center;gap:6px;background:var(--sand-2);padding:5px 10px;border-radius:20px;font-size:12px;margin:0 6px 6px 0;}
   .content-tag button{border:none;background:none;color:var(--red);cursor:pointer;font-weight:700;font-size:12px;}
   .content-tags-wrap{display:flex;flex-wrap:wrap;margin-bottom:6px;}
+  .ligne-produit{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;position:relative;}
+  .ligne-produit .ligne-remove{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;border:none;background:var(--sand-2);color:var(--red);font-weight:700;font-size:14px;cursor:pointer;}
+  .ligne-produit .ligne-row{display:flex;gap:8px;margin-top:8px;}
+  .ligne-produit .ligne-row input,.ligne-produit .ligne-row select{flex:1;padding:9px 10px;border-radius:9px;border:1.5px solid var(--line);font-size:13px;background:var(--white);}
+  .ligne-produit .ligne-total{margin-top:8px;font-family:var(--font-mono);font-size:12.5px;color:var(--navy);font-weight:700;text-align:right;}
   .add-row{display:flex;gap:8px;}
   .add-row input{flex:1;}
   .add-row button{flex:none;width:44px;border-radius:12px;border:none;background:var(--navy);color:var(--sand);font-size:18px;cursor:pointer;}
@@ -332,16 +337,15 @@
         <label>Destination</label>
         <select id="nc-dest" onchange="onDestChange()"></select>
       </div>
-      <div class="field"><label>Poids (kg)</label><input id="nc-poids" type="number" step="0.1" oninput="calcTotal()" placeholder="0.0"></div>
-      <div class="field"><label>Prix par kg (MAD)</label><input id="nc-prixkg" type="number" oninput="calcTotal()"></div>
 
       <div class="field">
-        <label>Contenu du colis</label>
-        <div class="content-tags-wrap" id="nc-contenu-tags"></div>
-        <div class="add-row">
-          <input id="nc-contenu-input" placeholder="ex : vêtements, chaussures..." onkeydown="if(event.key==='Enter'){event.preventDefault();addContenu();}">
-          <button onclick="addContenu()">+</button>
-        </div>
+        <label>Contenu du colis (produits hétérogènes)</label>
+        <div id="nc-lignes-produits"></div>
+        <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLigneProduit()">+ Ajouter un type de produit</button>
+        <datalist id="nc-types-produit">
+          <option value="Vêtements"><option value="Électronique"><option value="Chaussures">
+          <option value="Alimentaire"><option value="Cosmétiques"><option value="Pièces auto">
+        </datalist>
       </div>
 
       <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
@@ -644,7 +648,6 @@ async function uploadPhotoWithRetry(base64, nom, tentatives=2){
 }
 
 let currentAgent = null;
-let newColisContenu = [];
 let newColisPhotos = [];
 let voyageTab = 'depart';
 let DESTINATIONS_CACHE = [];
@@ -846,12 +849,15 @@ async function prepNewColis(){
   }catch(e){}
   if(!editingRef){
     document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+    if(!newColisLignes.length){ newColisLignes.push({type:'', poids:'', prixKg: selectedDestInfo?selectedDestInfo.prix_kg:0, prixModifie:false}); renderLignesProduits(); }
   }
 }
 function onDestChange(){
   const pays = document.getElementById('nc-dest').value;
   selectedDestInfo = DESTINATIONS_CACHE.find(x=>x.pays===pays) || DESTINATIONS_CACHE[0] || null;
-  document.getElementById('nc-prixkg').value = selectedDestInfo ? selectedDestInfo.prix_kg : 0;
+  // Met a jour le prix/kg par defaut des lignes qui n'ont pas encore ete modifiees manuellement
+  newColisLignes.forEach(l=>{ if(!l.prixModifie) l.prixKg = selectedDestInfo ? selectedDestInfo.prix_kg : 0; });
+  renderLignesProduits();
   calcTotal();
 }
 function onStatutPaieChange(){
@@ -860,29 +866,55 @@ function onStatutPaieChange(){
   updateResteAPercevoir();
 }
 function updateResteAPercevoir(){
-  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
-  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
-  const total = poids*prixkg;
+  const total = newColisLignes.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
   const avance = parseFloat(document.getElementById('nc-montant-avance').value)||0;
   const reste = Math.max(0, total - avance);
   document.getElementById('nc-reste-info').textContent = 'Reste à percevoir au retrait : ' + reste.toLocaleString('fr-FR') + ' MAD';
 }
-function addContenu(){
-  const inp = document.getElementById('nc-contenu-input');
-  const v = inp.value.trim();
-  if(!v) return;
-  newColisContenu.push(v); inp.value='';
-  renderContenuTags();
+let newColisLignes = [];
+function addLigneProduit(){
+  newColisLignes.push({ type:'', poids:'', prixKg: selectedDestInfo ? selectedDestInfo.prix_kg : 0, prixModifie:false });
+  renderLignesProduits();
+  calcTotal();
 }
-function removeContenu(i){ newColisContenu.splice(i,1); renderContenuTags(); }
-function renderContenuTags(){
-  document.getElementById('nc-contenu-tags').innerHTML = newColisContenu.map((c,i)=>
-    `<span class="content-tag">${c}<button onclick="removeContenu(${i})">×</button></span>`).join('');
+function removeLigneProduit(i){
+  newColisLignes.splice(i,1);
+  renderLignesProduits();
+  calcTotal();
+}
+function updateLigneProduit(i, field, value){
+  newColisLignes[i][field] = value;
+  if(field==='prixKg') newColisLignes[i].prixModifie = true;
+  renderLigneTotal(i);
+  calcTotal();
+}
+function renderLigneTotal(i){
+  const el = document.getElementById('ligne-total-'+i);
+  if(!el) return;
+  const l = newColisLignes[i];
+  const t = (parseFloat(l.poids)||0) * (parseFloat(l.prixKg)||0);
+  el.textContent = 'Sous-total : ' + t.toLocaleString('fr-FR') + ' MAD';
+}
+function renderLignesProduits(){
+  const box = document.getElementById('nc-lignes-produits');
+  if(!newColisLignes.length){
+    box.innerHTML = `<div class="empty-state" style="padding:16px;"><div class="em">📦</div><p>Ajoute au moins un type de produit (ex : vêtements, électronique...).</p></div>`;
+    return;
+  }
+  box.innerHTML = newColisLignes.map((l,i)=>`
+    <div class="ligne-produit">
+      <button type="button" class="ligne-remove" onclick="removeLigneProduit(${i})">×</button>
+      <input type="text" placeholder="Type de produit (ex : vêtements)" value="${l.type}" list="nc-types-produit" oninput="updateLigneProduit(${i},'type',this.value)">
+      <div class="ligne-row">
+        <input type="number" step="0.1" placeholder="Poids (kg)" value="${l.poids}" oninput="updateLigneProduit(${i},'poids',this.value)">
+        <input type="number" placeholder="Prix/kg (MAD)" value="${l.prixKg}" oninput="updateLigneProduit(${i},'prixKg',this.value)">
+      </div>
+      <div class="ligne-total" id="ligne-total-${i}"></div>
+    </div>`).join('');
+  newColisLignes.forEach((l,i)=>renderLigneTotal(i));
 }
 function calcTotal(){
-  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
-  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
-  const total = poids*prixkg;
+  const total = newColisLignes.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
   document.getElementById('nc-total').textContent = total.toLocaleString('fr-FR')+' MAD';
   const devLine = document.getElementById('nc-total-devise');
   if(selectedDestInfo && selectedDestInfo.devise && selectedDestInfo.taux_mad && Number(selectedDestInfo.taux_mad) !== 1){
@@ -906,8 +938,8 @@ function renderPhotoGallery(){
     `<div class="gallery-thumb"><img src="${p}"><button onclick="removePhoto(${i})">×</button></div>`).join('');
 }
 function resetNewColis(){
-  newColisContenu=[]; newColisPhotos=[]; editingRef=null;
-  renderPhotoGallery(); renderContenuTags();
+  newColisLignes=[]; newColisPhotos=[]; editingRef=null;
+  renderPhotoGallery(); renderLignesProduits();
   document.getElementById('nc-title').textContent = 'Nouveau Colis';
   document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
   document.getElementById('nc-commentaire-wrap').style.display = 'none';
@@ -925,14 +957,16 @@ async function saveColis(){
   const ref = document.getElementById('nc-ref').value.trim();
   const nom = document.getElementById('nc-nom').value.trim();
   if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
+  const lignesValides = newColisLignes.filter(l => l.type.trim() && parseFloat(l.poids)>0);
+  if(!lignesValides.length){ showToast('⚠️ Ajoute au moins un produit avec un type et un poids'); return; }
   saveBtn.disabled = true;
   setNewColisFieldsDisabled(true);
   const labelOrigine = saveBtn.textContent;
   saveBtn.textContent = '⏳ Enregistrement...';
   const paysDestination = document.getElementById('nc-dest').value;
   const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
-  const poids = parseFloat(document.getElementById('nc-poids').value)||0;
-  const prixkg = parseFloat(document.getElementById('nc-prixkg').value)||0;
+  const lignesProduits = lignesValides.map(l=>({type:l.type.trim(), poids:parseFloat(l.poids)||0, prixKg:parseFloat(l.prixKg)||0}));
+  const total = lignesProduits.reduce((s,l)=>s+l.poids*l.prixKg, 0);
   const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
   const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
   let photoUrls = [];
@@ -959,7 +993,7 @@ async function saveColis(){
     nomDepositaire: document.getElementById('nc-depositaire-nom').value.trim(),
     telephoneDepositaire: document.getElementById('nc-depositaire-tel').value.trim(),
     paysDestination, agenceDestination: destInfo.agence || '',
-    poids, prixKg: prixkg, contenu:[...newColisContenu], total: poids*prixkg,
+    lignesProduits, total,
     statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
     commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : ''
@@ -1054,9 +1088,21 @@ async function generateReceiptPDF(c){
     row('Telephone', c.telephone);
     if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
-    row('Poids', c.poids + ' kg');
-    row('Prix / kg', (c.prixKg||0) + ' MAD');
-    row('Contenu', (c.contenu||[]).join(', '));
+    const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
+    if (lignesRecu.length) {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Contenu', leftX, y);
+      y += 5.5;
+      lignesRecu.forEach(l => {
+        doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+        const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
+        doc.text('• ' + l.type + ' — ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg = ' + formatPdfNum(sousTotal) + ' MAD', leftX + 4, y);
+        y += 5.5;
+      });
+      y += 1.5;
+    } else {
+      row('Contenu', c.contenu || '-');
+    }
     row('Paiement depart', c.statutPaiementDepart);
     if (c.statutPaiementDepart === 'Partiel' && c.commentairePaiement) row('Commentaire', c.commentairePaiement);
     row('Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD');
@@ -1182,6 +1228,26 @@ function renderResultCard(c, showAdminActions, isPublic){
     </div>` : '';
   const receiptBtn = showAdminActions ? `<button class="btn btn-gold" style="margin-top:10px;width:100%;" onclick='generateReceiptPDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🧾 Télécharger le reçu PDF</button>` : '';
 
+  const lignesDetail = c.lignes_produits_detail || [];
+  const expeditions = c.expeditions_detail || [];
+  const expeditionsBlock = expeditions.length ? `
+    <div class="result-row" style="display:block;">
+      <span class="k">Historique d'expédition</span>
+      <div style="margin-top:6px;">${expeditions.map(ex=>`
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;">
+          <span>Voyage ${ex.voyage} — ${ex.poids} kg</span>
+          <span style="color:${Number(ex.statut)===1?'var(--green)':'var(--amber)'};font-weight:700;">${Number(ex.statut)===1?'✓ Arrivé':'◐ En transit'}</span>
+        </div>`).join('')}</div>
+    </div>` : '';
+  const contenuBlock = lignesDetail.length
+    ? `<div style="margin:4px 0 10px;">${lignesDetail.map(l=>`
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--sand-2);">
+          <span>${l.type} · ${l.poids} kg × ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</span>
+          <span style="font-family:var(--font-mono);font-weight:600;">${(Number(l.poids)*Number(l.prixKg)).toLocaleString('fr-FR')} MAD</span>
+        </div>`).join('')}</div>`
+    : `<div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
+       <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>`;
+
   return `<div class="result-card">
     ${photoBlock}
     <div class="result-row"><span class="k">Référence</span><span class="v">${c.reference}</span></div>
@@ -1191,8 +1257,8 @@ function renderResultCard(c, showAdminActions, isPublic){
     ${statut>=1 && c.voyage ? `<div class="result-row"><span class="k">N° voyage</span><span class="v">${c.voyage}</span></div>` : ''}
     ${statut>=1 && c.voyage_transporteur && !isPublic ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
     ${statut>=1 && c.voyage_date_depart ? `<div class="result-row"><span class="k">Date de départ</span><span class="v">${new Date(c.voyage_date_depart).toLocaleDateString('fr-FR')}</span></div>` : ''}
-    <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>
-    <div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
+    ${contenuBlock}
+    ${expeditionsBlock}
     <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
     ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
@@ -1209,8 +1275,8 @@ function colisToReceiptPayload(c){
     reference: c.reference, nomClient: c.nom_client, telephone: c.telephone,
     nomDepositaire: c.nom_depositaire, telephoneDepositaire: c.telephone_depositaire,
     paysDestination: c.pays_destination, agenceDestination: c.agence_destination,
-    poids: c.poids, prixKg: c.prix_kg,
-    contenu: String(c.contenu||'').split(',').map(s=>s.trim()).filter(Boolean),
+    lignesProduits: c.lignes_produits_detail || [],
+    contenu: c.contenu || '',
     total: c.total, statutPaiementDepart: c.statut_paiement_depart,
     commentairePaiement: c.commentaire_paiement, valeurDeclaree: c.valeur_declaree,
     statut: c.statut
@@ -1231,10 +1297,11 @@ async function editColis(c){
   document.getElementById('nc-depositaire-tel').value = c.telephone_depositaire || '';
   document.getElementById('nc-dest').value = c.pays_destination;
   onDestChange();
-  document.getElementById('nc-poids').value = c.poids;
-  document.getElementById('nc-prixkg').value = c.prix_kg;
-  newColisContenu = String(c.contenu||'').split(',').map(s=>s.trim()).filter(Boolean);
-  renderContenuTags();
+  const lignesExistantes = c.lignes_produits_detail || [];
+  newColisLignes = lignesExistantes.length
+    ? lignesExistantes.map(l=>({type:l.type, poids:l.poids, prixKg:l.prixKg, prixModifie:true}))
+    : [{type: c.contenu || '', poids: c.poids || '', prixKg: c.prix_kg || 0, prixModifie:true}];
+  renderLignesProduits();
   document.getElementById('nc-statutpaie').value = c.statut_paiement_depart;
   onStatutPaieChange();
   document.getElementById('nc-commentaire-paiement').value = c.commentaire_paiement || '';
@@ -1337,11 +1404,30 @@ function onVdDestinationChange(){
 function renderDepartSelectionHTML(){
   const box = document.getElementById('depart-list');
   if(!departSelection.length){ box.innerHTML = `<div class="empty-state"><div class="em">🔎</div><p>Recherche un colis par son numéro de reçu pour l'ajouter au voyage.</p></div>`; return; }
-  box.innerHTML = departSelection.map(c=>`
-    <div class="checklist-item">
-      <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination} · ${c.poids}kg</div></div>
+  box.innerHTML = departSelection.map((c,i)=>{
+    const complet = c.poidsEnvoye >= c.poids_restant - 0.001;
+    return `
+    <div class="checklist-item" style="align-items:flex-start;">
+      <div class="txt">
+        <div class="r">${c.reference}</div>
+        <div class="d">${c.nom_client} · ${c.pays_destination} · restant : ${c.poids_restant} kg${c.poids_expedie>0?' (déjà '+c.poids_expedie+' kg envoyés avant)':''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <input type="number" step="0.1" value="${c.poidsEnvoye}" min="0" max="${c.poids_restant}" style="width:90px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;" oninput="updatePoidsEnvoye(${i}, this.value)">
+          <span style="font-size:11px;color:var(--muted);">kg envoyés sur ce voyage</span>
+        </div>
+        <span class="status-pill ${complet?'st-2':'st-1'}" style="margin-top:6px;display:inline-block;">${complet ? '✓ Envoi complet' : '◐ Envoi en tranche'}</span>
+      </div>
       <button onclick="retirerColisDepart('${c.reference}')" style="border:none;background:none;color:var(--red);font-size:18px;font-weight:700;cursor:pointer;">×</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+function updatePoidsEnvoye(i, value){
+  const c = departSelection[i];
+  let v = parseFloat(value)||0;
+  if(v > c.poids_restant) v = c.poids_restant;
+  if(v < 0) v = 0;
+  c.poidsEnvoye = v;
+  renderDepartSelectionHTML();
 }
 async function ajouterColisDepart(){
   const input = document.getElementById('depart-search');
@@ -1351,10 +1437,14 @@ async function ajouterColisDepart(){
   if(!destinationChoisie){ showToast('⚠️ Choisis d\'abord la destination du voyageur'); return; }
   try{
     const c = await api('searchColis', {reference: ref});
-    if(Number(c.statut) !== 0){ showToast('⚠️ Colis non disponible pour un départ (statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
+    const poidsRestant = Math.max(0, Number(c.poids||0) - Number(c.poids_expedie||0));
+    if(Number(c.statut) >= 2 || poidsRestant <= 0){ showToast('⚠️ Colis non disponible pour un départ (déjà entièrement expédié ou statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
     if(c.pays_destination !== destinationChoisie){ showToast('⚠️ Ce colis est destiné à '+c.pays_destination+', pas à '+destinationChoisie); return; }
     if(departSelection.find(x=>x.reference===c.reference)){ showToast('⚠️ Déjà ajouté'); return; }
-    departSelection.push({reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination, agence_destination:c.agence_destination, poids:c.poids});
+    departSelection.push({
+      reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination, agence_destination:c.agence_destination,
+      poids: Number(c.poids||0), poids_expedie: Number(c.poids_expedie||0), poids_restant: poidsRestant, poidsEnvoye: poidsRestant
+    });
     renderDepartSelectionHTML();
     input.value='';
     showToast('✅ '+ref+' ajouté au voyage');
@@ -1372,11 +1462,13 @@ async function lancerVoyage(){
   if(!destinationChoisie){ showToast('⚠️ Choisis la destination du voyageur'); return; }
   if(!departSelection.length){ showToast('⚠️ Ajoute au moins un colis'); return; }
   if(!numero){ showToast('⚠️ Numéro de voyage requis'); return; }
+  if(departSelection.some(c=>!(c.poidsEnvoye>0))){ showToast('⚠️ Renseigne un poids envoyé supérieur à 0 pour chaque colis'); return; }
   const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===destinationChoisie) || {};
   try{
     await api('lancerVoyage', {
       numero, paysDestination: destinationChoisie, agenceDestination: destInfo.agence || departSelection[0].agence_destination,
-      dateDepart: date, transporteur, references: departSelection.map(c=>c.reference)
+      dateDepart: date, transporteur,
+      colis: departSelection.map(c=>({reference:c.reference, poids:c.poidsEnvoye}))
     });
     showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
     document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
@@ -1408,7 +1500,7 @@ function renderArriveeSelectionHTML(){
   if(!arriveeSelection.length){ box.innerHTML = `<div class="empty-state"><div class="em">🔎</div><p>Recherche un colis par son numéro de reçu pour confirmer son arrivée.</p></div>`; return; }
   box.innerHTML = arriveeSelection.map(c=>`
     <div class="checklist-item">
-      <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination}</div></div>
+      <div class="txt"><div class="r">${c.reference}</div><div class="d">${c.nom_client} · ${c.pays_destination} · tronçon : ${c.poids_envoye} kg</div></div>
       <button onclick="retirerColisArrivee('${c.reference}')" style="border:none;background:none;color:var(--red);font-size:18px;font-weight:700;cursor:pointer;">×</button>
     </div>`).join('');
 }
@@ -1419,11 +1511,11 @@ async function ajouterColisArrivee(){
   if(!ref) return;
   if(!numVoyage){ showToast('⚠️ Sélectionne un numéro de voyage'); return; }
   try{
-    const c = await api('searchColis', {reference: ref});
-    if(c.voyage !== numVoyage){ showToast('⚠️ Ce colis n\'appartient pas au voyage sélectionné'); return; }
-    if(Number(c.statut) !== 1){ showToast('⚠️ Colis non disponible pour une arrivée (statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
-    if(arriveeSelection.find(x=>x.reference===c.reference)){ showToast('⚠️ Déjà ajouté'); return; }
-    arriveeSelection.push({reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination});
+    const troncons = await api('listExpeditionsVoyage', {numero: numVoyage});
+    const t = troncons.find(x=>x.reference===ref);
+    if(!t){ showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage'); return; }
+    if(arriveeSelection.find(x=>x.reference===ref)){ showToast('⚠️ Déjà ajouté'); return; }
+    arriveeSelection.push({reference:t.reference, nom_client:t.nom_client, pays_destination:t.pays_destination, poids_envoye:t.poids_envoye});
     renderArriveeSelectionHTML();
     input.value='';
     showToast('✅ '+ref+' ajouté');
@@ -1439,7 +1531,7 @@ async function confirmerArrivee(){
   if(!arriveeSelection.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
   try{
     await api('confirmerArrivee', {numero:num, references:arriveeSelection.map(c=>c.reference), commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    showToast('✅ Arrivée confirmée pour '+arriveeSelection.length+' colis');
+    showToast('✅ Arrivée confirmée pour '+arriveeSelection.length+' tronçon(s)');
     document.getElementById('va-comment').value='';
     await updateKpis(); await renderArriveeSelect();
   }catch(e){}
