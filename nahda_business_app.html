@@ -1482,11 +1482,8 @@ async function renderArriveeSelect(){
   sel.innerHTML = '<option value="">Chargement...</option>';
   try{
     VOYAGES_CACHE = await api('listVoyages');
-    let enVoyage = await api('listColis', {statut:1});
-    if(currentAgent && currentAgent.role!=='Admin'){
-      enVoyage = enVoyage.filter(c=>c.pays_destination===currentAgent.pays);
-    }
-    const numeros = [...new Set(enVoyage.map(c=>c.voyage))].filter(Boolean);
+    const filtrePays = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const numeros = await api('listVoyagesEnTransit', filtrePays);
     sel.innerHTML = numeros.length ? numeros.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">Aucun voyage en cours pour votre pays</option>';
   }catch(e){}
   await renderArriveeList();
@@ -1905,12 +1902,20 @@ function saveBackup(){ showToast('☁️ Toutes les données sont déjà en dire
 
 /* init */
 renderContenuTags();
-const suiviParam = new URLSearchParams(location.search).get('suivi');
-if (suiviParam) {
-  renderPublicTracking(suiviParam);
-} else if (location.hash.startsWith('#suivi=')) {
-  renderPublicTracking(decodeURIComponent(location.hash.replace('#suivi=','')));
-} else {
+let lastProcessedSuivi = null;
+function checkSuiviRouting(){
+  const params = new URLSearchParams(location.search);
+  const suivi = params.get('suivi') || (location.hash.startsWith('#suivi=') ? decodeURIComponent(location.hash.replace('#suivi=','')) : null);
+  if(suivi && suivi !== lastProcessedSuivi){
+    lastProcessedSuivi = suivi;
+    renderPublicTracking(suivi);
+    return true;
+  }
+  return false;
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) checkSuiviRouting(); });
+window.addEventListener('pageshow', checkSuiviRouting);
+if(!checkSuiviRouting()){
   restoreSession();
 }
 
