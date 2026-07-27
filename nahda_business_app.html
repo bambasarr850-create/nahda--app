@@ -551,7 +551,7 @@
     <div class="scroll" id="suivi-public-content"></div>
   </section>
   <div class="toast" id="toast"></div>
-  <div id="scanner-modal" style="display:none;position:absolute;inset:0;background:#000;z-index:120;flex-direction:column;">
+  <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:#000;z-index:120;flex-direction:column;">
     <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--navy);flex:none;">
       <span style="color:#fff;font-family:var(--font-display);font-weight:600;font-size:14px;">📷 Scanner un colis</span>
       <button onclick="closeScanner()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
@@ -560,18 +560,18 @@
     <canvas id="scanner-canvas" style="display:none;"></canvas>
     <div style="padding:14px;background:var(--navy);color:var(--sand);text-align:center;font-size:11.5px;flex:none;">Pointez la caméra vers le QR code du reçu</div>
   </div>
-  <div id="lightbox" onclick="closeLightbox()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;">
+  <div id="lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;">
     <img id="lightbox-img" src="" style="max-width:92%;max-height:80%;border-radius:8px;object-fit:contain;">
     <button onclick="closeLightbox()" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
   </div>
-  <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(11,74,64,.96);z-index:110;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(11,74,64,.96);z-index:110;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
     <div style="font-size:56px;margin-bottom:16px;">✅</div>
     <div style="color:#fff;font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:8px;">Colis enregistré</div>
     <div id="confirm-modal-ref" style="color:var(--gold);font-family:var(--font-mono);font-size:16px;margin-bottom:24px;"></div>
     <button id="confirm-modal-etiquette-btn" class="btn btn-outline" style="width:100%;max-width:280px;margin-bottom:10px;display:none;" onclick="generateEtiquettePDF(lastSavedPayload)">🏷️ Étiquette à imprimer</button>
     <button class="btn btn-gold" style="width:100%;max-width:280px;" onclick="closeConfirmModal()">OK — Retour au tableau de bord</button>
   </div>
-  <div id="bilan-detail-modal" onclick="if(event.target===this)closeBilanDetail()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:115;align-items:flex-end;justify-content:center;">
+  <div id="bilan-detail-modal" onclick="if(event.target===this)closeBilanDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:115;align-items:flex-end;justify-content:center;">
     <div style="background:var(--sand);width:100%;max-height:75%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex:none;">
         <span id="bilan-detail-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;"></span>
