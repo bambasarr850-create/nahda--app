@@ -453,7 +453,11 @@
         <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
       </div>
       <div id="rt-fiche"></div>
-      <div class="field"><label>Montant payé à destination</label><input id="rt-montant" type="number" placeholder="0"></div>
+      <div class="field">
+        <label>Montant payé à destination</label>
+        <input id="rt-montant" type="number" placeholder="0" oninput="updateRetraitDevise()">
+        <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+      </div>
       <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
       <div class="field">
         <label>Compte de retrait</label>
@@ -557,10 +561,13 @@
   </div>
   <div id="bilan-detail-modal" onclick="if(event.target===this)closeBilanDetail()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:115;align-items:flex-end;justify-content:center;">
     <div style="background:var(--sand);width:100%;max-height:75%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex:none;">
         <span id="bilan-detail-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;"></span>
         <button onclick="closeBilanDetail()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
       </div>
+      <select id="bilan-detail-dest-filter" onchange="filterBilanDetailList()" style="margin-bottom:12px;flex:none;padding:9px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:13px;background:var(--white);">
+        <option value="">🌍 Toutes destinations</option>
+      </select>
       <div id="bilan-detail-body" style="overflow-y:auto;flex:1;"></div>
     </div>
   </div>
@@ -1687,9 +1694,25 @@ async function chargerRetrait(){
       showToast('ℹ️ Avance de '+Number(c.montant_avance).toLocaleString('fr-FR')+' MAD déjà versée au départ — reste à percevoir : '+resteAPercevoir.toLocaleString('fr-FR')+' MAD');
     }
     updateRetireButtonState();
+    await updateRetraitDevise();
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
     retraitCourant = null; updateRetireButtonState();
+  }
+}
+async function updateRetraitDevise(){
+  const box = document.getElementById('rt-montant-devise');
+  if(!retraitCourant){ box.textContent = ''; return; }
+  const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+  }catch(e){}
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===retraitCourant.pays_destination);
+  if(destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad)!==1){
+    const converti = montant * Number(destInfo.taux_mad);
+    box.textContent = montant.toLocaleString('fr-FR') + ' MAD  ≈  ' + converti.toLocaleString('fr-FR',{maximumFractionDigits:0}) + ' ' + destInfo.devise;
+  } else {
+    box.textContent = montant.toLocaleString('fr-FR') + ' MAD';
   }
 }
 function updateRetireButtonState(){
@@ -1923,25 +1946,46 @@ function showDashboardDetail(type, label){
   BILAN_FILTRE = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
   showBilanDetail(type, label);
 }
+let BILAN_DETAIL_CACHE = [];
 async function showBilanDetail(type, label){
   document.getElementById('bilan-detail-title').textContent = label;
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
   document.getElementById('bilan-detail-modal').style.display = 'flex';
+  const destSelect = document.getElementById('bilan-detail-dest-filter');
+  destSelect.value = '';
+  if(destSelect.options.length <= 1){
+    try{
+      if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+      DESTINATIONS_CACHE.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays;
+        destSelect.appendChild(opt);
+      });
+    }catch(e){}
+  }
   try{
-    const list = await api('bilanDetail', {...BILAN_FILTRE, type});
-    const box = document.getElementById('bilan-detail-body');
-    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
-    box.innerHTML = list.map(c=>`
-      <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
-        <div class="txt">
-          <div class="r">${c.reference}</div>
-          <div class="d">${c.nom_client||''} · ${c.pays_destination||''}</div>
-        </div>
-        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
-      </div>`).join('');
+    BILAN_DETAIL_CACHE = await api('bilanDetail', {...BILAN_FILTRE, type});
+    renderBilanDetailList(BILAN_DETAIL_CACHE);
   }catch(e){
     document.getElementById('bilan-detail-body').innerHTML = '';
   }
+}
+function filterBilanDetailList(){
+  const pays = document.getElementById('bilan-detail-dest-filter').value;
+  const filtered = pays ? BILAN_DETAIL_CACHE.filter(c=>c.pays_destination===pays) : BILAN_DETAIL_CACHE;
+  renderBilanDetailList(filtered);
+}
+function renderBilanDetailList(list){
+  const box = document.getElementById('bilan-detail-body');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
+  box.innerHTML = list.map(c=>`
+    <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+      <div class="txt">
+        <div class="r">${c.reference}</div>
+        <div class="d">${c.nom_client||''} · ${c.pays_destination||''}</div>
+      </div>
+      <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
+    </div>`).join('');
 }
 function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; }
 
