@@ -762,7 +762,7 @@ async function updateKpis(){
     const b = await api('bilan', filtre);
     document.getElementById('kpi-total').textContent = b.totalColis;
     document.getElementById('kpi-attente').textContent = b.enAttente;
-    document.getElementById('kpi-voyage').textContent = b.totalColis - b.enAttente - b.arrives;
+    document.getElementById('kpi-voyage').textContent = b.enVoyage;
     document.getElementById('kpi-retires').textContent = b.retires;
   }catch(e){}
 }
