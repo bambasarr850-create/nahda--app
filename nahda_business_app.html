@@ -464,7 +464,7 @@
         <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gold" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
+        <button class="btn btn-gold" id="rt-valider-btn" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
         <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
       </div>
     </div>
@@ -1223,7 +1223,17 @@ async function generateReceiptPDF(c){
       row('Contenu', c.contenu || '-');
     }
     row('Paiement depart', c.statutPaiementDepart);
-    if (c.statutPaiementDepart === 'Partiel' && c.commentairePaiement) row('Commentaire', c.commentairePaiement);
+    if (c.statutPaiementDepart === 'Partiel') {
+      const avance = Number(c.montantAvance || 0);
+      const reste = Math.max(0, Number(c.total || 0) - avance);
+      row('Montant verse (avance)', formatPdfNum(avance) + ' MAD');
+      doc.setFillColor(gold);
+      doc.roundedRect(leftX-2, y-4, 92, 9, 1.5, 1.5, 'F');
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9.5);
+      doc.text('RESTE A PERCEVOIR : ' + formatPdfNum(reste) + ' MAD', leftX+2, y+2);
+      y += 9;
+      if (c.commentairePaiement) row('Commentaire', c.commentairePaiement);
+    }
     row('Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD');
 
     // Conversion devise destination (si renseignee dans NAHDA_DESTINATIONS)
@@ -1396,7 +1406,7 @@ function colisToReceiptPayload(c){
     paysDestination: c.pays_destination, agenceDestination: c.agence_destination,
     lignesProduits: c.lignes_produits_detail || [],
     contenu: c.contenu || '', poids: c.poids,
-    total: c.total, statutPaiementDepart: c.statut_paiement_depart,
+    total: c.total, statutPaiementDepart: c.statut_paiement_depart, montantAvance: c.montant_avance,
     commentairePaiement: c.commentaire_paiement, valeurDeclaree: c.valeur_declaree,
     statut: c.statut, dateCreation: c.date_creation, paysOrigine: c.pays_origine
   };
@@ -1460,7 +1470,7 @@ async function renderHistoriqueList(){
   box.innerHTML = skeletonHTML(3);
   try{
     let list = await api('listVoyages');
-    if(currentAgent && currentAgent.role!=='Admin') list = list.filter(v=>v.pays_destination===currentAgent.pays);
+    if(currentAgent && currentAgent.role!=='Admin') list = list.filter(v=>v.pays_destination===currentAgent.pays || v.pays_origine===currentAgent.pays);
     HISTORIQUE_CACHE = list;
     renderHistoriqueHTML(list);
   }catch(e){ box.innerHTML=''; }
@@ -1586,7 +1596,7 @@ async function lancerVoyage(){
   try{
     await api('lancerVoyage', {
       numero, paysDestination: destinationChoisie, agenceDestination: destInfo.agence || departSelection[0].agence_destination,
-      dateDepart: date, transporteur,
+      dateDepart: date, transporteur, agentPays: currentAgent ? currentAgent.pays : '',
       colis: departSelection.map(c=>({reference:c.reference, poids:c.poidsEnvoye}))
     });
     showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
@@ -1717,16 +1727,19 @@ async function updateRetraitDevise(){
 }
 function updateRetireButtonState(){
   const btn = document.getElementById('rt-retire-btn');
+  const validerBtn = document.getElementById('rt-valider-btn');
   const compteSelect = document.getElementById('rt-compte');
   const OPTION_PAYE_DEPART = 'Payé au pays de départ';
   const existeDeja = Array.from(compteSelect.options).some(o=>o.value===OPTION_PAYE_DEPART);
   if(!retraitCourant){
     btn.disabled = true;
+    validerBtn.disabled = false;
     if(existeDeja) compteSelect.remove(0);
     return;
   }
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   btn.disabled = !(paiementDepartOk || retraitPaiementValide);
+  validerBtn.disabled = paiementDepartOk; // rien a valider : deja regle integralement au depot
   if(paiementDepartOk && !existeDeja){
     const opt = document.createElement('option');
     opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
@@ -1739,6 +1752,8 @@ function updateRetireButtonState(){
 let retraitPaiementValide = false;
 async function validerPaiementRetrait(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  if(paiementDepartOk){ showToast('ℹ️ Ce colis est déjà payé intégralement au départ — aucune validation nécessaire'); return; }
   const montant = parseFloat(document.getElementById('rt-montant').value)||0;
   if(montant <= 0){ showToast('⚠️ Renseigne un montant valide'); return; }
   try{
