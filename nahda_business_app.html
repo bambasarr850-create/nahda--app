@@ -1362,10 +1362,12 @@ function renderResultCard(c, showAdminActions, isPublic){
     deviseLine = ` <span style="color:var(--muted);font-size:11px;">(≈ ${converti.toLocaleString('fr-FR',{maximumFractionDigits:0})} ${destInfo.devise})</span>`;
   }
 
-  const adminActions = (showAdminActions && currentAgent && currentAgent.role==='Admin') ? `
+  const isAdmin = currentAgent && currentAgent.role==='Admin';
+  const canModify = showAdminActions && (isAdmin || (currentAgent && c.pays_origine===currentAgent.pays && Number(c.statut)===0));
+  const adminActions = canModify ? `
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-outline" onclick='editColis(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
-      <button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>
+      ${isAdmin ? `<button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>` : ''}
     </div>` : '';
   const receiptBtn = showAdminActions ? `<button class="btn btn-gold" style="margin-top:10px;width:100%;" onclick='generateReceiptPDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🧾 Télécharger le reçu PDF</button><button class="btn btn-outline" style="margin-top:8px;width:100%;" onclick='generateEtiquettePDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🏷️ Étiquette à imprimer</button>` : '';
 
