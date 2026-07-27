@@ -1493,7 +1493,7 @@ function renderHistoriqueHTML(list){
   box.innerHTML = list.map(v=>{
     const cls = STATUT_VOYAGE_CLASS[v.statut] || 'st-0';
     const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
-    return `<div class="histo-card">
+    return `<div class="histo-card" style="cursor:pointer;" onclick='showVoyageColisDetail(${JSON.stringify(v).replace(/'/g,"&#39;")})'>
       <div class="histo-top">
         <span class="histo-numero">${v.numero}</span>
         <span class="status-pill ${cls}">${v.statut}</span>
@@ -1507,6 +1507,20 @@ function renderHistoriqueHTML(list){
       ${v.references && v.references.length ? `<div class="histo-refs">${v.references.map(r=>`<span>${r}</span>`).join('')}</div>` : ''}
     </div>`;
   }).join('');
+}
+async function showVoyageColisDetail(v){
+  document.getElementById('bilan-detail-title').textContent = 'Colis du voyage ' + v.numero;
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    const references = v.references || [];
+    const allColis = await api('listColis', {});
+    BILAN_DETAIL_CACHE = allColis.filter(c=>references.includes(c.reference));
+    renderBilanDetailList(BILAN_DETAIL_CACHE);
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = '';
+  }
 }
 function filterHistoriqueList(){
   const q = document.getElementById('historique-search').value.trim().toLowerCase();
@@ -1985,6 +1999,7 @@ async function showBilanDetail(type, label){
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
   document.getElementById('bilan-detail-modal').style.display = 'flex';
   const destSelect = document.getElementById('bilan-detail-dest-filter');
+  destSelect.style.display = '';
   destSelect.value = '';
   if(destSelect.options.length <= 1){
     try{
