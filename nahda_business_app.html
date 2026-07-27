@@ -1086,15 +1086,34 @@ async function generateEtiquettePDF(c){
       doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
       doc.text(String(c.telephone||'-'), ox+labelW-6, y, { align:'right' });
 
-      // Bloc poids / prix / date / origine (2 colonnes)
+      // Bloc poids / prix / date / origine
       y += 8;
-      const poidsTotal = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(c.poids||0);
+      const lignes = c.lignesProduits || [];
+      const poidsTotal = lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(c.poids||0);
       const prixMoyen = poidsTotal>0 ? (Number(c.total||0)/poidsTotal) : 0;
+      const prixDistincts = [...new Set(lignes.map(l=>Number(l.prixKg)))];
+      const prixVarie = lignes.length > 1 && prixDistincts.length > 1;
       const dateDepot = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+
+      if(prixVarie){
+        doc.setFont(undefined,'bold'); doc.setFontSize(9.5); doc.setTextColor(muted);
+        doc.text('DÉTAIL (prix différents par produit)', ox+labelW/2, y, { align:'center' });
+        y += 6;
+        doc.setFont(undefined,'normal'); doc.setFontSize(9.5); doc.setTextColor(ink);
+        lignes.forEach(l => {
+          doc.text('• ' + (l.type||'-') + ' : ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg', ox+6, y);
+          y += 5.5;
+        });
+        doc.setFontSize(9.5); doc.setTextColor(muted);
+        doc.text('Poids total : ' + poidsTotal + ' kg', ox+6, y);
+        y += 7.5;
+      } else {
+        doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
+        doc.text('Poids : ' + poidsTotal + ' kg', ox+6, y);
+        doc.text('Prix/kg : ' + formatPdfNum(prixMoyen) + ' MAD', ox+labelW-6, y, { align:'right' });
+        y += 7.5;
+      }
       doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
-      doc.text('Poids : ' + poidsTotal + ' kg', ox+6, y);
-      doc.text('Prix/kg : ' + formatPdfNum(prixMoyen) + ' MAD', ox+labelW-6, y, { align:'right' });
-      y += 7.5;
       doc.text('Dépôt : ' + dateDepot, ox+6, y);
       doc.text('Origine : ' + (c.paysOrigine || '-'), ox+labelW-6, y, { align:'right' });
 
@@ -1108,8 +1127,9 @@ async function generateEtiquettePDF(c){
       doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
       doc.text(String(c.agenceDestination||''), ox+labelW/2, y, { align:'center' });
 
-      // QR vectoriel centre
-      const qrSizeMm = 55;
+      // QR vectoriel centre - taille adaptee a l'espace restant (robuste si plusieurs lignes de produits)
+      const espaceRestant = (oy + labelH - 12) - (y + 6);
+      const qrSizeMm = Math.max(38, Math.min(55, espaceRestant));
       const quiet = 4;
       const totalModules = qrCount + quiet*2;
       const cell = qrSizeMm / totalModules;
