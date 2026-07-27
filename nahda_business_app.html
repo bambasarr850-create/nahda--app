@@ -1068,44 +1068,44 @@ async function generateEtiquettePDF(c){
       doc.setFillColor(navy);
       doc.rect(ox, oy, labelW, 18, 'F');
       if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', ox+4, oy+2.5, 13, 13);
-      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(11);
-      doc.text('NAHDA BUSINESS', ox+20, oy+8);
-      doc.setFont(undefined,'normal'); doc.setFontSize(6.5);
-      doc.text('Fret aerien Maroc-Afrique', ox+20, oy+13.5);
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+      doc.text('NAHDA BUSINESS', ox+20, oy+8.5);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8);
+      doc.text('Fret aerien Maroc-Afrique', ox+20, oy+14);
 
-      doc.setTextColor(ink); doc.setFont(undefined,'bold'); doc.setFontSize(13);
-      doc.text(String(c.reference), ox+labelW/2, oy+26, { align:'center' });
+      doc.setTextColor(ink); doc.setFont(undefined,'bold'); doc.setFontSize(19);
+      doc.text(String(c.reference), ox+labelW/2, oy+27, { align:'center' });
 
       doc.setDrawColor(gold); doc.setLineWidth(0.5);
-      doc.line(ox+8, oy+29, ox+labelW-8, oy+29);
+      doc.line(ox+6, oy+31, ox+labelW-6, oy+31);
 
       // Bloc client
-      let y = oy+35;
-      doc.setFont(undefined,'bold'); doc.setFontSize(8.5); doc.setTextColor(ink);
-      doc.text(String(c.nomClient||'-'), ox+8, y);
-      doc.setFont(undefined,'normal'); doc.setFontSize(7.5); doc.setTextColor(muted);
-      doc.text(String(c.telephone||'-'), ox+labelW-8, y, { align:'right' });
+      let y = oy+39;
+      doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(ink);
+      doc.text(String(c.nomClient||'-'), ox+6, y);
+      doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
+      doc.text(String(c.telephone||'-'), ox+labelW-6, y, { align:'right' });
 
       // Bloc poids / prix / date / origine (2 colonnes)
-      y += 6;
+      y += 8;
       const poidsTotal = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(c.poids||0);
       const prixMoyen = poidsTotal>0 ? (Number(c.total||0)/poidsTotal) : 0;
       const dateDepot = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
-      doc.setFontSize(7.2); doc.setTextColor(muted); doc.setFont(undefined,'normal');
-      doc.text('Poids : ' + poidsTotal + ' kg', ox+8, y);
-      doc.text('Prix/kg : ' + formatPdfNum(prixMoyen) + ' MAD', ox+labelW-8, y, { align:'right' });
-      y += 5.5;
-      doc.text('Dépôt : ' + dateDepot, ox+8, y);
-      doc.text('Origine : ' + (c.paysOrigine || '-'), ox+labelW-8, y, { align:'right' });
+      doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
+      doc.text('Poids : ' + poidsTotal + ' kg', ox+6, y);
+      doc.text('Prix/kg : ' + formatPdfNum(prixMoyen) + ' MAD', ox+labelW-6, y, { align:'right' });
+      y += 7.5;
+      doc.text('Dépôt : ' + dateDepot, ox+6, y);
+      doc.text('Origine : ' + (c.paysOrigine || '-'), ox+labelW-6, y, { align:'right' });
 
-      y += 6;
-      doc.setFont(undefined,'bold'); doc.setFontSize(8); doc.setTextColor(muted);
+      y += 8;
+      doc.setFont(undefined,'bold'); doc.setFontSize(10.5); doc.setTextColor(muted);
       doc.text('DESTINATION', ox+labelW/2, y, { align:'center' });
-      y += 6;
-      doc.setFontSize(12); doc.setTextColor(ink);
+      y += 7.5;
+      doc.setFontSize(16); doc.setTextColor(ink);
       doc.text(String(c.paysDestination||''), ox+labelW/2, y, { align:'center' });
-      y += 5.5;
-      doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(muted);
+      y += 7;
+      doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
       doc.text(String(c.agenceDestination||''), ox+labelW/2, y, { align:'center' });
 
       // QR vectoriel centre
@@ -1114,7 +1114,7 @@ async function generateEtiquettePDF(c){
       const totalModules = qrCount + quiet*2;
       const cell = qrSizeMm / totalModules;
       const qrX = ox + (labelW - qrSizeMm)/2;
-      const qrY = y + 5;
+      const qrY = y + 6;
       doc.setFillColor('#FFFFFF'); doc.rect(qrX, qrY, qrSizeMm, qrSizeMm, 'F');
       doc.setFillColor(ink);
       for (let r=0; r<qrCount; r++){
@@ -1125,8 +1125,8 @@ async function generateEtiquettePDF(c){
         }
       }
 
-      doc.setFont(undefined,'normal'); doc.setFontSize(7); doc.setTextColor(muted);
-      doc.text('Scannez pour suivre ce colis', ox+labelW/2, qrY+qrSizeMm+5, { align:'center' });
+      doc.setFont(undefined,'normal'); doc.setFontSize(9.5); doc.setTextColor(muted);
+      doc.text('Scannez pour suivre ce colis', ox+labelW/2, qrY+qrSizeMm+7, { align:'center' });
     }
 
     drawEtiquette(0, 0);
