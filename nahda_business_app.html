@@ -162,6 +162,8 @@
   .tabbar button.active{background:var(--navy);color:var(--sand);}
 
   .checklist-item{display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;}
+  .checklist-total{background:var(--navy);color:var(--sand);padding:10px 14px;border-radius:12px;margin-bottom:12px;font-size:13px;text-align:center;}
+  .checklist-total b{color:var(--gold);}
   .histo-card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
   .histo-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
   .histo-numero{font-family:var(--font-mono);font-weight:700;font-size:13.5px;color:var(--navy);}
@@ -1543,7 +1545,9 @@ function onVdDestinationChange(){
 function renderDepartSelectionHTML(){
   const box = document.getElementById('depart-list');
   if(!departSelection.length){ box.innerHTML = `<div class="empty-state"><div class="em">🔎</div><p>Recherche un colis par son numéro de reçu pour l'ajouter au voyage.</p></div>`; return; }
-  box.innerHTML = departSelection.map((c,i)=>{
+  const totalPoids = departSelection.reduce((s,c)=>s+(parseFloat(c.poidsEnvoye)||0),0);
+  let html = `<div class="checklist-total">📦 ${departSelection.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total sur ce voyage</div>`;
+  html += departSelection.map((c,i)=>{
     const complet = c.poidsEnvoye >= c.poids_restant - 0.001;
     return `
     <div class="checklist-item" style="align-items:flex-start;">
@@ -1559,6 +1563,7 @@ function renderDepartSelectionHTML(){
       <button onclick="retirerColisDepart('${c.reference}')" style="border:none;background:none;color:var(--red);font-size:18px;font-weight:700;cursor:pointer;">×</button>
     </div>`;
   }).join('');
+  box.innerHTML = html;
 }
 function updatePoidsEnvoye(i, value){
   const c = departSelection[i];
@@ -1655,11 +1660,14 @@ async function renderArriveeList(){
 function renderArriveeListHTML(list){
   const box = document.getElementById('arrivee-list');
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
-  box.innerHTML = list.map(t=>`
+  const totalPoids = list.reduce((s,t)=>s+(parseFloat(t.poids_envoye)||0),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total en transit</div>`;
+  html += list.map(t=>`
     <label class="checklist-item">
       <input type="checkbox" class="arr-check" value="${t.reference}" checked>
       <div class="txt"><div class="r">${t.reference}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
     </label>`).join('');
+  box.innerHTML = html;
 }
 function filterArriveeList(){
   const q = document.getElementById('arrivee-search').value.trim().toLowerCase();
@@ -2003,14 +2011,17 @@ function filterBilanDetailList(){
 function renderBilanDetailList(list){
   const box = document.getElementById('bilan-detail-body');
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
-  box.innerHTML = list.map(c=>`
+  const totalPoids = list.reduce((s,c)=>s+(parseFloat(c.poids)||0),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
+  html += list.map(c=>`
     <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
       <div class="txt">
         <div class="r">${c.reference}</div>
-        <div class="d">${c.nom_client||''} · ${c.pays_destination||''}</div>
+        <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids||0)} kg</div>
       </div>
       <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
     </div>`).join('');
+  box.innerHTML = html;
 }
 function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; }
 
