@@ -125,7 +125,8 @@
   .menu-btn.wide{grid-column:1/3;flex-direction:row;align-items:center;}
 
   .kpi-strip{display:flex;gap:10px;margin-bottom:16px;}
-  .kpi{flex:1;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);}
+  .kpi{flex:1;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);cursor:pointer;transition:transform .12s;}
+  .kpi:active{transform:scale(.95);background:var(--sand-2);}
   .kpi .n{font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--navy);}
   .kpi .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
 
@@ -306,10 +307,10 @@
       </div>
 
       <div class="kpi-strip">
-        <div class="kpi"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
-        <div class="kpi"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
-        <div class="kpi"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
-        <div class="kpi"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
+        <div class="kpi" onclick="showDashboardDetail('totalColis','Tous les colis')"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
+        <div class="kpi" onclick="showDashboardDetail('enAttente','Colis en attente')"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
+        <div class="kpi" onclick="showDashboardDetail('enVoyage','Colis en voyage')"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
+        <div class="kpi" onclick="showDashboardDetail('retires','Colis retirés')"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
       </div>
 
       <div class="grid-menu">
@@ -1918,6 +1919,10 @@ async function generateBilanPDF(){
   }catch(e){ showToast('⚠️ Bilan PDF non généré (voir console)'); console.error(e); }
 }
 
+function showDashboardDetail(type, label){
+  BILAN_FILTRE = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+  showBilanDetail(type, label);
+}
 async function showBilanDetail(type, label){
   document.getElementById('bilan-detail-title').textContent = label;
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
