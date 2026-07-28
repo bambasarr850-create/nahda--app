@@ -643,10 +643,15 @@ async function api(action, payload={}){
       body: JSON.stringify({action, ...payload})
     });
     const out = await res.json();
-    if(!out.ok){ showToast('⚠️ '+out.error); throw new Error(out.error); }
+    if(!out.ok){
+      showToast('⚠️ '+out.error);
+      const err = new Error(out.error);
+      err.isApiError = true; // erreur metier deja affichee clairement, ne pas la remplacer
+      throw err;
+    }
     return out.data;
   }catch(err){
-    if(!err.message || err.message.indexOf('⚠️')===-1) showToast('⚠️ Connexion API impossible — vérifie l\'URL /exec');
+    if(!err.isApiError) showToast('⚠️ Connexion API impossible — vérifie l\'URL /exec');
     throw err;
   }finally{
     endRequest();
