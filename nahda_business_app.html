@@ -545,6 +545,7 @@
       </div>
 
       <div class="settings-item" onclick="saveBackup()"><div><div class="t">☁️ Sauvegarde</div><div class="d">Synchroniser vers Google Sheets</div></div><span>›</span></div>
+      <div class="settings-item" onclick="showHistoriqueModifications()"><div><div class="t">📜 Historique des modifications</div><div class="d">Qui a modifié ou supprimé quoi, et quand</div></div><span>›</span></div>
 
       <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
         <div style="font-size:11px;color:var(--muted);">Application développée par</div>
@@ -1026,6 +1027,7 @@ async function saveColis(){
     statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
     commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : '',
+    agentId: currentAgent ? currentAgent.id : '', agentNom: currentAgent ? currentAgent.nom : '',
     dateCreation: new Date().toISOString(), paysOrigine: currentAgent ? currentAgent.pays : ''
   };
   if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
@@ -1375,7 +1377,7 @@ function renderResultCard(c, showAdminActions, isPublic){
   const adminActions = canModify ? `
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-outline" onclick='editColis(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
-      ${isAdmin ? `<button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>` : ''}
+      <button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>
     </div>` : '';
   const receiptBtn = showAdminActions ? `<button class="btn btn-gold" style="margin-top:10px;width:100%;" onclick='generateReceiptPDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🧾 Télécharger le reçu PDF</button><button class="btn btn-outline" style="margin-top:8px;width:100%;" onclick='generateEtiquettePDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🏷️ Étiquette à imprimer</button>` : '';
 
@@ -1461,8 +1463,11 @@ async function editColis(c){
 }
 async function deleteColisConfirm(reference){
   if(!confirm('Supprimer définitivement le colis '+reference+' ? Cette action est irréversible.')) return;
+  const saisie = prompt('Confirmation finale : retape exactement le numéro de reçu « '+reference+' » pour confirmer la suppression définitive.');
+  if(saisie === null) return;
+  if(saisie.trim() !== reference){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
   try{
-    await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentId: currentAgent.id, agentNom: currentAgent.nom});
     showToast('🗑️ Colis '+reference+' supprimé');
     document.getElementById('sr-result').innerHTML='';
     document.getElementById('sr-ref').value='';
@@ -2148,6 +2153,29 @@ async function changePassword(){
   }catch(e){}
 }
 function saveBackup(){ showToast('☁️ Toutes les données sont déjà en direct sur Google Sheets'); }
+async function showHistoriqueModifications(){
+  document.getElementById('bilan-detail-title').textContent = 'Historique des modifications';
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(3);
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    const rows = await api('listHistorique', {agentRole: currentAgent.role});
+    const box = document.getElementById('bilan-detail-body');
+    if(!rows.length){ box.innerHTML = `<div class="empty-state"><div class="em">📜</div><p>Aucune modification ou suppression enregistrée.</p></div>`; return; }
+    box.innerHTML = rows.map(r=>{
+      const dateStr = r.date ? new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—';
+      const couleur = r.action==='Suppression' ? 'var(--red)' : 'var(--navy)';
+      return `<div class="checklist-item" style="align-items:flex-start;">
+        <div class="txt">
+          <div class="r">${r.reference} <span style="color:${couleur};font-weight:700;">· ${r.action}</span></div>
+          <div class="d">Par ${r.agent_nom||'—'} (${r.agent_id||'—'}) · ${r.agent_pays||''} · ${dateStr}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = '';
+  }
+}
 
 /* init */
 let lastProcessedSuivi = null;
