@@ -89,6 +89,7 @@
   }
   .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);}
   .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);opacity:.7;cursor:not-allowed;}
+  .field input:read-only{background:var(--sand-2);color:var(--navy);font-weight:700;cursor:not-allowed;}
   .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);cursor:not-allowed;opacity:.75;}
   .login-form{width:100%;position:relative;z-index:1;}
   .btn{
@@ -468,6 +469,7 @@
         <label>Montant payé à destination</label>
         <input id="rt-montant" type="number" placeholder="0" oninput="updateRetraitDevise()">
         <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+        <div id="rt-montant-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:4px;">🔒 Montant fixé automatiquement — seul l'administrateur peut le modifier</div>
       </div>
       <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
       <div class="field">
@@ -1430,7 +1432,8 @@ function renderResultCard(c, showAdminActions, isPublic){
     ${expeditionsBlock}
     <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
-    ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
+    ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
+    ${c.commentaire_arrivee ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
     <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
     <div class="timeline">${steps}</div>
     ${receiptBtn}
@@ -1764,6 +1767,9 @@ async function chargerRetrait(){
     const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0));
     retraitCourant.resteAttendu = resteAPercevoir;
     document.getElementById('rt-montant').value = resteAPercevoir;
+    const montantInput = document.getElementById('rt-montant');
+    montantInput.readOnly = (currentAgent.role !== 'Admin');
+    document.getElementById('rt-montant-lock-note').style.display = (currentAgent.role !== 'Admin') ? 'block' : 'none';
     if(Number(c.montant_avance||0) > 0){
       showToast('ℹ️ Avance de '+Number(c.montant_avance).toLocaleString('fr-FR')+' MAD déjà versée au départ — reste à percevoir : '+resteAPercevoir.toLocaleString('fr-FR')+' MAD');
     }
@@ -1798,6 +1804,8 @@ function updateRetireButtonState(){
   if(!retraitCourant){
     btn.disabled = true;
     validerBtn.disabled = false;
+    document.getElementById('rt-montant').readOnly = false;
+    document.getElementById('rt-montant-lock-note').style.display = 'none';
     if(existeDeja) compteSelect.remove(0);
     return;
   }
