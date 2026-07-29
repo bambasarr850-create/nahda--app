@@ -1627,6 +1627,7 @@ async function ajouterColisDepart(){
   if(!ref) return;
   const destinationChoisie = document.getElementById('vd-destination').value;
   if(!destinationChoisie){ showToast('⚠️ Choisis d\'abord la destination du voyageur'); return; }
+  showToast('🔍 Recherche du colis '+ref+'...');
   try{
     const c = await api('searchColis', {reference: ref});
     const poidsRestant = Math.max(0, Number(c.poids||0) - Number(c.poids_expedie||0));
@@ -1751,15 +1752,20 @@ async function chargerRetrait(){
   const box = document.getElementById('rt-fiche');
   if(!ref) return;
   retraitPaiementValide = false;
+  box.innerHTML = skeletonHTML(1);
   try{
     if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
     const c = await api('searchColis', {reference: ref});
     if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!==c.pays_destination){
-      box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p>Retrait réservé à l'agence de destination : ${c.pays_destination}</p></div>`;
+      box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p><b>Retrait réservé à l'agence de destination : ${c.pays_destination}</b></p></div>`;
+      retraitCourant = null; updateRetireButtonState(); return;
+    }
+    if(Number(c.statut) === 3){
+      box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p style="font-size:15px;font-weight:700;color:var(--green);">Ce colis a déjà été retiré.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Retrait effectué le ${c.date_retrait ? new Date(c.date_retrait).toLocaleDateString('fr-FR') : '—'}.</p></div>`;
       retraitCourant = null; updateRetireButtonState(); return;
     }
     if(Number(c.statut) !== 2){
-      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p>Ce colis n'est pas encore "Arrivé" (statut actuel : ${STATUT_LABELS[Number(c.statut)]}).</p></div>`;
+      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p style="font-size:15px;font-weight:700;color:var(--amber);">Ce colis n'est pas encore arrivé.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Statut actuel : ${STATUT_LABELS[Number(c.statut)]}</p></div>`;
       retraitCourant = null; updateRetireButtonState(); return;
     }
     retraitCourant = c;
