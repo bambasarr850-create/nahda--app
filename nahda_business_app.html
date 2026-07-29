@@ -213,8 +213,10 @@
   .toast.ok{background:#1E7A4C;}
   .toast.info{background:#0E3A6B;}
   @keyframes toastSlideDown{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
-  .global-spinner{width:36px;height:36px;border:4px solid var(--sand-2);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
+  .global-plane-track{position:relative;width:150px;height:34px;overflow:hidden;}
+  .global-plane-track::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background-image:repeating-linear-gradient(to right, var(--line) 0 7px, transparent 7px 14px);transform:translateY(-50%);}
+  .global-plane{position:absolute;top:50%;font-size:22px;transform:translateY(-50%);animation:planeFly 1.8s linear infinite;}
+  @keyframes planeFly{0%{left:-15%;}100%{left:105%;}}
 
   .result-card{background:var(--white);border-radius:16px;border:1px solid var(--line);padding:16px;margin-top:6px;}
   .result-row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--sand-2);font-size:13px;}
@@ -569,8 +571,10 @@
   </section>
   <div class="toast" id="toast"></div>
   <div id="global-loading" style="display:none;position:fixed;inset:0;background:rgba(13,20,32,.35);z-index:250;align-items:center;justify-content:center;">
-    <div style="background:rgba(255,255,255,.95);border-radius:20px;padding:26px 34px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.3);">
-      <div class="global-spinner"></div>
+    <div style="background:rgba(255,255,255,.95);border-radius:20px;padding:22px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+      <div class="global-plane-track">
+        <span class="global-plane">✈️</span>
+      </div>
       <div style="font-size:12.5px;color:var(--navy);font-weight:700;">Chargement...</div>
     </div>
   </div>
