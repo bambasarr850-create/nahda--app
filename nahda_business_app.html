@@ -1811,7 +1811,7 @@ function updateRetireButtonState(){
   }
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   btn.disabled = !(paiementDepartOk || retraitPaiementValide);
-  validerBtn.disabled = paiementDepartOk; // rien a valider : deja regle integralement au depot
+  validerBtn.disabled = paiementDepartOk || retraitPaiementValide; // rien a valider : deja regle (au depot ou au retrait)
   if(paiementDepartOk && !existeDeja){
     const opt = document.createElement('option');
     opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
