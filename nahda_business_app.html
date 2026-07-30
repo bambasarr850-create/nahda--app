@@ -354,6 +354,7 @@
       <div class="field">
         <label>Destination</label>
         <select id="nc-dest" onchange="onDestChange()"></select>
+        <div id="nc-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
       </div>
 
       <div class="field">
@@ -915,10 +916,24 @@ function closeLightbox(){ document.getElementById('lightbox').style.display = 'n
 /* ================= NOUVEAU COLIS ================= */
 async function prepNewColis(){
   const sel = document.getElementById('nc-dest');
+  const lockNote = document.getElementById('nc-dest-lock-note');
   sel.innerHTML = '<option>Chargement...</option>';
   try{
     DESTINATIONS_CACHE = await api('listDestinations');
     sel.innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.agence}</option>`).join('');
+    // Regle metier : une agence hors Maroc (Conakry, Abidjan, etc.) ne peut expedier que vers le Maroc (hub central).
+    // Seule l'agence de Casablanca (Maroc) peut choisir librement sa destination.
+    if(!editingRef && currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!=='Maroc'){
+      const marocDest = DESTINATIONS_CACHE.find(d=>d.pays==='Maroc');
+      if(marocDest){
+        sel.value = 'Maroc';
+        sel.disabled = true;
+        lockNote.style.display = 'block';
+      }
+    } else {
+      sel.disabled = false;
+      lockNote.style.display = 'none';
+    }
     onDestChange();
   }catch(e){}
   if(!editingRef){
