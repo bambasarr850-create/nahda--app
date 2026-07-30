@@ -1459,7 +1459,7 @@ function renderResultCard(c, showAdminActions, isPublic){
     <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
     ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
-    ${c.commentaire_arrivee ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
+    ${c.commentaire_arrivee && !isPublic ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
     <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
     <div class="timeline">${steps}</div>
     ${receiptBtn}
