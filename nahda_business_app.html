@@ -616,12 +616,16 @@
 </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
 /* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzzIcC-2n0hyT8U9npYMxnSK-t2srio28ppwLW6sYwhYzYaHF7wlAnSx5RhoMZoOj0r/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzzIcC-2n0hyT8U9npYMxnSK-t2srio28ppwLW6sYwhYzYaHF7wlAnSx5RhoMZoOj0r/exec'; // ancien backend, encore utilise pour les actions pas migrees
+const SUPABASE_URL = 'https://kihsctmzwhzyzccadarv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_KFyCbc_krhIF-1np5Q0kmw_uqwS7oxF';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const FLAG_EMOJI = {CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
 const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
 const APP_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/nahda_business_app.html'; // URL fixe - ne pas deduire de window.location (casse si ouvert via WhatsApp/webview)
@@ -670,6 +674,12 @@ function endRequest(){
 async function api(action, payload={}){
   beginRequest();
   try{
+    const migrees = ['login','saveColis','searchColis','listDestinations','listColis','updateColis','deleteColis',
+      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
+      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage'];
+    if(migrees.includes(action)){
+      return await apiSupabase(action, payload);
+    }
     const res = await fetch(API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -684,10 +694,180 @@ async function api(action, payload={}){
     }
     return out.data;
   }catch(err){
-    if(!err.isApiError) showToast('⚠️ Connexion API impossible — vérifie l\'URL /exec');
+    if(!err.isApiError) showToast('⚠️ '+(err.message || 'Connexion impossible'));
     throw err;
   }finally{
     endRequest();
+  }
+}
+
+/* ============ Actions deja migrees vers Supabase ============ */
+async function apiSupabase(action, p){
+  try{
+    let data;
+    if(action==='login'){
+      const email = String(p.id).toLowerCase() + '@nahdabusiness.internal';
+      const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password: p.motdepasse });
+      if(authErr) throw new Error('Identifiant ou mot de passe incorrect');
+      const { data: profil, error: profErr } = await sb.from('agents').select('*').eq('id', authData.user.id).single();
+      if(profErr || !profil) throw new Error('Profil agent introuvable');
+      data = { id: profil.identifiant, nom: profil.nom, pays: profil.pays, agence: profil.agence, role: profil.role };
+
+    } else if(action==='saveColis'){
+      const lignes = p.lignesProduits || [];
+      const poidsTotal = lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(p.poids||0);
+      const prixMoyen = poidsTotal>0 ? Number(p.total||0)/poidsTotal : Number(p.prixKg||0);
+      const contenuResume = lignes.length ? lignes.map(l=>l.type).join(', ') : (p.contenu||[]).join(', ');
+      const { error } = await sb.from('colis').insert({
+        reference: p.reference, nom_client: p.nomClient, telephone: p.telephone,
+        pays_destination: p.paysDestination, agence_destination: p.agenceDestination,
+        poids: poidsTotal, prix_kg: prixMoyen, contenu: contenuResume, total: p.total,
+        statut_paiement_depart: p.statutPaiementDepart, valeur_declaree: p.valeurDeclaree,
+        photo_url: p.photoUrls || '', statut: 0, commentaire_paiement: p.commentairePaiement || '',
+        nom_depositaire: p.nomDepositaire || '', telephone_depositaire: p.telephoneDepositaire || '',
+        pays_origine: p.paysOrigine || p.agentPays || '', montant_avance: p.montantAvance || 0,
+        lignes_produits: lignes
+      });
+      if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
+      data = { reference: p.reference, photoUrl: p.photoUrls || '' };
+
+    } else if(action==='searchColis'){
+      const { data: c, error } = await sb.from('colis').select('*').ilike('reference', p.reference).maybeSingle();
+      if(error || !c) throw new Error('Colis introuvable');
+      c.lignes_produits_detail = c.lignes_produits || [];
+      c.poids_expedie = Number(c.poids_expedie||0);
+      c.poids_arrive = Number(c.poids_arrive||0);
+      c.poids_restant = Math.max(0, Number(c.poids||0) - c.poids_expedie);
+      const { data: exps } = await sb.from('expeditions').select('*').eq('reference', c.reference);
+      c.expeditions_detail = exps || [];
+      if(c.voyage){
+        const { data: v } = await sb.from('voyages').select('*').eq('numero', c.voyage).maybeSingle();
+        if(v){ c.voyage_transporteur = v.transporteur; c.voyage_date_depart = v.date_depart; }
+      }
+      data = c;
+
+    } else if(action==='listDestinations'){
+      const { data: rows, error } = await sb.from('destinations').select('*');
+      if(error) throw new Error(error.message);
+      data = rows;
+
+    } else if(action==='listColis'){
+      let q = sb.from('colis').select('*');
+      if(p.statut !== undefined && p.statut !== '') q = q.eq('statut', Number(p.statut));
+      const { data: rows, error } = await q;
+      if(error) throw new Error(error.message);
+      data = rows;
+
+    } else if(action==='updateColis'){
+      const lignes = p.lignesProduits;
+      const poidsTotal = lignes && lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : p.poids;
+      const prixMoyen = (lignes && lignes.length && poidsTotal>0) ? Number(p.total||0)/poidsTotal : p.prixKg;
+      const contenuResume = (lignes && lignes.length) ? lignes.map(l=>l.type).join(', ') : undefined;
+      const champs = {
+        nom_client: p.nomClient, telephone: p.telephone, pays_destination: p.paysDestination,
+        agence_destination: p.agenceDestination, poids: poidsTotal, prix_kg: prixMoyen,
+        total: p.total, statut_paiement_depart: p.statutPaiementDepart,
+        valeur_declaree: p.valeurDeclaree, commentaire_paiement: p.commentairePaiement,
+        nom_depositaire: p.nomDepositaire, telephone_depositaire: p.telephoneDepositaire,
+        montant_avance: p.montantAvance
+      };
+      if(contenuResume !== undefined) champs.contenu = contenuResume;
+      if(lignes !== undefined) champs.lignes_produits = lignes;
+      Object.keys(champs).forEach(k => champs[k]===undefined && delete champs[k]);
+      const { error } = await sb.from('colis').update(champs).eq('reference', p.reference);
+      if(error) throw new Error(error.message || "Modification refusee (verifie que le colis t'appartient et qu'il est encore en attente)");
+      data = { updated: p.reference };
+
+    } else if(action==='deleteColis'){
+      const { error } = await sb.from('colis').delete().eq('reference', p.reference);
+      if(error) throw new Error(error.message || "Suppression refusee (verifie que le colis t'appartient et qu'il est encore en attente)");
+      data = { deleted: p.reference };
+
+    } else if(action==='lancerVoyage'){
+      const { error: errV } = await sb.from('voyages').insert({
+        numero: p.numero, pays_destination: p.paysDestination, agence_destination: p.agenceDestination,
+        date_depart: p.dateDepart, transporteur: p.transporteur, statut: 'En cours', pays_origine: p.agentPays || ''
+      });
+      if(errV) throw new Error(errV.message);
+      for(const item of p.colis){
+        const { data: c } = await sb.from('colis').select('poids_expedie,statut').eq('reference', item.reference).maybeSingle();
+        if(!c) continue;
+        await sb.from('expeditions').insert({ reference: item.reference, voyage: p.numero, poids: item.poids, statut: 0 });
+        const nouveauPoidsExpedie = Number(c.poids_expedie||0) + Number(item.poids||0);
+        const champs = { poids_expedie: nouveauPoidsExpedie, voyage: p.numero };
+        if(Number(c.statut) === 0) champs.statut = 1;
+        await sb.from('colis').update(champs).eq('reference', item.reference);
+      }
+      data = { numero: p.numero, nbColis: p.colis.length };
+
+    } else if(action==='confirmerArrivee'){
+      for(const ref of p.references){
+        const { data: exp } = await sb.from('expeditions').select('*').eq('reference', ref).eq('voyage', p.numero).eq('statut', 0).maybeSingle();
+        if(!exp) continue;
+        await sb.from('expeditions').update({ statut: 1, date_arrivee: new Date().toISOString() }).eq('id', exp.id);
+        const { data: c } = await sb.from('colis').select('poids,poids_arrive').eq('reference', ref).maybeSingle();
+        if(!c) continue;
+        const nouveauPoidsArrive = Number(c.poids_arrive||0) + Number(exp.poids||0);
+        const champs = { poids_arrive: nouveauPoidsArrive, commentaire_arrivee: p.commentaire || '' };
+        if(nouveauPoidsArrive >= Number(c.poids||0) - 0.001) champs.statut = 2;
+        await sb.from('colis').update(champs).eq('reference', ref);
+      }
+      await sb.from('voyages').update({ statut: 'Arrive' }).eq('numero', p.numero);
+      data = { numero: p.numero, nbColis: p.references.length };
+
+    } else if(action==='validerPaiementRetrait'){
+      const { data: c } = await sb.from('colis').select('statut_paiement_depart,total,montant_avance').eq('reference', p.reference).maybeSingle();
+      if(!c) throw new Error('Colis introuvable');
+      const paiementDepartOk = c.statut_paiement_depart === 'Payé' || c.statut_paiement_depart === 'Paye';
+      if(!paiementDepartOk && p.agentRole !== 'Admin'){
+        const attendu = Number(c.total||0) - Number(c.montant_avance||0);
+        if(Number(p.montant||0) < attendu - 0.01) throw new Error('Montant insuffisant : '+attendu+' MAD attendus');
+      }
+      const { error } = await sb.from('colis').update({ montant_retrait: p.montant, compte_retrait: p.compte }).eq('reference', p.reference);
+      if(error) throw new Error(error.message);
+      data = { reference: p.reference };
+
+    } else if(action==='marquerRetire'){
+      const { error } = await sb.from('colis').update({ statut: 3, date_retrait: p.date || new Date().toISOString() }).eq('reference', p.reference);
+      if(error) throw new Error(error.message);
+      data = { reference: p.reference };
+
+    } else if(action==='listVoyages'){
+      const { data: voyages, error } = await sb.from('voyages').select('*').order('date_depart', { ascending: false });
+      if(error) throw new Error(error.message);
+      const { data: colis } = await sb.from('colis').select('reference,voyage');
+      data = voyages.map(v => {
+        const colisDuVoyage = (colis||[]).filter(c => c.voyage === v.numero);
+        return { ...v, nb_colis: colisDuVoyage.length, references: colisDuVoyage.map(c=>c.reference) };
+      });
+
+    } else if(action==='listVoyagesEnTransit'){
+      let q = sb.from('expeditions').select('voyage').eq('statut', 0);
+      const { data: exps, error } = await q;
+      if(error) throw new Error(error.message);
+      let numeros = [...new Set((exps||[]).map(e=>e.voyage))];
+      if(p.pays){
+        const { data: voyages } = await sb.from('voyages').select('numero').eq('pays_destination', p.pays);
+        const numerosDuPays = (voyages||[]).map(v=>v.numero);
+        numeros = numeros.filter(n => numerosDuPays.includes(n));
+      }
+      data = numeros;
+
+    } else if(action==='listExpeditionsVoyage'){
+      const { data: exps, error } = await sb.from('expeditions').select('*').eq('voyage', p.numero).eq('statut', 0);
+      if(error) throw new Error(error.message);
+      const refs = (exps||[]).map(e=>e.reference);
+      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination').in('reference', refs.length?refs:['']);
+      data = (exps||[]).map(e => {
+        const c = (colis||[]).find(x=>x.reference===e.reference) || {};
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination };
+      });
+    }
+    return data;
+  }catch(err){
+    showToast('⚠️ '+err.message);
+    err.isApiError = true;
+    throw err;
   }
 }
 
@@ -697,14 +877,13 @@ async function uploadPhotoWithRetry(base64, nom, tentatives=2){
   try{
     for(let i=0;i<tentatives;i++){
       try{
-        const res = await fetch(API_URL, {
-          method:'POST',
-          headers:{'Content-Type':'text/plain;charset=utf-8'},
-          body: JSON.stringify({action:'uploadPhoto', base64, nom})
-        });
-        const out = await res.json();
-        if(out.ok) return out.data;
-        if(i === tentatives-1) throw new Error(out.error || 'Echec upload photo');
+        const base64Data = base64.split(',').pop();
+        const binaire = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const chemin = nom + '_' + Date.now() + '.jpg';
+        const { error } = await sb.storage.from('colis-photos').upload(chemin, binaire, { contentType: 'image/jpeg' });
+        if(error) throw new Error(error.message);
+        const { data: pub } = sb.storage.from('colis-photos').getPublicUrl(chemin);
+        return { url: pub.publicUrl };
       }catch(e){
         if(i === tentatives-1) throw e;
         await new Promise(r=>setTimeout(r, 1200)); // pause avant nouvelle tentative
