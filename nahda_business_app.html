@@ -715,7 +715,8 @@ async function syncOfflineQueue(manuel=false){
   if(restants.length && succes>0) showToast('⚠️ '+restants.length+' colis toujours en attente d\'envoi');
   await updateKpis();
 }
-window.addEventListener('online', syncOfflineQueue);
+window.addEventListener('online', () => syncOfflineQueue());
+setInterval(() => { if(navigator.onLine) syncOfflineQueue(); }, 120000); // nouvelle tentative silencieuse toutes les 2 minutes (filet de securite)
 
 async function api(action, payload={}, silencieux=false){
   if(!silencieux) beginRequest();
@@ -1500,7 +1501,18 @@ async function saveColis(){
     await updateKpis();
     resetNewColis();
   }catch(e){
-    if(!e.isApiError) showToast('⚠️ Erreur : '+(e.message||'échec inconnu'));
+    if(!e.isApiError && !editingRef){
+      // Echec reseau reel (navigator.onLine peut se tromper si le wifi est connecte sans vrai acces internet) :
+      // mettre en attente plutot que de faire perdre la saisie a l'agent
+      const payloadAvecPhotos = {...payloadBase};
+      if(photoUrls.length) payloadAvecPhotos.photoUrls = photoUrls.join(',');
+      queueOfflineColis(ref, payloadAvecPhotos, photoUrls.length ? [] : [...newColisPhotos]);
+      showToast('📴 Connexion indisponible — colis mis en attente, sera envoyé automatiquement');
+      showConfirmModal(ref, payloadAvecPhotos);
+      resetNewColis();
+    } else if(!e.isApiError){
+      showToast('⚠️ Erreur : '+(e.message||'échec inconnu'));
+    }
   }finally{
     saveBtn.disabled = false;
     saveBtn.textContent = labelOrigine;
