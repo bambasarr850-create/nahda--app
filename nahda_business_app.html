@@ -676,7 +676,8 @@ async function api(action, payload={}){
   try{
     const migrees = ['login','saveColis','searchColis','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
-      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage'];
+      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage',
+      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','addAgent'];
     if(migrees.includes(action)){
       return await apiSupabase(action, payload);
     }
@@ -776,11 +777,19 @@ async function apiSupabase(action, p){
       Object.keys(champs).forEach(k => champs[k]===undefined && delete champs[k]);
       const { error } = await sb.from('colis').update(champs).eq('reference', p.reference);
       if(error) throw new Error(error.message || "Modification refusee (verifie que le colis t'appartient et qu'il est encore en attente)");
+      sb.from('historique_modifications').insert({
+        action: 'Modification', reference: p.reference, agent_id: p.agentId || '', agent_nom: p.agentNom || '', agent_pays: p.agentPays || ''
+      }).then(()=>{});
       data = { updated: p.reference };
 
     } else if(action==='deleteColis'){
+      const { data: avant } = await sb.from('colis').select('*').eq('reference', p.reference).maybeSingle();
       const { error } = await sb.from('colis').delete().eq('reference', p.reference);
       if(error) throw new Error(error.message || "Suppression refusee (verifie que le colis t'appartient et qu'il est encore en attente)");
+      sb.from('historique_modifications').insert({
+        action: 'Suppression', reference: p.reference, agent_id: p.agentId || '', agent_nom: p.agentNom || '', agent_pays: p.agentPays || '',
+        donnees_avant: avant || null
+      }).then(()=>{});
       data = { deleted: p.reference };
 
     } else if(action==='lancerVoyage'){
@@ -862,6 +871,107 @@ async function apiSupabase(action, p){
         const c = (colis||[]).find(x=>x.reference===e.reference) || {};
         return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination };
       });
+
+    } else if(action==='bilan' || action==='bilanDetail'){
+      const { data: allColis, error } = await sb.from('colis').select('*');
+      if(error) throw new Error(error.message);
+      const colisDest = p.pays ? allColis.filter(c=>c.pays_destination===p.pays) : allColis;
+      const colisOrig = p.pays ? allColis.filter(c=>c.pays_origine===p.pays) : allColis;
+      const dansPeriode = (dateValeur, dateUnique, dateDebut, dateFin) => {
+        if(!dateDebut && !dateFin){
+          if(!dateUnique) return true;
+          return dateValeur && String(dateValeur).slice(0,10) === dateUnique;
+        }
+        if(!dateValeur) return false;
+        const d = String(dateValeur).slice(0,10);
+        if(dateDebut && d < dateDebut) return false;
+        if(dateFin && d > dateFin) return false;
+        return true;
+      };
+      const filtreActif = !!(p.date || p.dateDebut || p.dateFin);
+      const jourCreation = filtreActif ? colisOrig.filter(c=>dansPeriode(c.date_creation, p.date, p.dateDebut, p.dateFin)) : colisOrig;
+      const jourRetrait = filtreActif ? colisDest.filter(c=>dansPeriode(c.date_retrait, p.date, p.dateDebut, p.dateFin)) : colisDest;
+
+      if(action==='bilan'){
+        data = {
+          date: p.date || null,
+          totalPayeDepart: jourCreation.reduce((s,c)=>{
+            if(c.statut_paiement_depart==='Paye'||c.statut_paiement_depart==='Payé') return s+Number(c.total||0);
+            if(c.statut_paiement_depart==='Partiel') return s+Number(c.montant_avance||0);
+            return s;
+          },0),
+          totalEncaisseRetrait: jourRetrait.reduce((s,c)=>s+Number(c.montant_retrait||0),0),
+          nbColisJour: jourCreation.length,
+          nbRetraitsJour: jourRetrait.length,
+          totalColis: colisOrig.length,
+          enAttente: colisOrig.filter(c=>Number(c.statut)===0).length,
+          enVoyage: colisOrig.filter(c=>Number(c.statut)===1).length,
+          arrives: colisDest.filter(c=>Number(c.statut)===2).length,
+          retires: colisDest.filter(c=>Number(c.statut)===3).length
+        };
+      } else {
+        let result;
+        switch(p.type){
+          case 'payeDepart':
+            result = jourCreation.filter(c=>c.statut_paiement_depart==='Paye'||c.statut_paiement_depart==='Payé'||(c.statut_paiement_depart==='Partiel'&&Number(c.montant_avance)>0));
+            break;
+          case 'encaisseRetrait':
+            result = jourRetrait.filter(c=>Number(c.montant_retrait)>0);
+            break;
+          case 'enAttente':
+            result = colisOrig.filter(c=>Number(c.statut)===0);
+            break;
+          case 'enVoyage':
+            result = colisOrig.filter(c=>Number(c.statut)===1);
+            break;
+          case 'arrives':
+            result = colisDest.filter(c=>Number(c.statut)===2);
+            break;
+          case 'retires':
+            result = colisDest.filter(c=>Number(c.statut)===3);
+            break;
+          case 'totalColis':
+          default:
+            result = colisOrig;
+        }
+        data = result.map(c=>{
+          const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
+          return {
+            reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
+            poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
+            montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart
+          };
+        });
+      }
+
+    } else if(action==='updatePrix'){
+      const champs = {};
+      if(p.prixKg !== undefined) champs.prix_kg = p.prixKg;
+      if(p.devise !== undefined) champs.devise = p.devise;
+      if(p.tauxMad !== undefined) champs.taux_mad = p.tauxMad;
+      const { error } = await sb.from('destinations').update(champs).eq('pays', p.pays);
+      if(error) throw new Error(error.message || 'Modification reservee a l\'administrateur');
+      data = { pays: p.pays };
+
+    } else if(action==='addDestination'){
+      const { error } = await sb.from('destinations').insert({
+        pays: p.pays, agence: p.agence, flag: p.flag, prix_kg: p.prixKg, devise: p.devise || '', taux_mad: p.tauxMad || 1
+      });
+      if(error) throw new Error(error.message || 'Ajout reserve a l\'administrateur');
+      data = { added: p.pays };
+
+    } else if(action==='changePassword'){
+      const { error } = await sb.auth.updateUser({ password: p.nouveauMotDePasse });
+      if(error) throw new Error(error.message);
+      data = { updated: true };
+
+    } else if(action==='listHistorique'){
+      const { data: rows, error } = await sb.from('historique_modifications').select('*').order('date', { ascending: false }).limit(200);
+      if(error) throw new Error(error.message || 'Reserve a l\'administrateur');
+      data = rows;
+
+    } else if(action==='addAgent'){
+      throw new Error("Ajout d'agent : a faire depuis le tableau de bord Supabase (Authentication > Add user), puis lier le profil dans la table agents. Pas encore automatisable depuis l'app.");
     }
     return data;
   }catch(err){
