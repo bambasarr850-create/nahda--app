@@ -412,6 +412,9 @@
         <button class="btn btn-gold" onclick="scanForField('sr-ref', searchColis)">📷 SCANNER</button>
         <button class="btn btn-primary" onclick="searchColis()">🔍 RECHERCHER</button>
       </div>
+      <div style="text-align:center;color:var(--muted);font-size:11.5px;margin:14px 0;">— ou —</div>
+      <div class="field"><label>Téléphone du client</label><input id="sr-tel" type="tel" placeholder="ex : +212 6 00 00 00 00" onkeydown="if(event.key==='Enter'){event.preventDefault();searchColisParTelephone();}"></div>
+      <button class="btn btn-outline" style="width:100%;" onclick="searchColisParTelephone()">🔍 RECHERCHER PAR TÉLÉPHONE</button>
       <div id="sr-result"></div>
     </div>
   </section>
@@ -724,7 +727,7 @@ window.addEventListener('online', syncOfflineQueue);
 async function api(action, payload={}){
   beginRequest();
   try{
-    const migrees = ['login','saveColis','searchColis','listDestinations','listColis','updateColis','deleteColis',
+    const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','addAgent'];
@@ -796,6 +799,13 @@ async function apiSupabase(action, p){
         if(v){ c.voyage_transporteur = v.transporteur; c.voyage_date_depart = v.date_depart; }
       }
       data = c;
+
+    } else if(action==='searchColisParTelephone'){
+      const tel = String(p.telephone||'').replace(/[\s\-\.]/g,''); // ignore espaces/tirets pour comparer plus souplement
+      const { data: rows, error } = await sb.from('colis').select('reference,nom_client,telephone,pays_destination,agence_destination,total,statut,date_creation');
+      if(error) throw new Error(error.message);
+      data = (rows||[]).filter(c => String(c.telephone||'').replace(/[\s\-\.]/g,'').includes(tel))
+        .sort((a,b)=> new Date(b.date_creation) - new Date(a.date_creation));
 
     } else if(action==='listDestinations'){
       const { data: rows, error } = await sb.from('destinations').select('*');
@@ -1765,6 +1775,27 @@ async function searchColis(){
     box.innerHTML = renderResultCard(c, true);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de reçu.</p></div>`;
+  }
+}
+async function searchColisParTelephone(){
+  const tel = document.getElementById('sr-tel').value.trim();
+  const box = document.getElementById('sr-result');
+  if(!tel){ showToast('⚠️ Renseigne un numéro de téléphone'); return; }
+  box.innerHTML = skeletonHTML(2);
+  try{
+    const list = await api('searchColisParTelephone', {telephone: tel});
+    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de téléphone.</p></div>`; return; }
+    box.innerHTML = `<div class="checklist-total">📱 ${list.length} colis trouvé(s) pour ce numéro</div>` +
+      list.map(c=>`
+      <div class="checklist-item" style="cursor:pointer;" onclick="document.getElementById('sr-ref').value='${c.reference}'; searchColis();">
+        <div class="txt">
+          <div class="r">${c.reference}</div>
+          <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${STATUT_LABELS[Number(c.statut)]}</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
+      </div>`).join('');
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de téléphone.</p></div>`;
   }
 }
 function toEmbeddableUrl(url){
