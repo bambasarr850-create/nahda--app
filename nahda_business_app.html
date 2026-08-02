@@ -766,26 +766,31 @@ async function syncOfflineQueue(manuel=false){
   if(manuel) showToast('🔄 Envoi de '+aEnvoyer.length+' colis en attente...');
   const restants = queue.filter(item => item.erreur); // garde tel quel les echecs deja identifies
   let succes = 0;
-  for(const item of aEnvoyer){
-    try{
-      let photoUrls = [];
-      if(item.photosBase64 && item.photosBase64.length){
-        const uploads = await Promise.all(item.photosBase64.map((photo,i)=>uploadPhotoWithRetry(photo, item.reference+'_'+(i+1), 2, true)));
-        photoUrls = uploads.map(u=>u.url);
-      }
-      const payload = {...item.payload};
-      if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
-      await api('saveColis', payload, true);
-      succes++;
-    }catch(e){
-      if(e.isApiError){
-        // Echec definitif (ex. numero de recu deja utilise) : ne plus retenter automatiquement, montrer clairement a l'agent
-        item.erreur = e.message;
-        restants.push(item);
-      } else {
-        restants.push(item); // echec reseau probable : on reessaiera automatiquement au prochain declenchement
+  if(!manuel) window._suppressToast = true; // tentative automatique en arriere-plan : jamais de message d'erreur visible
+  try{
+    for(const item of aEnvoyer){
+      try{
+        let photoUrls = [];
+        if(item.photosBase64 && item.photosBase64.length){
+          const uploads = await Promise.all(item.photosBase64.map((photo,i)=>uploadPhotoWithRetry(photo, item.reference+'_'+(i+1), 2, true)));
+          photoUrls = uploads.map(u=>u.url);
+        }
+        const payload = {...item.payload};
+        if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
+        await api('saveColis', payload, true);
+        succes++;
+      }catch(e){
+        if(e.isApiError){
+          // Echec definitif (ex. numero de recu deja utilise) : ne plus retenter automatiquement, montrer clairement a l'agent
+          item.erreur = e.message;
+          restants.push(item);
+        } else {
+          restants.push(item); // echec reseau probable : on reessaiera automatiquement au prochain declenchement
+        }
       }
     }
+  }finally{
+    window._suppressToast = false;
   }
   saveOfflineQueue(restants);
   if(succes>0) showToast('✅ '+succes+' colis en attente synchronisé(s) avec succès');
@@ -820,7 +825,7 @@ async function api(action, payload={}, silencieux=false){
     }
     return out.data;
   }catch(err){
-    if(!err.isApiError) showToast('⚠️ '+(err.message || 'Connexion impossible'));
+    if(!err.isApiError && !window._suppressToast) showToast('⚠️ '+(err.message || 'Connexion impossible'));
     throw err;
   }finally{
     if(!silencieux) endRequest();
@@ -990,8 +995,9 @@ async function apiSupabase(action, p){
       data = { reference: p.reference };
 
     } else if(action==='listVoyages'){
-      const { data: voyages, error } = await sb.from('voyages').select('*').order('created_at', { ascending: false });
+      const { data: voyagesRaw, error } = await sb.from('voyages').select('*');
       if(error) throw new Error(traduireErreur(error.message));
+      const voyages = [...(voyagesRaw||[])].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
       const { data: exps } = await sb.from('expeditions').select('reference,voyage');
       data = voyages.map(v => {
         const refsDuVoyage = [...new Set((exps||[]).filter(e=>e.voyage===v.numero).map(e=>e.reference))];
@@ -1135,7 +1141,7 @@ async function apiSupabase(action, p){
     }
     return data;
   }catch(err){
-    showToast('⚠️ '+err.message);
+    if(!window._suppressToast) showToast('⚠️ '+err.message);
     err.isApiError = true;
     throw err;
   }
@@ -1257,7 +1263,7 @@ async function doLogin(){
     await updateKpis();
     history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
     goto('screen-dashboard', true);
-  }catch(e){ err.style.display='block'; }
+  }catch(e){ err.textContent = e.message || 'Identifiant ou mot de passe incorrect.'; err.style.display='block'; }
   finally{
     btn.disabled = false; btn.textContent = labelOrigine;
     document.getElementById('in-agent-id').disabled = false;
