@@ -847,9 +847,15 @@ async function apiSupabase(action, p){
     if(action==='login'){
       const email = String(p.id).toLowerCase() + '@nahdabusiness.internal';
       const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password: p.motdepasse });
-      if(authErr) throw new Error('Identifiant ou mot de passe incorrect');
+      if(authErr){
+        const msgBas = (authErr.message||'').toLowerCase();
+        if(msgBas.includes('invalid login credentials') || msgBas.includes('invalid email or password')){
+          throw new Error('Identifiant ou mot de passe incorrect');
+        }
+        throw new Error(traduireErreur(authErr.message));
+      }
       const { data: profil, error: profErr } = await sb.from('agents').select('*').eq('id', authData.user.id).single();
-      if(profErr || !profil) throw new Error('Profil agent introuvable');
+      if(profErr || !profil) throw new Error(profErr ? traduireErreur(profErr.message) : 'Profil agent introuvable');
       data = { id: profil.identifiant, nom: profil.nom, pays: profil.pays, agence: profil.agence, role: profil.role };
 
     } else if(action==='saveColis'){
@@ -984,7 +990,7 @@ async function apiSupabase(action, p){
       data = { reference: p.reference };
 
     } else if(action==='listVoyages'){
-      const { data: voyages, error } = await sb.from('voyages').select('*').order('date_depart', { ascending: false });
+      const { data: voyages, error } = await sb.from('voyages').select('*').order('created_at', { ascending: false });
       if(error) throw new Error(traduireErreur(error.message));
       const { data: exps } = await sb.from('expeditions').select('reference,voyage');
       data = voyages.map(v => {
@@ -1737,8 +1743,8 @@ async function generateReceiptPDF(c){
     doc.setFont(undefined, 'bold'); doc.setFontSize(11);
     doc.text('RECU N° ' + c.reference, W - 8, 15, { align: 'right' });
     const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
-    doc.text('Depose le ' + dateDepotRecu, W - 8, 21, { align: 'right' });
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined, 'normal'); doc.setFontSize(9.5);
+    doc.text('Depose le ' + dateDepotRecu, W - 8, 22, { align: 'right' });
 
     // ---- Colonne gauche : details colis (0 - 128mm) ----
     let y = 35;
