@@ -1751,6 +1751,8 @@ async function generateReceiptPDF(c){
     row('Telephone', c.telephone);
     if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
+    const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    row('Date de depot', dateDepotRecu);
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
     const largeurContenu = 108; // mm disponibles avant la colonne QR (leftX+4 a ~124mm)
     if (lignesRecu.length) {
