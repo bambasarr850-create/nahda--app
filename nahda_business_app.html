@@ -1964,7 +1964,7 @@ function renderResultCard(c, showAdminActions, isPublic){
 
   const lignesDetail = c.lignes_produits_detail || [];
   const expeditions = c.expeditions_detail || [];
-  const expeditionsBlock = expeditions.length ? `
+  const expeditionsBlock = (expeditions.length && !isPublic) ? `
     <div class="result-row" style="display:block;">
       <span class="k">Historique d'expédition</span>
       <div style="margin-top:6px;">${expeditions.map(ex=>`
