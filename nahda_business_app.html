@@ -807,7 +807,7 @@ async function api(action, payload={}, silencieux=false){
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage',
-      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique'];
+      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       return await apiSupabase(action, payload);
     }
@@ -880,6 +880,13 @@ async function apiSupabase(action, p){
       });
       if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
       data = { reference: p.reference, photoUrl: p.photoUrls || '' };
+
+    } else if(action==='searchColisPublic'){
+      const { data: c, error } = await sb.from('colis_suivi_public').select('*').ilike('reference', p.reference).maybeSingle();
+      if(error || !c) throw new Error('Colis introuvable');
+      c.lignes_produits_detail = c.lignes_produits || [];
+      c.expeditions_detail = [];
+      data = c;
 
     } else if(action==='searchColis'){
       const { data: c, error } = await sb.from('colis').select('*').ilike('reference', p.reference).maybeSingle();
@@ -1887,7 +1894,7 @@ async function renderPublicTracking(ref){
   const box = document.getElementById('suivi-public-content');
   box.innerHTML = skeletonHTML(3);
   try{
-    const c = await api('searchColis', {reference: ref});
+    const c = await api('searchColisPublic', {reference: ref});
     box.innerHTML = renderResultCard(c, false, true);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
