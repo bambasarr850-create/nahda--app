@@ -466,6 +466,8 @@
 
       <div id="voyage-historique-panel" style="display:none;">
         <input type="text" id="historique-search" placeholder="🔎 Rechercher (voyageur, n° voyage, destination)..." oninput="filterHistoriqueList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+        <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="generateHistoriqueVoyagesPDF()">📄 Exporter l'historique en PDF</button>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="generateHistoriqueVoyagesExcel()">📊 Exporter l'historique en Excel</button>
         <div id="historique-list"></div>
       </div>
     </div>
@@ -616,7 +618,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
@@ -2568,6 +2570,211 @@ async function renderBilan(){
 let BILAN_FILTRE = {};
 let BILAN_DATA = null;
 
+async function generateHistoriqueVoyagesExcel(){
+  if(typeof window.XLSX === 'undefined'){ showToast('⚠️ Librairie Excel non chargée — vérifie ta connexion'); return; }
+  if(!HISTORIQUE_CACHE || !HISTORIQUE_CACHE.length){ showToast('⚠️ Aucun voyage à exporter'); return; }
+  showToast('📊 Génération du fichier Excel, ' + HISTORIQUE_CACHE.length + ' voyage(s)...');
+  try{
+    const voyagesTries = [...HISTORIQUE_CACHE].sort((a,b) => new Date(b.created_at||b.date_depart||0) - new Date(a.created_at||a.date_depart||0));
+
+    const NAVY = '0B4A40', GOLD = 'C89B3C', SAND = 'F1EAD9', WHITE = 'FFFFFF', INK = '1B1B1B';
+    const thinBorder = { style:'thin', color:{rgb:'B8B0A0'} };
+    const thickBorder = { style:'medium', color:{rgb:NAVY} };
+    const borderAll = { top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder };
+
+    const rows = [];
+    const merges = [];
+    const colWidths = [{wch:16},{wch:22},{wch:14},{wch:11}];
+    const styleMap = {}; // 'R{row}C{col}' -> style
+
+    function setCell(r, c, value, style){
+      if(!rows[r]) rows[r] = [];
+      rows[r][c] = value;
+      if(style) styleMap[r+'_'+c] = style;
+    }
+
+    let r = 0;
+    setCell(r, 0, 'NAHDA BUSINESS — HISTORIQUE DES VOYAGES', {font:{name:'Arial',sz:15,bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'center',vertical:'center'}});
+    merges.push({s:{r:0,c:0}, e:{r:0,c:3}});
+    r += 2;
+
+    // On recupere d'abord tous les colis par voyage (en parallele) avant de construire les lignes
+    const colisParVoyage = {};
+    await Promise.all(voyagesTries.map(async v => {
+      try{ colisParVoyage[v.numero] = await api('listColisParVoyage', {numero: v.numero}, true); }
+      catch(e){ colisParVoyage[v.numero] = []; }
+    }));
+
+    voyagesTries.forEach(v => {
+      const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
+      const colisDuVoyage = colisParVoyage[v.numero] || [];
+
+      const debutBloc = r;
+      // En-tete voyage (fusionne, dore)
+      setCell(r, 0, `VOYAGE ${v.numero}  —  Voyageur : ${v.transporteur||'—'}  —  Date de départ : ${dateStr}  —  ${v.pays_destination||'—'} (${v.statut||'—'})`,
+        {font:{name:'Arial',sz:11,bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:GOLD}}, alignment:{horizontal:'left',vertical:'center',indent:1}});
+      merges.push({s:{r:r,c:0}, e:{r:r,c:3}});
+      r++;
+
+      // En-tetes colonnes
+      const headerRow = r;
+      ['N° Reçu','Client','Destination','Poids (kg)'].forEach((h,i)=>{
+        setCell(r, i, h, {font:{name:'Arial',sz:10,bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'center',vertical:'center'}, border:borderAll});
+      });
+      r++;
+
+      const premiereLigne = r;
+      colisDuVoyage.forEach(c => {
+        const poidsC = c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
+        setCell(r, 0, c.reference, {font:{name:'Arial',sz:9.5}, border:borderAll, alignment:{horizontal:'left'}});
+        setCell(r, 1, c.nom_client||'-', {font:{name:'Arial',sz:9.5}, border:borderAll, alignment:{horizontal:'left'}});
+        setCell(r, 2, c.pays_destination||'-', {font:{name:'Arial',sz:9.5}, border:borderAll, alignment:{horizontal:'left'}});
+        setCell(r, 3, poidsC, {font:{name:'Arial',sz:9.5}, border:borderAll, alignment:{horizontal:'right'}, numFmt:'#,##0'});
+        r++;
+      });
+      const derniereLigne = r - 1;
+      const poidsTotalVoyage = colisDuVoyage.reduce((s,c)=>s + (c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0)), 0);
+
+      // Ligne TOTAL (avec vraie formule SUM si des lignes existent)
+      setCell(r, 0, 'TOTAL DU VOYAGE', {font:{name:'Arial',sz:10,bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, border:borderAll});
+      setCell(r, 1, '', {fill:{fgColor:{rgb:SAND}}, border:borderAll});
+      setCell(r, 2, '', {fill:{fgColor:{rgb:SAND}}, border:borderAll});
+      if(derniereLigne >= premiereLigne){
+        setCell(r, 3, { f: `SUM(D${premiereLigne+1}:D${derniereLigne+1})`, t:'n' }, {font:{name:'Arial',sz:10,bold:true}, fill:{fgColor:{rgb:SAND}}, border:borderAll, alignment:{horizontal:'right'}, numFmt:'#,##0'});
+      } else {
+        setCell(r, 3, poidsTotalVoyage, {font:{name:'Arial',sz:10,bold:true}, fill:{fgColor:{rgb:SAND}}, border:borderAll, alignment:{horizontal:'right'}, numFmt:'#,##0'});
+      }
+      const finBloc = r;
+      r += 3; // separation nette entre deux voyages
+    });
+
+    const ws = {};
+    const range = { s:{r:0,c:0}, e:{r: rows.length, c:3} };
+    rows.forEach((rowArr, ri) => {
+      rowArr.forEach((val, ci) => {
+        if(val === undefined) return;
+        const addr = XLSX.utils.encode_cell({r:ri, c:ci});
+        const cellObj = (val && typeof val === 'object' && 'f' in val) ? { f: val.f, t: 'n' } : { v: val, t: (typeof val === 'number' ? 'n' : 's') };
+        const style = styleMap[ri+'_'+ci];
+        if(style) cellObj.s = style;
+        ws[addr] = cellObj;
+      });
+    });
+    ws['!ref'] = XLSX.utils.encode_range(range);
+    ws['!merges'] = merges;
+    ws['!cols'] = colWidths;
+
+    const wb = { SheetNames: ['Historique Voyages'], Sheets: { 'Historique Voyages': ws } };
+    XLSX.writeFile(wb, 'Historique_Voyages_Nahda_Business.xlsx');
+    showToast('✅ Historique exporté en Excel');
+  }catch(e){
+    showToast('⚠️ Erreur export Excel : ' + (e.message||'inconnue'));
+  }
+}
+async function generateHistoriqueVoyagesPDF(){
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  if(!HISTORIQUE_CACHE || !HISTORIQUE_CACHE.length){ showToast('⚠️ Aucun voyage à exporter'); return; }
+  showToast('📄 Génération du PDF, ' + HISTORIQUE_CACHE.length + ' voyage(s)...');
+  try{
+    // Tri du plus recent au plus ancien (deja l'ordre du backend, on s'assure ici cote affichage)
+    const voyagesTries = [...HISTORIQUE_CACHE].sort((a,b) => new Date(b.created_at||b.date_depart||0) - new Date(a.created_at||a.date_depart||0));
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const W = 210, H = 297;
+    const navy = '#0B4A40', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255';
+    const margeGauche = 8, margeDroite = 8, largeurUtile = W - margeGauche - margeDroite;
+
+    function drawHeader(){
+      doc.setFillColor(navy); doc.rect(0, 0, W, 22, 'F');
+      doc.setFillColor(gold); doc.rect(0, 22, W, 1, 'F');
+      if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 3, 16, 16);
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+      doc.text('NAHDA BUSINESS', 27, 10);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8);
+      doc.text('Historique des voyages', 27, 16);
+      doc.setFontSize(7); doc.setTextColor(muted);
+      doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' par ' + currentAgent.nom, W-margeDroite, H-6, {align:'right'});
+    }
+
+    let y = 30;
+    drawHeader();
+
+    for(const v of voyagesTries){
+      const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
+      let colisDuVoyage = [];
+      try{ colisDuVoyage = await api('listColisParVoyage', {numero: v.numero}, true); }catch(e){ colisDuVoyage = []; }
+      const poidsTotalVoyage = colisDuVoyage.reduce((s,c)=>s + (c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0)), 0);
+
+      // Hauteur estimee du bloc pour decider si nouvelle page necessaire
+      const hauteurEstimee = 26 + (colisDuVoyage.length * 6) + 12;
+      if(y + hauteurEstimee > H - 14){ doc.addPage(); drawHeader(); y = 30; }
+
+      const yDebutBloc = y;
+      // En-tete du voyage (cadre dore)
+      doc.setDrawColor(gold); doc.setLineWidth(0.6);
+      doc.setFillColor('#FBF6EC');
+      doc.rect(margeGauche, y, largeurUtile, 18, 'FD');
+      doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(10.5);
+      doc.text('Voyage ' + v.numero, margeGauche+4, y+7);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8.5); doc.setTextColor(muted);
+      doc.text('Voyageur : ' + (v.transporteur||'—'), margeGauche+4, y+13);
+      doc.text('Date de depart : ' + dateStr, margeGauche+70, y+13);
+      doc.setFont(undefined,'bold'); doc.setTextColor(navy);
+      doc.text((v.pays_destination||'—') + ' — ' + (v.agence_destination||''), W-margeDroite-4, y+7, {align:'right'});
+      doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(muted);
+      doc.text('Statut : ' + (v.statut||'—'), W-margeDroite-4, y+13, {align:'right'});
+      y += 18;
+
+      // Tableau des colis (cadre autour de chaque ligne)
+      if(colisDuVoyage.length){
+        doc.setFillColor(navy);
+        doc.rect(margeGauche, y, largeurUtile, 7, 'F');
+        doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(8);
+        doc.text('N Recu', margeGauche+3, y+5);
+        doc.text('Client', margeGauche+35, y+5);
+        doc.text('Destination', margeGauche+90, y+5);
+        doc.text('Poids (kg)', W-margeDroite-3, y+5, {align:'right'});
+        y += 7;
+        doc.setDrawColor('#D9D2C2'); doc.setLineWidth(0.2);
+        colisDuVoyage.forEach(c=>{
+          const poidsC = c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
+          doc.rect(margeGauche, y, largeurUtile, 6);
+          doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8);
+          doc.text(String(c.reference), margeGauche+3, y+4.2);
+          doc.text(String(c.nom_client||'-').substring(0,22), margeGauche+35, y+4.2);
+          doc.text(String(c.pays_destination||'-').substring(0,18), margeGauche+90, y+4.2);
+          doc.text(String(poidsC) + ' kg', W-margeDroite-3, y+4.2, {align:'right'});
+          y += 6;
+        });
+      } else {
+        doc.setFont(undefined,'italic'); doc.setFontSize(8); doc.setTextColor(muted);
+        doc.text('Aucun colis associe a ce voyage.', margeGauche+4, y+5);
+        y += 8;
+      }
+
+      // Total du voyage (encadre)
+      doc.setFillColor(navy);
+      doc.rect(margeGauche, y, largeurUtile, 8, 'F');
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9);
+      doc.text('POIDS TOTAL DE CE VOYAGE', margeGauche+4, y+5.5);
+      doc.text(poidsTotalVoyage.toLocaleString('fr-FR') + ' kg', W-margeDroite-4, y+5.5, {align:'right'});
+      y += 8;
+
+      // Cadre global autour de tout le bloc du voyage
+      doc.setDrawColor(navy); doc.setLineWidth(0.5);
+      doc.rect(margeGauche, yDebutBloc, largeurUtile, y - yDebutBloc);
+
+      // Separation nette entre deux voyages (equivalent a 2 lignes d'espace)
+      y += 12;
+    }
+
+    doc.save('Historique_Voyages_Nahda_Business.pdf');
+    showToast('✅ Historique exporté en PDF');
+  }catch(e){
+    showToast('⚠️ Erreur export historique : ' + (e.message||'inconnue'));
+  }
+}
 async function generateBilanExcel(){
   if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
   if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
