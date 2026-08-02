@@ -1239,7 +1239,9 @@ async function applyAgentToDashboard(agent){
   try{
     if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations', {}, true);
     const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===agent.pays);
-    if(destInfo) document.getElementById('dash-agent-name').textContent = agent.nom + ' ' + flagEmoji(destInfo.flag);
+    if(destInfo && destInfo.flag){
+      document.getElementById('dash-agent-name').innerHTML = agent.nom + ' <img src="https://flagcdn.com/24x18/' + destInfo.flag.toLowerCase() + '.png" alt="" style="height:0.85em;vertical-align:middle;border-radius:2px;">';
+    }
   }catch(e){}
 }
 async function doLogin(){
