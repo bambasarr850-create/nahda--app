@@ -374,7 +374,7 @@
       <div class="field">
         <label>Statut paiement départ</label>
         <select id="nc-statutpaie" onchange="onStatutPaieChange()">
-          <option>Payé</option><option>Partiel</option><option>Non payé</option>
+          <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
         </select>
       </div>
       <div class="field" id="nc-commentaire-wrap" style="display:none;">
@@ -993,13 +993,16 @@ async function apiSupabase(action, p){
       });
 
     } else if(action==='listColisParVoyage'){
-      const { data: exps } = await sb.from('expeditions').select('reference').eq('voyage', p.numero);
+      const { data: exps } = await sb.from('expeditions').select('reference,poids').eq('voyage', p.numero);
       const refs = [...new Set((exps||[]).map(e=>e.reference))];
       if(!refs.length){ data = []; }
       else {
         const { data: rows, error } = await sb.from('colis').select('*').in('reference', refs);
         if(error) throw new Error(traduireErreur(error.message));
-        data = rows || [];
+        data = (rows||[]).map(c => {
+          const poidsTroncon = (exps||[]).filter(e=>e.reference===c.reference).reduce((s,e)=>s+Number(e.poids||0),0);
+          return { ...c, poids_troncon_voyage: poidsTroncon };
+        });
       }
 
     } else if(action==='listVoyagesEnTransit'){
@@ -1086,6 +1089,7 @@ async function apiSupabase(action, p){
           default:
             result = colisOrig;
         }
+        result = [...result].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
         data = result.map(c=>{
           const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
           return {
@@ -1214,12 +1218,17 @@ function showToast(msg){
 
 /* ================= LOGIN ================= */
 
-function applyAgentToDashboard(agent){
-  document.getElementById('dash-agent-name').textContent = agent.nom;
+async function applyAgentToDashboard(agent){
+  document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
   document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
   document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
+  document.getElementById('dash-agent-name').textContent = agent.nom;
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations', {}, true);
+    const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===agent.pays);
+    if(destInfo) document.getElementById('dash-agent-name').textContent = agent.nom + ' ' + flagEmoji(destInfo.flag);
+  }catch(e){}
 }
 async function doLogin(){
   const btn = document.getElementById('login-btn');
@@ -1470,6 +1479,8 @@ function resetNewColis(){
   renderPhotoGallery(); renderLignesProduits();
   document.getElementById('nc-title').textContent = 'Nouveau Colis';
   document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
+  document.getElementById('nc-statutpaie').value = 'Non payé';
+  onStatutPaieChange();
   document.getElementById('nc-commentaire-wrap').style.display = 'none';
   document.getElementById('nc-commentaire-paiement').value = '';
   document.getElementById('nc-montant-avance').value = '';
@@ -1650,30 +1661,11 @@ async function generateEtiquettePDF(c){
       y += 8;
       const lignes = c.lignesProduits || [];
       const poidsTotal = lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(c.poids||0);
-      const prixMoyen = poidsTotal>0 ? (Number(c.total||0)/poidsTotal) : 0;
-      const prixDistincts = [...new Set(lignes.map(l=>Number(l.prixKg)))];
-      const prixVarie = lignes.length > 1 && prixDistincts.length > 1;
       const dateDepot = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
 
-      if(prixVarie){
-        doc.setFont(undefined,'bold'); doc.setFontSize(9.5); doc.setTextColor(muted);
-        doc.text('DÉTAIL (prix différents par produit)', ox+labelW/2, y, { align:'center' });
-        y += 6;
-        doc.setFont(undefined,'normal'); doc.setFontSize(9.5); doc.setTextColor(ink);
-        lignes.forEach(l => {
-          doc.text('• ' + (l.type||'-') + ' : ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg', ox+6, y);
-          y += 5.5;
-        });
-        doc.setFontSize(9.5); doc.setTextColor(muted);
-        doc.text('Poids total : ' + poidsTotal + ' kg', ox+6, y);
-        y += 7.5;
-      } else {
-        doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
-        doc.text('Poids : ' + poidsTotal + ' kg', ox+6, y);
-        doc.text('Prix/kg : ' + formatPdfNum(prixMoyen) + ' MAD', ox+labelW-6, y, { align:'right' });
-        y += 7.5;
-      }
       doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
+      doc.text('Poids total : ' + poidsTotal + ' kg', ox+6, y);
+      y += 7.5;
       doc.text('Dépôt : ' + dateDepot, ox+6, y);
       doc.text('Origine : ' + (c.paysOrigine || '-'), ox+labelW-6, y, { align:'right' });
 
@@ -1760,19 +1752,40 @@ async function generateReceiptPDF(c){
     if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
+    const largeurContenu = 108; // mm disponibles avant la colonne QR (leftX+4 a ~124mm)
     if (lignesRecu.length) {
       doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
       doc.text('Contenu', leftX, y);
       y += 5.5;
-      lignesRecu.forEach(l => {
-        doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      // Taille de police reduite si la liste est longue, pour eviter de deborder verticalement
+      const taillePolice = lignesRecu.length > 10 ? 7 : (lignesRecu.length > 6 ? 7.8 : 8.5);
+      doc.setFont(undefined,'normal'); doc.setFontSize(taillePolice);
+      const limiteY = 108; // au-dela, on resume plutot que de deborder sur le bloc total
+      let tronque = false;
+      for (const l of lignesRecu) {
+        if (y > limiteY) { tronque = true; break; }
+        doc.setTextColor(ink);
         const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
-        doc.text('• ' + l.type + ' — ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg = ' + formatPdfNum(sousTotal) + ' MAD', leftX + 4, y);
-        y += 5.5;
-      });
+        const texte = '• ' + l.type + ' — ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg = ' + formatPdfNum(sousTotal) + ' MAD';
+        const lignesDecoupees = doc.splitTextToSize(texte, largeurContenu);
+        lignesDecoupees.forEach(sousLigne => { doc.text(sousLigne, leftX + 4, y); y += taillePolice * 0.5; });
+      }
+      if (tronque) {
+        doc.setTextColor(muted); doc.setFont(undefined,'italic'); doc.setFontSize(7.5);
+        doc.text('(liste complète disponible dans l\'application)', leftX + 4, y);
+        y += 5;
+      }
+      y += 1.5;
+    } else if (c.contenu) {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Contenu', leftX, y);
+      y += 5.5;
+      doc.setTextColor(ink); doc.setFontSize(8.5);
+      const lignesDecoupees = doc.splitTextToSize(String(c.contenu), largeurContenu);
+      lignesDecoupees.forEach(sousLigne => { doc.text(sousLigne, leftX + 4, y); y += 5; });
       y += 1.5;
     } else {
-      row('Contenu', c.contenu || '-');
+      row('Contenu', '-');
     }
     row('Paiement depart', c.statutPaiementDepart);
     if (c.statutPaiementDepart === 'Partiel') {
@@ -2664,13 +2677,14 @@ function filterBilanDetailList(){
 function renderBilanDetailList(list){
   const box = document.getElementById('bilan-detail-body');
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
-  const totalPoids = list.reduce((s,c)=>s+(parseFloat(c.poids)||0),0);
+  const poidsAffiche = c => c.poids_troncon_voyage !== undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
+  const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
   html += list.map(c=>`
     <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
       <div class="txt">
         <div class="r">${c.reference}</div>
-        <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids||0)} kg</div>
+        <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
       </div>
       <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
     </div>`).join('');
