@@ -802,7 +802,7 @@ async function api(action, payload={}, silencieux=false){
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage',
-      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','addAgent'];
+      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique'];
     if(migrees.includes(action)){
       return await apiSupabase(action, payload);
     }
@@ -1122,8 +1122,6 @@ async function apiSupabase(action, p){
       if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Réservé à l'administrateur" : traduireErreur(error.message));
       data = rows;
 
-    } else if(action==='addAgent'){
-      throw new Error("Ajout d'agent : a faire depuis le tableau de bord Supabase (Authentication > Add user), puis lier le profil dans la table agents. Pas encore automatisable depuis l'app.");
     }
     return data;
   }catch(err){
@@ -1566,7 +1564,7 @@ async function saveColis(){
       if(photoUrls.length){
         api('searchColis', {reference: ref}).then(verif => {
           if(!verif.photo_url || verif.photo_url.trim()===''){
-            showToast('⚠️ Colis enregistré MAIS le lien photo est absent du Sheet (bug backend à signaler)');
+            showToast('⚠️ Colis enregistré MAIS le lien photo est absent (bug à signaler)');
             console.error('Photo envoyee (', photoUrls.join(', '), ') mais photo_url vide dans la fiche colis retournee :', verif);
           }
         }).catch(()=>{});
