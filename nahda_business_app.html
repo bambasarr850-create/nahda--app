@@ -523,6 +523,7 @@
       </div>
       <div id="bilan-scroll"></div>
       <button class="btn btn-gold" id="bilan-pdf-btn" style="display:none;margin-top:8px;" onclick="generateBilanPDF()">📄 Générer le bilan en PDF</button>
+      <button class="btn btn-outline" id="bilan-excel-btn" style="display:none;margin-top:8px;" onclick="generateBilanExcel()">📊 Exporter en Excel</button>
     </div>
   </section>
 
@@ -548,7 +549,7 @@
         <button class="btn btn-primary" onclick="addDestination()">Ajouter</button>
       </div>
 
-      <div class="settings-item" onclick="togglePanel('p-pass')"><div><div class="t">🔑 Modifier mot de passe</div><div class="d">Sécurité du compte agent</div></div><span>›</span></div>
+      <div class="settings-item" onclick="togglePanel('p-pass')"><div><div class="t">🔑 Modifier mon mot de passe</div><div class="d">Concerne uniquement ce compte (Admin) actuellement connecté</div></div><span>›</span></div>
       <div class="settings-panel" id="p-pass">
         <div class="field"><label>Nouveau mot de passe</label><input id="ps-newpass" type="password"></div>
         <button class="btn btn-primary" onclick="changePassword()">Confirmer</button>
@@ -615,6 +616,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
@@ -2550,6 +2552,7 @@ async function renderBilan(){
       scopeTexte: currentAgent.role!=='Admin' ? ('Trésorerie de : '+currentAgent.pays) : (paysChoisi ? ('Trésorerie filtrée : '+paysChoisi+' (Admin)') : 'Vue globale — tous pays (Admin)')
     };
     document.getElementById('bilan-pdf-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
+    document.getElementById('bilan-excel-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
     box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
       <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')"><div><div class="l">Payé au départ (période)</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
       <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')"><div><div class="l">Encaissé au retrait (période)</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
@@ -2565,6 +2568,66 @@ async function renderBilan(){
 let BILAN_FILTRE = {};
 let BILAN_DATA = null;
 
+async function generateBilanExcel(){
+  if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
+  if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
+  if(typeof window.XLSX === 'undefined'){ showToast('⚠️ Librairie Excel non chargée — vérifie ta connexion'); return; }
+  showToast('📊 Génération du fichier Excel...');
+  try{
+    const { b, jourLabel, date, scopeTexte } = BILAN_DATA;
+    const [listeDepart, listeRetrait] = await Promise.all([
+      api('bilanDetail', {...BILAN_FILTRE, type:'payeDepart'}),
+      api('bilanDetail', {...BILAN_FILTRE, type:'encaisseRetrait'})
+    ]);
+
+    const wb = XLSX.utils.book_new();
+
+    // ---- Feuille 1 : Resume ----
+    const resume = [
+      ['NAHDA BUSINESS — Bilan de trésorerie'],
+      [],
+      ['Période', jourLabel],
+      ['Périmètre', scopeTexte],
+      ['Généré le', new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})],
+      ['Généré par', currentAgent.nom],
+      [],
+      ['Indicateur', 'Valeur'],
+      ['Payé au départ (période)', Number(b.totalPayeDepart||0)],
+      ['Encaissé au retrait (période)', Number(b.totalEncaisseRetrait||0)],
+      ['Colis créés (période)', Number(b.nbColisJour||0)],
+      ['Retraits (période)', Number(b.nbRetraitsJour||0)],
+      [],
+      ['Vue d\'ensemble (toutes dates)', ''],
+      ['Total colis', Number(b.totalColis||0)],
+      ['En attente', Number(b.enAttente||0)],
+      ['En voyage', Number(b.enVoyage||0)],
+      ['Arrivés (non retirés)', Number(b.arrives||0)],
+      ['Retirés', Number(b.retires||0)],
+    ];
+    const wsResume = XLSX.utils.aoa_to_sheet(resume);
+    wsResume['!cols'] = [{wch:32},{wch:22}];
+    wsResume['!merges'] = [{s:{r:0,c:0},e:{r:0,c:1}}];
+    XLSX.utils.book_append_sheet(wb, wsResume, 'Résumé');
+
+    // ---- Feuille 2 : Detail des colis (paiements de la periode) ----
+    const entetes = ['N° Reçu','Client','Destination','Poids (kg)','Prix/kg (MAD)','Type de paiement','Montant (MAD)','Statut'];
+    const STATUT_LABEL_XL = {0:'Enregistré',1:'En voyage',2:'Arrivé',3:'Retiré'};
+    const lignesDetail = [
+      ...listeDepart.map(c=>[c.reference, c.nom_client||'', c.pays_destination||'', Number(c.poids||0), Number(c.prix_kg||0), 'Payé au départ', Number(c.total||0), STATUT_LABEL_XL[Number(c.statut)]||'']),
+      ...listeRetrait.map(c=>[c.reference, c.nom_client||'', c.pays_destination||'', Number(c.poids||0), Number(c.prix_kg||0), 'Encaissé au retrait', Number(c.montant_retrait||0), STATUT_LABEL_XL[Number(c.statut)]||''])
+    ];
+    const wsDetail = XLSX.utils.aoa_to_sheet([entetes, ...lignesDetail]);
+    wsDetail['!cols'] = [{wch:16},{wch:22},{wch:20},{wch:11},{wch:13},{wch:18},{wch:14},{wch:12}];
+    wsDetail['!autofilter'] = { ref: 'A1:H' + (lignesDetail.length+1) };
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Détail des colis');
+
+    const nomFichier = 'Bilan_Nahda_Business_' + (date||'export').replace(/[^a-zA-Z0-9_-]/g,'_') + '.xlsx';
+    XLSX.writeFile(wb, nomFichier);
+    showToast('✅ Fichier Excel généré');
+  }catch(e){
+    showToast('⚠️ Erreur export Excel : ' + (e.message||'inconnue'));
+  }
+}
 async function generateBilanPDF(){
   if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
   if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
