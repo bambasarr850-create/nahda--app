@@ -1736,6 +1736,9 @@ async function generateReceiptPDF(c){
     doc.text('Fret aerien - Maroc / Afrique Centrale et Ouest', 30, 18);
     doc.setFont(undefined, 'bold'); doc.setFontSize(11);
     doc.text('RECU N° ' + c.reference, W - 8, 15, { align: 'right' });
+    const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
+    doc.text('Depose le ' + dateDepotRecu, W - 8, 21, { align: 'right' });
 
     // ---- Colonne gauche : details colis (0 - 128mm) ----
     let y = 35;
@@ -1751,8 +1754,6 @@ async function generateReceiptPDF(c){
     row('Telephone', c.telephone);
     if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
-    const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
-    row('Date de depot', dateDepotRecu);
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
     const largeurContenu = 108; // mm disponibles avant la colonne QR (leftX+4 a ~124mm)
     if (lignesRecu.length) {
