@@ -466,7 +466,6 @@
 
       <div id="voyage-historique-panel" style="display:none;">
         <input type="text" id="historique-search" placeholder="🔎 Rechercher (voyageur, n° voyage, destination)..." oninput="filterHistoriqueList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
-        <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="generateHistoriqueVoyagesPDF()">📄 Exporter l'historique en PDF</button>
         <div id="historique-list"></div>
       </div>
     </div>
@@ -2566,110 +2565,6 @@ async function renderBilan(){
 let BILAN_FILTRE = {};
 let BILAN_DATA = null;
 
-async function generateHistoriqueVoyagesPDF(){
-  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
-  if(!HISTORIQUE_CACHE || !HISTORIQUE_CACHE.length){ showToast('⚠️ Aucun voyage à exporter'); return; }
-  showToast('📄 Génération du PDF, ' + HISTORIQUE_CACHE.length + ' voyage(s)...');
-  try{
-    // Tri du plus recent au plus ancien (deja l'ordre du backend, on s'assure ici cote affichage)
-    const voyagesTries = [...HISTORIQUE_CACHE].sort((a,b) => new Date(b.created_at||b.date_depart||0) - new Date(a.created_at||a.date_depart||0));
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-    const W = 210, H = 297;
-    const navy = '#0B4A40', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255';
-    const margeGauche = 8, margeDroite = 8, largeurUtile = W - margeGauche - margeDroite;
-
-    function drawHeader(){
-      doc.setFillColor(navy); doc.rect(0, 0, W, 22, 'F');
-      doc.setFillColor(gold); doc.rect(0, 22, W, 1, 'F');
-      if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 3, 16, 16);
-      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(13);
-      doc.text('NAHDA BUSINESS', 27, 10);
-      doc.setFont(undefined,'normal'); doc.setFontSize(8);
-      doc.text('Historique des voyages', 27, 16);
-      doc.setFontSize(7); doc.setTextColor(muted);
-      doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' par ' + currentAgent.nom, W-margeDroite, H-6, {align:'right'});
-    }
-
-    let y = 30;
-    drawHeader();
-
-    for(const v of voyagesTries){
-      const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
-      let colisDuVoyage = [];
-      try{ colisDuVoyage = await api('listColisParVoyage', {numero: v.numero}, true); }catch(e){ colisDuVoyage = []; }
-      const poidsTotalVoyage = colisDuVoyage.reduce((s,c)=>s + (c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0)), 0);
-
-      // Hauteur estimee du bloc pour decider si nouvelle page necessaire
-      const hauteurEstimee = 26 + (colisDuVoyage.length * 6) + 12;
-      if(y + hauteurEstimee > H - 14){ doc.addPage(); drawHeader(); y = 30; }
-
-      const yDebutBloc = y;
-      // En-tete du voyage (cadre dore)
-      doc.setDrawColor(gold); doc.setLineWidth(0.6);
-      doc.setFillColor('#FBF6EC');
-      doc.rect(margeGauche, y, largeurUtile, 18, 'FD');
-      doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(10.5);
-      doc.text('Voyage ' + v.numero, margeGauche+4, y+7);
-      doc.setFont(undefined,'normal'); doc.setFontSize(8.5); doc.setTextColor(muted);
-      doc.text('Voyageur : ' + (v.transporteur||'—'), margeGauche+4, y+13);
-      doc.text('Date de depart : ' + dateStr, margeGauche+70, y+13);
-      doc.setFont(undefined,'bold'); doc.setTextColor(navy);
-      doc.text((v.pays_destination||'—') + ' — ' + (v.agence_destination||''), W-margeDroite-4, y+7, {align:'right'});
-      doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(muted);
-      doc.text('Statut : ' + (v.statut||'—'), W-margeDroite-4, y+13, {align:'right'});
-      y += 18;
-
-      // Tableau des colis (cadre autour de chaque ligne)
-      if(colisDuVoyage.length){
-        doc.setFillColor(navy);
-        doc.rect(margeGauche, y, largeurUtile, 7, 'F');
-        doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(8);
-        doc.text('N Recu', margeGauche+3, y+5);
-        doc.text('Client', margeGauche+35, y+5);
-        doc.text('Destination', margeGauche+90, y+5);
-        doc.text('Poids (kg)', W-margeDroite-3, y+5, {align:'right'});
-        y += 7;
-        doc.setDrawColor('#D9D2C2'); doc.setLineWidth(0.2);
-        colisDuVoyage.forEach(c=>{
-          const poidsC = c.poids_troncon_voyage!==undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
-          doc.rect(margeGauche, y, largeurUtile, 6);
-          doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8);
-          doc.text(String(c.reference), margeGauche+3, y+4.2);
-          doc.text(String(c.nom_client||'-').substring(0,22), margeGauche+35, y+4.2);
-          doc.text(String(c.pays_destination||'-').substring(0,18), margeGauche+90, y+4.2);
-          doc.text(String(poidsC) + ' kg', W-margeDroite-3, y+4.2, {align:'right'});
-          y += 6;
-        });
-      } else {
-        doc.setFont(undefined,'italic'); doc.setFontSize(8); doc.setTextColor(muted);
-        doc.text('Aucun colis associe a ce voyage.', margeGauche+4, y+5);
-        y += 8;
-      }
-
-      // Total du voyage (encadre)
-      doc.setFillColor(navy);
-      doc.rect(margeGauche, y, largeurUtile, 8, 'F');
-      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9);
-      doc.text('POIDS TOTAL DE CE VOYAGE', margeGauche+4, y+5.5);
-      doc.text(poidsTotalVoyage.toLocaleString('fr-FR') + ' kg', W-margeDroite-4, y+5.5, {align:'right'});
-      y += 8;
-
-      // Cadre global autour de tout le bloc du voyage
-      doc.setDrawColor(navy); doc.setLineWidth(0.5);
-      doc.rect(margeGauche, yDebutBloc, largeurUtile, y - yDebutBloc);
-
-      // Separation nette entre deux voyages (equivalent a 2 lignes d'espace)
-      y += 12;
-    }
-
-    doc.save('Historique_Voyages_Nahda_Business.pdf');
-    showToast('✅ Historique exporté en PDF');
-  }catch(e){
-    showToast('⚠️ Erreur export historique : ' + (e.message||'inconnue'));
-  }
-}
 async function generateBilanPDF(){
   if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
   if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
