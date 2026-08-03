@@ -2212,21 +2212,29 @@ function renderVoyageColisListWithActions(list, v){
   const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
   const totalPoids = list.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
-  html += list.map(c=>`
+  html += list.map((c,i)=>`
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
-      <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+      <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
         <div class="txt">
           <div class="r">${c.reference}</div>
           <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids_troncon_voyage||0)} kg sur ce voyage</div>
         </div>
         <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
       </div>
-      ${peutGerer ? `<div class="btn-row" style="width:100%;">
-        <button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids de ce tronçon</button>
-        <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer du voyage</button>
-      </div>` : ''}
+      <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;">
+        <button class="btn btn-outline" onclick='closeBilanDetail(); document.getElementById("sr-ref").value="${c.reference}"; goto("screen-search"); searchColis();'>🔍 Fiche</button>
+        ${peutGerer ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
+        <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
+      </div>
     </div>`).join('');
   box.innerHTML = html;
+}
+function toggleColisActions(index){
+  const el = document.getElementById('colis-actions-'+index);
+  if(!el) return;
+  const visible = el.style.display === 'flex';
+  document.querySelectorAll('[id^="colis-actions-"]').forEach(d=>d.style.display='none');
+  el.style.display = visible ? 'none' : 'flex';
 }
 async function modifierPoidsTranche(reference, numero, poidsActuel){
   const nouveauPoids = prompt('Poids envoyé sur CE voyage précis (kg) pour ' + reference + ' :', poidsActuel);
