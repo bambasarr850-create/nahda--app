@@ -807,6 +807,7 @@ async function api(action, payload={}, silencieux=false){
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
+      'modifierPoidsTranche','retirerColisDuVoyage',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       return await apiSupabase(action, payload);
@@ -947,6 +948,10 @@ async function apiSupabase(action, p){
 
     } else if(action==='deleteColis'){
       const { data: avant } = await sb.from('colis').select('*').eq('reference', p.reference).maybeSingle();
+      if(avant && Number(avant.statut) !== 0){
+        if(p.agentRole !== 'Admin') throw new Error("Ce colis est déjà en voyage ou au-delà : suppression réservée à l'administrateur");
+        await sb.from('expeditions').delete().eq('reference', p.reference);
+      }
       const { error } = await sb.from('colis').delete().eq('reference', p.reference);
       if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression refusée (vérifie que le colis t'appartient et qu'il est encore en attente)" : traduireErreur(error.message));
       sb.from('historique_modifications').insert({
@@ -1043,6 +1048,16 @@ async function apiSupabase(action, p){
       const { error } = await sb.from('voyages').delete().eq('numero', p.numero);
       if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression réservée à l'agence d'origine de ce voyage" : traduireErreur(error.message));
       data = { deleted: p.numero };
+
+    } else if(action==='modifierPoidsTranche'){
+      const { error } = await sb.rpc('modifier_poids_tranche', { p_reference: p.reference, p_voyage: p.numero, p_nouveau_poids: Number(p.nouveauPoids||0) });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { updated: p.reference };
+
+    } else if(action==='retirerColisDuVoyage'){
+      const { error } = await sb.rpc('retirer_colis_du_voyage', { p_reference: p.reference, p_voyage: p.numero });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { removed: p.reference };
 
     } else if(action==='listVoyagesEnTransit'){
       let q = sb.from('expeditions').select('voyage').eq('statut', 0);
@@ -2186,10 +2201,55 @@ async function showVoyageColisDetail(v){
   document.getElementById('bilan-detail-modal').style.display = 'flex';
   try{
     BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero: v.numero});
-    renderBilanDetailList(BILAN_DETAIL_CACHE);
+    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
   }catch(e){
     document.getElementById('bilan-detail-body').innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce voyage.</p></div>`;
   }
+}
+function renderVoyageColisListWithActions(list, v){
+  const box = document.getElementById('bilan-detail-body');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans ce voyage.</p></div>`; return; }
+  const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
+  const totalPoids = list.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
+  html += list.map(c=>`
+    <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+        <div class="txt">
+          <div class="r">${c.reference}</div>
+          <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids_troncon_voyage||0)} kg sur ce voyage</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
+      </div>
+      ${peutGerer ? `<div class="btn-row" style="width:100%;">
+        <button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids de ce tronçon</button>
+        <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer du voyage</button>
+      </div>` : ''}
+    </div>`).join('');
+  box.innerHTML = html;
+}
+async function modifierPoidsTranche(reference, numero, poidsActuel){
+  const nouveauPoids = prompt('Poids envoyé sur CE voyage précis (kg) pour ' + reference + ' :', poidsActuel);
+  if(nouveauPoids === null) return;
+  const val = parseFloat(nouveauPoids);
+  if(isNaN(val) || val < 0){ showToast('⚠️ Poids invalide'); return; }
+  try{
+    await api('modifierPoidsTranche', {reference, numero, nouveauPoids: val});
+    showToast('✅ Poids du tronçon mis à jour');
+    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
+    const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
+    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
+  }catch(e){}
+}
+async function retirerColisDuVoyageConfirm(reference, numero){
+  if(!confirm('Retirer le colis ' + reference + ' de ce voyage ? Il redeviendra disponible pour un futur envoi si aucun autre tronçon ne le concerne.')) return;
+  try{
+    await api('retirerColisDuVoyage', {reference, numero});
+    showToast('🗑️ Colis retiré du voyage');
+    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
+    const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
+    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
+  }catch(e){}
 }
 function filterHistoriqueList(){
   const q = document.getElementById('historique-search').value.trim().toLowerCase();
