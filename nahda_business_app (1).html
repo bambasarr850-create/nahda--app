@@ -1,0 +1,2882 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Nahda Business</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B4A40">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nahda Business">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --navy:#0B4A40;
+    --navy-2:#0E6B5C;
+    --red:#C1272D;
+    --gold:#C89B3C;
+    --sand:#F1EAD9;
+    --sand-2:#E7DCC2;
+    --ink:#1B1B1B;
+    --muted:#6B6255;
+    --green:#2F7D5A;
+    --amber:#B8791E;
+    --white:#FFFFFF;
+    --line:#DCD2B8;
+    --radius:16px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#0d1420;font-family:var(--font-body);color:var(--ink);}
+
+  .phone-wrap{display:flex;justify-content:center;align-items:flex-start;padding:24px 8px;min-height:100vh;}
+  .phone{
+    width:400px;max-width:100%;min-height:820px;background:var(--sand);
+    border-radius:34px;overflow:hidden;position:relative;
+    box-shadow:0 30px 60px rgba(0,0,0,.5), 0 0 0 8px #05070c, 0 0 0 9px #2a2f3a;
+    display:flex;flex-direction:column;
+  }
+  .statusbar{height:30px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:var(--sand);font-size:11px;font-family:var(--font-mono);letter-spacing:.5px;flex:none;}
+
+  .screen{display:none;flex-direction:column;flex:1;min-height:0;}
+  .screen.active{display:flex;animation:screenFadeIn .28s ease;}
+  @keyframes screenFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .skeleton-line{background:linear-gradient(90deg,var(--sand-2) 25%,#f3ead8 37%,var(--sand-2) 63%);background-size:400% 100%;animation:skeletonShimmer 1.4s ease infinite;border-radius:10px;}
+  @keyframes skeletonShimmer{0%{background-position:100% 50%;}100%{background-position:0 50%;}}
+  .skeleton-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;}
+  .skeleton-card .skeleton-line{height:12px;margin-bottom:8px;}
+  .skeleton-card .skeleton-line:last-child{margin-bottom:0;width:60%;}
+
+  .ic svg{width:20px;height:20px;}
+  .scroll{overflow-y:auto;flex:1;padding:18px 18px 90px;}
+  .scroll::-webkit-scrollbar{width:0;}
+  .grid-menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* ---------- Topbar ---------- */
+  .topbar{background:var(--navy);color:var(--sand);padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
+  .topbar h1{font-family:var(--font-display);font-size:17px;margin:0;font-weight:600;letter-spacing:.2px;}
+  .topbar .sub{font-size:11px;color:#B9C2D4;font-family:var(--font-mono);margin-top:2px;}
+  .back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:var(--sand);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+  .back-btn:active{background:rgba(255,255,255,.18);}
+  .topbar-spacer{flex:1;}
+  .logout-btn{background:none;border:1px solid rgba(255,255,255,.25);color:var(--sand);border-radius:20px;padding:6px 12px;font-size:11px;font-family:var(--font-body);cursor:pointer;}
+
+  /* ---------- Logo mark ---------- */
+  .logomark{width:38px;height:38px;border-radius:11px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:none;position:relative;background:var(--navy);}
+  .logomark img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  /* ---------- LOGIN ---------- */
+  #screen-login .scroll{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 30px;overflow-x:hidden;}
+  .login-hero{display:flex;flex-direction:column;align-items:center;margin-bottom:34px;}
+  .login-hero .logomark{width:84px;height:84px;border-radius:22px;margin-bottom:16px;}
+  .brand-name{font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--navy);letter-spacing:.3px;text-align:center;}
+  .brand-tag{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;}
+  .route-strip{display:flex;align-items:center;gap:6px;margin-top:14px;font-family:var(--font-mono);font-size:11px;color:var(--navy-2);}
+  .route-strip .dots{flex:1;height:1px;background:repeating-linear-gradient(90deg,var(--gold) 0 4px,transparent 4px 8px);width:60px;position:relative;}
+
+  .field{width:100%;margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-weight:600;color:var(--navy);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--white);font-family:var(--font-body);font-size:14.5px;color:var(--ink);
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);}
+  .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);opacity:.7;cursor:not-allowed;}
+  .field input:read-only{background:var(--sand-2);color:var(--navy);font-weight:700;cursor:not-allowed;}
+  .field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--sand-2);color:var(--muted);cursor:not-allowed;opacity:.75;}
+  .login-form{width:100%;position:relative;z-index:1;}
+  .btn{
+    width:100%;padding:13px;border-radius:12px;border:none;font-family:var(--font-body);
+    font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px;
+  }
+  .btn-primary{background:var(--navy);color:var(--sand);}
+  .btn-primary:active{background:var(--navy-2);}
+  .btn-gold{background:var(--gold);color:var(--navy);}
+  .btn-outline{background:transparent;border:1.5px solid var(--line);color:var(--muted);}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn:disabled{background:var(--sand-2)!important;color:var(--muted)!important;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:6px;}
+  .btn-row .btn{flex:1;}
+  .err-msg{background:#FBE2E2;color:var(--red);font-size:12.5px;padding:9px 12px;border-radius:10px;margin-bottom:12px;width:100%;display:none;font-weight:600;}
+  .demo-hint{margin-top:22px;font-size:10.5px;color:var(--muted);text-align:center;line-height:1.6;font-family:var(--font-mono);}
+
+  /* ---------- Dashboard ---------- */
+  .agent-card{background:var(--navy);color:var(--sand);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;position:relative;overflow:hidden;}
+  .agent-card::after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:rgba(200,155,60,.18);}
+  .agent-card .name{font-family:var(--font-display);font-size:16px;font-weight:600;}
+  .agent-card .loc{font-family:var(--font-mono);font-size:11px;color:#C9D2E4;margin-top:4px;}
+  .agent-card .badge{display:inline-block;margin-top:10px;font-size:10px;background:rgba(200,155,60,.25);color:var(--gold);padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.5px;}
+
+  .grid-menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .menu-btn{
+    background:var(--white);border:1px solid var(--line);border-radius:16px;padding:18px 12px;
+    display:flex;flex-direction:column;align-items:flex-start;gap:10px;cursor:pointer;text-align:left;
+  }
+  .menu-btn:active{background:var(--sand-2);}
+  .menu-btn .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .menu-btn span{font-family:var(--font-display);font-size:13.5px;font-weight:600;color:var(--navy);}
+  .menu-btn.wide{grid-column:1/3;flex-direction:row;align-items:center;}
+
+  .kpi-strip{display:flex;gap:10px;margin-bottom:16px;}
+  .kpi{flex:1;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);cursor:pointer;transition:transform .12s;}
+  .kpi:active{transform:scale(.95);background:var(--sand-2);}
+  .kpi .n{font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--navy);}
+  .kpi .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+
+  h2.section-title{font-family:var(--font-display);font-size:14px;color:var(--navy);margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;}
+
+  /* ---------- Boarding-pass colis card ---------- */
+  .colis-card{background:var(--white);border-radius:16px;margin-bottom:14px;border:1px solid var(--line);overflow:hidden;position:relative;}
+  .colis-top{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:flex-start;}
+  .colis-ref{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--navy);}
+  .colis-client{font-size:12px;color:var(--muted);margin-top:2px;}
+  .status-pill{font-size:9.5px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+  .st-0{background:#E5E9F2;color:var(--navy-2);}
+  .st-1{background:#FCEBD0;color:var(--amber);}
+  .st-2{background:#DDEFE5;color:var(--green);}
+  .st-3{background:#EDEDED;color:#666;}
+
+  .perf{height:0;border-top:2px dashed var(--sand-2);position:relative;margin:0 16px;}
+  .perf::before,.perf::after{content:"";position:absolute;top:-8px;width:16px;height:16px;border-radius:50%;background:#0d1420;}
+  .perf::before{left:-24px;}
+  .perf::after{right:-24px;}
+
+  .route-line{padding:14px 16px;display:flex;align-items:center;gap:8px;}
+  .route-pt{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;width:44px;}
+  .route-track{flex:1;height:2px;background:var(--sand-2);position:relative;border-radius:2px;}
+  .route-track .fill{position:absolute;left:0;top:0;height:100%;background:var(--gold);border-radius:2px;}
+  .route-track .plane{position:absolute;top:-9px;font-size:16px;transform:translateX(-50%);}
+  .colis-meta{display:flex;justify-content:space-between;padding:0 16px 14px;font-size:11px;color:var(--muted);font-family:var(--font-mono);}
+  .colis-meta b{color:var(--ink);}
+
+  /* ---------- Voyage tabs ---------- */
+  .tabbar{display:flex;background:var(--sand-2);border-radius:12px;padding:4px;margin-bottom:16px;}
+  .tabbar button{flex:1;border:none;background:transparent;padding:9px;border-radius:9px;font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--muted);cursor:pointer;}
+  .tabbar button.active{background:var(--navy);color:var(--sand);}
+
+  .checklist-item{display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;}
+  .checklist-total{background:var(--navy);color:var(--sand);padding:10px 14px;border-radius:12px;margin-bottom:12px;font-size:13px;text-align:center;}
+  .checklist-total b{color:var(--gold);}
+  .histo-card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+  .histo-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+  .histo-numero{font-family:var(--font-mono);font-weight:700;font-size:13.5px;color:var(--navy);}
+  .histo-statut{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;}
+  .histo-meta{font-size:12px;color:var(--muted);line-height:1.7;}
+  .histo-meta b{color:var(--ink);}
+  .histo-refs{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;}
+  .histo-refs span{background:var(--sand-2);padding:3px 9px;border-radius:20px;font-family:var(--font-mono);font-size:10.5px;color:var(--navy-2);}
+  .checklist-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy);flex:none;}
+  .checklist-item .txt{flex:1;}
+  .checklist-item .txt .r{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--navy);}
+  .checklist-item .txt .d{font-size:11px;color:var(--muted);}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+  .empty-state .em{font-size:34px;margin-bottom:10px;}
+  .empty-state p{font-size:12.5px;line-height:1.6;margin:0;}
+
+  .content-tag{display:inline-flex;align-items:center;gap:6px;background:var(--sand-2);padding:5px 10px;border-radius:20px;font-size:12px;margin:0 6px 6px 0;}
+  .content-tag button{border:none;background:none;color:var(--red);cursor:pointer;font-weight:700;font-size:12px;}
+  .content-tags-wrap{display:flex;flex-wrap:wrap;margin-bottom:6px;}
+  .ligne-produit{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;position:relative;}
+  .ligne-produit .ligne-remove{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;border:none;background:var(--sand-2);color:var(--red);font-weight:700;font-size:14px;cursor:pointer;}
+  .ligne-produit .ligne-row{display:flex;gap:8px;margin-top:8px;}
+  .ligne-produit .ligne-row input,.ligne-produit .ligne-row select{flex:1;padding:9px 10px;border-radius:9px;border:1.5px solid var(--line);font-size:13px;background:var(--white);}
+  .ligne-produit .ligne-total{margin-top:8px;font-family:var(--font-mono);font-size:12.5px;color:var(--navy);font-weight:700;text-align:right;}
+  .add-row{display:flex;gap:8px;}
+  .add-row input{flex:1;}
+  .add-row button{flex:none;width:44px;border-radius:12px;border:none;background:var(--navy);color:var(--sand);font-size:18px;cursor:pointer;}
+
+  .total-box{background:var(--navy);color:var(--sand);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;}
+  .total-box .lbl{font-size:11px;color:#C9D2E4;text-transform:uppercase;letter-spacing:.5px;}
+  .total-box .val{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--gold);}
+
+  .photo-box{border:1.5px dashed var(--line);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;background:var(--white);}
+  .photo-box .thumb{width:52px;height:52px;border-radius:10px;background:var(--sand-2);flex:none;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;}
+  .photo-box .thumb img{width:100%;height:100%;object-fit:cover;}
+  .photo-box .txt{flex:1;font-size:11.5px;color:var(--muted);}
+  .photo-box label.upload-btn{background:var(--sand-2);padding:8px 12px;border-radius:10px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;flex:none;}
+  .photo-box input[type=file]{display:none;}
+  .gallery-thumb{position:relative;width:74px;height:74px;border-radius:12px;overflow:hidden;flex:none;background:var(--sand-2);}
+  .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .gallery-thumb button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:1;cursor:pointer;}
+
+  .toast{position:fixed;top:14px;left:14px;right:14px;max-width:400px;margin:0 auto;background:var(--navy);color:#fff;padding:14px 18px;border-radius:14px;font-size:14.5px;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.35);z-index:200;display:none;font-weight:700;line-height:1.4;animation:toastSlideDown .25s ease;}
+  .toast.err{background:#C1272D;}
+  .toast.ok{background:#1E7A4C;}
+  .toast.info{background:#0E3A6B;}
+  @keyframes toastSlideDown{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
+  .global-plane-track{position:relative;width:60px;height:60px;}
+  .global-plane-track .circle{position:absolute;inset:0;border-radius:50%;border:2px dashed var(--line);}
+  .global-plane{position:absolute;width:100%;height:100%;animation:planeSpin 2.2s linear infinite;}
+  .global-plane i{position:absolute;top:-11px;left:50%;margin-left:-11px;font-size:22px;transform:rotate(90deg);}
+  @keyframes planeSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  .result-card{background:var(--white);border-radius:16px;border:1px solid var(--line);padding:16px;margin-top:6px;}
+  .result-row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--sand-2);font-size:13px;}
+  .result-row .k{flex:none;white-space:nowrap;}
+  .result-row .v{text-align:right;}
+  .result-row:last-child{border-bottom:none;}
+  .result-row .k{color:var(--muted);}
+  .result-row .v{font-weight:600;color:var(--ink);font-family:var(--font-mono);}
+
+  .timeline{display:flex;justify-content:space-between;margin:18px 0 6px;position:relative;}
+  .timeline::before{content:"";position:absolute;top:9px;left:14px;right:14px;height:2px;background:var(--sand-2);}
+  .tl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1;}
+  .tl-dot{width:20px;height:20px;border-radius:50%;background:var(--sand-2);border:2px solid var(--sand-2);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+  .tl-dot.done{background:var(--green);border-color:var(--green);}
+  .tl-dot.current{background:var(--gold);border-color:var(--gold);}
+  .tl-label{font-size:9px;color:var(--muted);text-align:center;}
+
+  .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:transform .12s;}
+  .bilan-card:active{transform:scale(.98);background:var(--sand-2);}
+  .date-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .date-nav button{border:1px solid var(--line);background:var(--white);border-radius:10px;width:36px;height:36px;font-size:18px;color:var(--navy);cursor:pointer;flex:none;}
+  .date-nav input[type=date]{flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-family:var(--font-mono);font-size:13px;background:var(--white);color:var(--ink);}
+  .date-nav .today-btn{width:auto;padding:0 12px;font-size:11px;font-weight:700;font-family:var(--font-body);color:var(--navy);}
+  .bilan-card .l{font-size:12px;color:var(--muted);}
+  .bilan-card .v{font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--navy);}
+  .bilan-card.accent .v{color:var(--green);}
+  .bilan-card .ic{width:40px;height:40px;border-radius:11px;background:var(--sand-2);display:flex;align-items:center;justify-content:center;font-size:18px;}
+
+  .settings-item{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .settings-item .t{font-family:var(--font-display);font-weight:600;font-size:13.5px;color:var(--navy);}
+  .settings-item .d{font-size:11px;color:var(--muted);margin-top:2px;}
+  .settings-panel{display:none;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px;margin:-2px 0 14px;}
+  .settings-panel.open{display:block;}
+
+  .list-mini{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.9;}
+  .list-mini b{color:var(--ink);}
+
+  .banner-demo{background:#FCEBD0;color:var(--amber);font-size:10.5px;padding:8px 12px;border-radius:10px;margin-bottom:14px;text-align:center;font-weight:600;line-height:1.5;}
+</style>
+
+</head>
+<body>
+<div class="phone-wrap">
+<div class="phone" id="phone">
+
+  <div class="statusbar"><span>09:41</span><span>NAHDA · RÉSEAU MA–AFRIQUE</span></div>
+
+  <!-- ============ LOGIN ============ -->
+  <section class="screen active" id="screen-login">
+    <div class="scroll" style="position:relative;">
+      <svg class="login-bg-plane" viewBox="0 0 24 24" fill="currentColor" style="position:absolute;top:6%;right:-12%;width:230px;height:230px;opacity:.06;color:var(--navy);pointer-events:none;transform:rotate(18deg);z-index:0;">
+        <path d="M21 16v-2l-8-5V4.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-5.5l8 2.5z"/>
+      </svg>
+      <svg class="login-bg-plane" viewBox="0 0 24 24" fill="currentColor" style="position:absolute;bottom:4%;left:-14%;width:170px;height:170px;opacity:.05;color:var(--gold);pointer-events:none;transform:rotate(-25deg);z-index:0;">
+        <path d="M21 16v-2l-8-5V4.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-5.5l8 2.5z"/>
+      </svg>
+      <div class="login-hero" style="position:relative;z-index:1;">
+        <div class="logomark">
+          <img src="data:image/png;base64,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" alt="Nahda Business">
+        </div>
+        <div class="brand-name">NAHDA BUSINESS</div>
+        <div class="brand-tag">Fret aérien · Maroc ⇄ Afrique</div>
+        <div class="route-strip">CAS <div class="dots"></div> ✈ <div class="dots"></div> ABJ / BKO / OUA / DKR</div>
+      </div>
+      <div class="login-form">
+        <div class="err-msg" id="login-err">Identifiant ou mot de passe incorrect.</div>
+        <div class="field">
+          <label>ID Agent</label>
+          <select id="in-agent-id">
+            <option value="">Sélectionner...</option>
+            <option value="AG-CAS-01">Casablanca — Admin</option>
+            <option value="AG-CAS-02">Casablanca — Agent</option>
+            <option value="AG-ABJ-01">Abidjan — Agent</option>
+            <option value="AG-CKY-01">Conakry — Agent</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <input type="password" id="in-agent-pass" placeholder="••••••">
+        </div>
+        <button class="btn btn-primary" id="login-btn" onclick="doLogin()">✅ SE CONNECTER</button>
+      </div>
+      <!-- TODO : retirer ce bloc avant la mise en service -->
+      <div style="text-align:center;margin-top:18px;">
+        <div style="font-size:10.5px;color:var(--muted);">Application développée par</div>
+        <div style="font-size:12px;color:var(--navy);font-weight:700;font-family:var(--font-display);">Khadim Sarr</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="screen" id="screen-dashboard">
+    <div class="topbar">
+      <div class="logomark" style="width:34px;height:34px;border-radius:9px;"><img src="data:image/png;base64,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" alt="Nahda Business"></div>
+      <div><h1>Tableau de bord</h1><div class="sub" id="dash-date"></div></div>
+      <div class="topbar-spacer"></div>
+      <div id="offline-badge" onclick="showVoirFileAttente()" style="display:none;align-items:center;justify-content:center;background:var(--gold);color:var(--navy);font-size:11px;font-weight:800;width:24px;height:24px;border-radius:50%;margin-right:8px;cursor:pointer;">0</div>
+      <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    </div>
+    <div class="scroll">
+      <div class="agent-card">
+        <div class="name" id="dash-agent-name">—</div>
+        <div class="loc" id="dash-agent-loc">—</div>
+        <div class="badge" id="dash-agent-role">AGENT</div>
+      </div>
+
+      <div class="kpi-strip">
+        <div class="kpi" onclick="showDashboardDetail('totalColis','Tous les colis')"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
+        <div class="kpi" onclick="showDashboardDetail('enAttente','Colis en attente')"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
+        <div class="kpi" onclick="showDashboardDetail('enVoyage','Colis en voyage')"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
+        <div class="kpi" onclick="showDashboardDetail('retires','Colis retirés')"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
+      </div>
+
+      <div class="grid-menu">
+        <div class="menu-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
+        <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
+        <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
+        <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
+        <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NOUVEAU COLIS ============ -->
+  <section class="screen" id="screen-newcolis">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1 id="nc-title">Nouveau Colis</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
+      <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
+      <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
+      <div class="field"><label>Nom du déposant (personne qui remet le colis)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
+      <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00"></div>
+      <div class="field">
+        <label>Destination</label>
+        <select id="nc-dest" onchange="onDestChange()"></select>
+        <div id="nc-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
+      </div>
+
+      <div class="field">
+        <label>Contenu du colis (produits hétérogènes)</label>
+        <div id="nc-lignes-produits"></div>
+        <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLigneProduit()">+ Ajouter un type de produit</button>
+        <datalist id="nc-types-produit">
+          <option value="Vêtements"><option value="Électronique"><option value="Chaussures">
+          <option value="Alimentaire"><option value="Cosmétiques"><option value="Pièces auto">
+        </datalist>
+      </div>
+
+      <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
+      <div id="nc-total-devise" style="text-align:right;margin-top:-10px;margin-bottom:14px;font-size:11.5px;color:var(--muted);font-family:var(--font-mono);"></div>
+
+      <div class="field">
+        <label>Statut paiement départ</label>
+        <select id="nc-statutpaie" onchange="onStatutPaieChange()">
+          <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
+        </select>
+      </div>
+      <div class="field" id="nc-commentaire-wrap" style="display:none;">
+        <label>Montant versé en avance (MAD) — encaissé au pays de départ</label>
+        <input id="nc-montant-avance" type="number" placeholder="0" oninput="updateResteAPercevoir()">
+        <div id="nc-reste-info" style="font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+        <label style="margin-top:10px;">Commentaire (paiement partiel)</label>
+        <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : reste à régler à l'arrivée"></textarea>
+      </div>
+      <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
+
+      <div class="field">
+        <label>Photos du colis (plusieurs prises autorisées)</label>
+        <div id="nc-photo-gallery" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+        <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;">
+          📷 PRENDRE UNE PHOTO
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
+        </label>
+      </div>
+
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-outline" onclick="resetNewColis(); goto('screen-dashboard')">❌ ANNULER</button>
+        <button class="btn btn-primary" id="nc-save-btn" onclick="saveColis()">💾 ENREGISTRER</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECHERCHE COLIS ============ -->
+  <section class="screen" id="screen-search">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Recherche Colis</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label><input id="sr-ref" placeholder="ex : NB-2026-0451"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="document.getElementById('sr-ref').value='';document.getElementById('sr-result').innerHTML='';">❌ EFFACER</button>
+        <button class="btn btn-gold" onclick="scanForField('sr-ref', searchColis)">📷 SCANNER</button>
+        <button class="btn btn-primary" onclick="searchColis()">🔍 RECHERCHER</button>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:11.5px;margin:14px 0;">— ou —</div>
+      <div class="field"><label>Téléphone du client</label><input id="sr-tel" type="tel" placeholder="ex : +212 6 00 00 00 00" onkeydown="if(event.key==='Enter'){event.preventDefault();searchColisParTelephone();}"></div>
+      <button class="btn btn-outline" style="width:100%;" onclick="searchColisParTelephone()">🔍 RECHERCHER PAR TÉLÉPHONE</button>
+      <div id="sr-result"></div>
+    </div>
+  </section>
+
+  <!-- ============ VOYAGE ============ -->
+  <section class="screen" id="screen-voyage">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Voyage</h1></div>
+    <div class="scroll">
+      <div class="tabbar">
+        <button id="tab-depart" class="active" onclick="switchVoyageTab('depart')">🚛 Départ</button>
+        <button id="tab-arrivee" onclick="switchVoyageTab('arrivee')">🛬 Arrivée</button>
+        <button id="tab-historique" onclick="switchVoyageTab('historique')">🗂 Historique</button>
+      </div>
+
+      <div id="voyage-depart-panel">
+        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
+        <div class="field">
+          <label>Destination du voyageur</label>
+          <select id="vd-destination" onchange="onVdDestinationChange()"><option value="">Sélectionner...</option></select>
+          <div id="vd-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
+        </div>
+        <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
+        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
+        <h2 class="section-title">Ajouter un colis par numéro de reçu</h2>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="depart-search" placeholder="Numéro de reçu..." onkeydown="if(event.key==='Enter'){event.preventDefault();ajouterColisDepart();}" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
+          <button class="btn btn-primary" style="width:48px;flex:none;padding:0;" onclick="ajouterColisDepart()">🔍</button>
+          <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForField('depart-search', ajouterColisDepart)">📷</button>
+        </div>
+        <div id="depart-list"></div>
+        <button class="btn btn-primary" onclick="lancerVoyage()">🚀 LANCER VOYAGE</button>
+      </div>
+
+      <div id="voyage-arrivee-panel" style="display:none;">
+        <div class="field">
+          <label>Numéro de voyage</label>
+          <select id="va-select" onchange="renderArriveeList()"></select>
+        </div>
+        <div id="va-voyageur-info" class="agent-card" style="display:none;padding:12px 16px;margin-bottom:14px;"></div>
+        <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
+        <h2 class="section-title">Colis à confirmer — sélectionner</h2>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="arrivee-search" placeholder="🔎 Filtrer / rechercher un numéro de reçu..." oninput="filterArriveeList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
+          <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForField('arrivee-search', function(){ toggleArriveeByScan(); })">📷</button>
+        </div>
+        <div id="arrivee-list"></div>
+        <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
+      </div>
+
+      <div id="voyage-historique-panel" style="display:none;">
+        <input type="text" id="historique-search" placeholder="🔎 Rechercher (voyageur, n° voyage, destination)..." oninput="filterHistoriqueList()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+        <div id="historique-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RETRAIT ============ -->
+  <section class="screen" id="screen-retrait">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Retrait</h1></div>
+    <div class="scroll">
+      <div class="field"><label>Numéro de reçu</label>
+        <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
+      </div>
+      <div id="rt-fiche"></div>
+      <div class="field">
+        <label>Montant payé à destination</label>
+        <input id="rt-montant" type="number" placeholder="0" oninput="updateRetraitDevise()">
+        <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+        <div id="rt-montant-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:4px;">🔒 Montant fixé automatiquement — seul l'administrateur peut le modifier</div>
+      </div>
+      <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
+      <div class="field">
+        <label>Compte de retrait</label>
+        <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="rt-valider-btn" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
+        <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BILAN ============ -->
+  <section class="screen" id="screen-bilan">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Bilan Trésorerie</h1></div>
+    <div class="scroll">
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-primary" id="bilan-mode-jour-btn" onclick="setBilanMode('jour')">📅 Jour</button>
+        <button class="btn btn-outline" id="bilan-mode-periode-btn" onclick="setBilanMode('periode')">🗓️ Période</button>
+      </div>
+      <div class="date-nav" id="bilan-jour-wrap">
+        <button onclick="shiftBilanDate(-1)">‹</button>
+        <input type="date" id="bilan-date" onchange="renderBilan()">
+        <button onclick="shiftBilanDate(1)">›</button>
+        <button class="today-btn" onclick="setBilanToday()">Aujourd'hui</button>
+      </div>
+      <div id="bilan-periode-wrap" style="display:none;">
+        <div class="field"><label>Du</label><input type="date" id="bilan-date-debut" onchange="renderBilan()"></div>
+        <div class="field"><label>Au</label><input type="date" id="bilan-date-fin" onchange="renderBilan()"></div>
+      </div>
+      <div class="field" id="bilan-pays-wrap" style="display:none;">
+        <label>Filtrer par pays (admin)</label>
+        <select id="bilan-pays-filter" onchange="renderBilan()">
+          <option value="">🌍 Tous les pays (vue globale)</option>
+        </select>
+      </div>
+      <div id="bilan-scroll"></div>
+      <button class="btn btn-gold" id="bilan-pdf-btn" style="display:none;margin-top:8px;" onclick="generateBilanPDF()">📄 Générer le bilan en PDF</button>
+    </div>
+  </section>
+
+  <!-- ============ PARAMÈTRES ============ -->
+  <section class="screen" id="screen-settings">
+    <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Paramètres</h1></div>
+    <div class="scroll">
+
+      <div class="settings-item" onclick="togglePanel('p-prix')"><div><div class="t">💱 Modifier prix / kg</div><div class="d">Tarifs par destination</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-prix">
+        <div class="field"><label>Destination</label><select id="ps-prix-dest" onchange="prefillPrixPanel()"></select></div>
+        <div class="field"><label>Nouveau prix (MAD/kg)</label><input id="ps-prix-val" type="number"></div>
+        <div class="field"><label>Devise locale (code)</label><input id="ps-prix-devise" placeholder="ex : XOF, GNF"></div>
+        <div class="field"><label>Taux (unités devise pour 1 MAD)</label><input id="ps-prix-taux" type="number" step="0.01" placeholder="ex : 60"></div>
+        <button class="btn btn-primary" onclick="updatePrix()">Mettre à jour</button>
+      </div>
+
+      <div class="settings-item" onclick="togglePanel('p-dest')"><div><div class="t">🌍 Ajouter une destination</div><div class="d">Nouveau pays desservi</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-dest">
+        <div class="field"><label>Ville, Pays</label><input id="ps-dest-nom" placeholder="ex : Lomé, Togo"></div>
+        <div class="field"><label>Drapeau (emoji)</label><input id="ps-dest-flag" placeholder="🇹🇬"></div>
+        <div class="field"><label>Prix / kg (MAD)</label><input id="ps-dest-prix" type="number"></div>
+        <button class="btn btn-primary" onclick="addDestination()">Ajouter</button>
+      </div>
+
+      <div class="settings-item" onclick="togglePanel('p-pass')"><div><div class="t">🔑 Modifier mon mot de passe</div><div class="d">Concerne uniquement ce compte (Admin) actuellement connecté</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-pass">
+        <div class="field"><label>Nouveau mot de passe</label><input id="ps-newpass" type="password"></div>
+        <button class="btn btn-primary" onclick="changePassword()">Confirmer</button>
+      </div>
+
+      <div class="settings-item" onclick="showHistoriqueModifications()"><div><div class="t">📜 Historique des modifications</div><div class="d">Qui a modifié ou supprimé quoi, et quand</div></div><span>›</span></div>
+
+      <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
+        <div style="font-size:11px;color:var(--muted);">Application développée par</div>
+        <div style="font-size:12.5px;color:var(--navy);font-weight:700;font-family:var(--font-display);">Khadim Sarr</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SUIVI PUBLIC (sans connexion, via QR code) ============ -->
+  <section class="screen" id="screen-suivi-public">
+    <div class="topbar"><div class="logomark" style="width:34px;height:34px;border-radius:9px;"><img src="icon-192.png" alt="Nahda"></div><h1>Suivi de colis</h1></div>
+    <div class="scroll" id="suivi-public-content"></div>
+  </section>
+  <div class="toast" id="toast"></div>
+  <div id="global-loading" style="display:none;position:fixed;inset:0;background:rgba(13,20,32,.35);z-index:250;align-items:center;justify-content:center;">
+    <div style="background:rgba(255,255,255,.95);border-radius:20px;padding:22px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+      <div class="global-plane-track">
+        <div class="circle"></div>
+        <div class="global-plane"><i>✈️</i></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--navy);font-weight:700;">Chargement...</div>
+    </div>
+  </div>
+  <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:#000;z-index:120;flex-direction:column;">
+    <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--navy);flex:none;">
+      <span style="color:#fff;font-family:var(--font-display);font-weight:600;font-size:14px;">📷 Scanner un colis</span>
+      <button onclick="closeScanner()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
+    </div>
+    <video id="scanner-video" style="flex:1;width:100%;object-fit:cover;background:#000;" playsinline muted autoplay></video>
+    <canvas id="scanner-canvas" style="display:none;"></canvas>
+    <div style="padding:14px;background:var(--navy);color:var(--sand);text-align:center;font-size:11.5px;flex:none;">Pointez la caméra vers le QR code du reçu</div>
+  </div>
+  <div id="lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;">
+    <img id="lightbox-img" src="" style="max-width:92%;max-height:80%;border-radius:8px;object-fit:contain;">
+    <button onclick="closeLightbox()" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;">×</button>
+  </div>
+  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(11,74,64,.96);z-index:110;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+    <div style="font-size:56px;margin-bottom:16px;">✅</div>
+    <div style="color:#fff;font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:8px;">Colis enregistré</div>
+    <div id="confirm-modal-ref" style="color:var(--gold);font-family:var(--font-mono);font-size:16px;margin-bottom:24px;"></div>
+    <button id="confirm-modal-etiquette-btn" class="btn btn-outline" style="width:100%;max-width:280px;margin-bottom:10px;display:none;" onclick="generateEtiquettePDF(lastSavedPayload)">🏷️ Étiquette à imprimer</button>
+    <button class="btn btn-gold" style="width:100%;max-width:280px;" onclick="closeConfirmModal()">OK — Retour au tableau de bord</button>
+  </div>
+  <div id="bilan-detail-modal" onclick="if(event.target===this)closeBilanDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:115;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--sand);width:100%;max-height:75%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex:none;">
+        <span id="bilan-detail-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;"></span>
+        <button onclick="closeBilanDetail()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
+      </div>
+      <select id="bilan-detail-dest-filter" onchange="filterBilanDetailList()" style="margin-bottom:12px;flex:none;padding:9px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:13px;background:var(--white);">
+        <option value="">🌍 Toutes destinations</option>
+      </select>
+      <div id="bilan-detail-body" style="overflow-y:auto;flex:1;"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+/* ================= ÉTAT GLOBAL (simulation — à remplacer par Google Sheets / Apps Script) ================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbzzIcC-2n0hyT8U9npYMxnSK-t2srio28ppwLW6sYwhYzYaHF7wlAnSx5RhoMZoOj0r/exec'; // ancien backend, encore utilise pour les actions pas migrees
+const SUPABASE_URL = 'https://kihsctmzwhzyzccadarv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_KFyCbc_krhIF-1np5Q0kmw_uqwS7oxF';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const FLAG_EMOJI = {MA:'🇲🇦', CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
+const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
+const APP_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/nahda_business_app.html'; // URL fixe - ne pas deduire de window.location (casse si ouvert via WhatsApp/webview)
+function formatPdfNum(n){
+  // toLocaleString('fr-FR') utilise un espace insecable etroit (U+202F) non supporte par la police PDF -> glyphe casse ("/")
+  return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+function flagEmoji(v){ return FLAG_EMOJI[v] || v || '🏳️'; }
+
+function skeletonHTML(n){
+  n = n || 3;
+  let out = '';
+  for(let i=0;i<n;i++){
+    out += `<div class="skeleton-card"><div class="skeleton-line" style="width:40%;"></div><div class="skeleton-line" style="width:85%;"></div><div class="skeleton-line"></div></div>`;
+  }
+  return out;
+}
+let activeRequests = 0;
+let buttonsLockedByLoader = [];
+function lockAllButtons(){
+  if(buttonsLockedByLoader.length) return;
+  document.querySelectorAll('button').forEach(btn=>{
+    if(!btn.disabled){ btn.disabled = true; buttonsLockedByLoader.push(btn); }
+  });
+}
+function unlockAllButtons(){
+  buttonsLockedByLoader.forEach(btn=>{ btn.disabled = false; });
+  buttonsLockedByLoader = [];
+  if(typeof updateRetireButtonState === 'function' && typeof retraitCourant !== 'undefined') updateRetireButtonState();
+}
+function beginRequest(){
+  activeRequests++;
+  if(activeRequests===1){
+    lockAllButtons();
+    document.getElementById('global-loading').style.display = 'flex';
+  }
+}
+function endRequest(){
+  activeRequests = Math.max(0, activeRequests-1);
+  if(activeRequests===0){
+    unlockAllButtons();
+    document.getElementById('global-loading').style.display = 'none';
+  }
+}
+
+/* ================= MODE HORS-LIGNE (file d'attente Nouveau Colis) ================= */
+function getOfflineQueue(){
+  try{ return JSON.parse(localStorage.getItem('nahda_offline_queue')||'[]'); }catch(e){ return []; }
+}
+function saveOfflineQueue(queue){
+  localStorage.setItem('nahda_offline_queue', JSON.stringify(queue));
+  updateOfflineBadge();
+}
+function showVoirFileAttente(){
+  const queue = getOfflineQueue();
+  document.getElementById('bilan-detail-title').textContent = 'Colis en attente d\'envoi';
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  const box = document.getElementById('bilan-detail-body');
+  if(!queue.length){ box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p>Aucun colis en attente.</p></div>`; return; }
+  const enAttenteSimple = queue.some(item=>!item.erreur);
+  let html = enAttenteSimple ? `<button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="reessayerDepuisFileAttente()">🔄 Réessayer l'envoi maintenant</button>` : '';
+  html += queue.map((item,i)=>{
+    const dateStr = item.dateAjout ? new Date(item.dateAjout).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—';
+    if(item.erreur){
+      return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
+        <div class="txt"><div class="r">${item.reference}</div><div class="d">Ajouté le ${dateStr}</div></div>
+        <div style="background:#FCE8E8;color:var(--red);font-size:12px;padding:8px 10px;border-radius:8px;width:100%;">⚠️ ${item.erreur}</div>
+        <div class="btn-row" style="width:100%;">
+          <button class="btn btn-outline" onclick="modifierColisFileAttente(${i})">✏️ Corriger</button>
+          <button class="btn btn-red" onclick="supprimerColisFileAttente(${i})">🗑️ Retirer</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="checklist-item">
+      <div class="txt"><div class="r">${item.reference}</div><div class="d">Ajouté le ${dateStr} · en attente d'envoi</div></div>
+      <span class="status-pill st-1">⏳</span>
+    </div>`;
+  }).join('');
+  box.innerHTML = html;
+}
+async function reessayerDepuisFileAttente(){
+  await syncOfflineQueue(true);
+  showVoirFileAttente();
+}
+function supprimerColisFileAttente(index){
+  const queue = getOfflineQueue();
+  queue.splice(index, 1);
+  saveOfflineQueue(queue);
+  showVoirFileAttente();
+  showToast('🗑️ Retiré de la file d\'attente');
+}
+function modifierColisFileAttente(index){
+  const queue = getOfflineQueue();
+  const item = queue[index];
+  if(!item) return;
+  closeBilanDetail();
+  // Retire l'ancien de la file, l'agent va corriger (au moins le numero de recu) et reenregistrer normalement
+  queue.splice(index, 1);
+  saveOfflineQueue(queue);
+  goto('screen-newcolis');
+  setTimeout(()=>{
+    document.getElementById('nc-ref').value = ''; // force la saisie d'un nouveau numero, l'ancien etait en conflit
+    document.getElementById('nc-nom').value = item.payload.nomClient || '';
+    document.getElementById('nc-tel').value = item.payload.telephone || '';
+    document.getElementById('nc-depositaire-nom').value = item.payload.nomDepositaire || '';
+    document.getElementById('nc-depositaire-tel').value = item.payload.telephoneDepositaire || '';
+    document.getElementById('nc-valeur').value = item.payload.valeurDeclaree || '';
+    document.getElementById('nc-commentaire-paiement').value = item.payload.commentairePaiement || '';
+    document.getElementById('nc-montant-avance').value = item.payload.montantAvance || '';
+    if(item.payload.lignesProduits && item.payload.lignesProduits.length){
+      newColisLignes = item.payload.lignesProduits.map(l=>({type:l.type, poids:l.poids, prixKg:l.prixKg, prixModifie:true}));
+      renderLignesProduits();
+    }
+    showToast('✏️ Renseigne un nouveau numéro de reçu puis réenregistre');
+  }, 300);
+}
+function queueOfflineColis(reference, payload, photosBase64){
+  const queue = getOfflineQueue();
+  queue.push({ reference, payload, photosBase64: photosBase64||[], dateAjout: new Date().toISOString() });
+  saveOfflineQueue(queue);
+}
+function updateOfflineBadge(){
+  const queue = getOfflineQueue();
+  const badge = document.getElementById('offline-badge');
+  if(!badge) return;
+  if(queue.length>0){ badge.style.display='flex'; badge.textContent = queue.length; }
+  else badge.style.display='none';
+}
+async function syncOfflineQueue(manuel=false){
+  const queue = getOfflineQueue();
+  const aEnvoyer = queue.filter(item => !item.erreur); // ne retente jamais automatiquement un echec deja identifie comme definitif
+  if(!aEnvoyer.length){
+    if(manuel){
+      if(queue.length) showVoirFileAttente();
+      else showToast('ℹ️ Aucun colis en attente');
+    }
+    return;
+  }
+  if(!navigator.onLine){ if(manuel) showToast('📴 Toujours hors ligne — réessaie plus tard'); return; }
+  if(manuel) showToast('🔄 Envoi de '+aEnvoyer.length+' colis en attente...');
+  const restants = queue.filter(item => item.erreur); // garde tel quel les echecs deja identifies
+  let succes = 0;
+  if(!manuel) window._suppressToast = true; // tentative automatique en arriere-plan : jamais de message d'erreur visible
+  try{
+    for(const item of aEnvoyer){
+      try{
+        let photoUrls = [];
+        if(item.photosBase64 && item.photosBase64.length){
+          const uploads = await Promise.all(item.photosBase64.map((photo,i)=>uploadPhotoWithRetry(photo, item.reference+'_'+(i+1), 2, true)));
+          photoUrls = uploads.map(u=>u.url);
+        }
+        const payload = {...item.payload};
+        if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
+        await api('saveColis', payload, true);
+        succes++;
+      }catch(e){
+        if(e.isApiError){
+          // Echec definitif (ex. numero de recu deja utilise) : ne plus retenter automatiquement, montrer clairement a l'agent
+          item.erreur = e.message;
+          restants.push(item);
+        } else {
+          restants.push(item); // echec reseau probable : on reessaiera automatiquement au prochain declenchement
+        }
+      }
+    }
+  }finally{
+    window._suppressToast = false;
+  }
+  saveOfflineQueue(restants);
+  if(succes>0) showToast('✅ '+succes+' colis en attente synchronisé(s) avec succès');
+  const enErreur = restants.filter(i=>i.erreur).length;
+  if(enErreur>0) showToast('⚠️ '+enErreur+' colis en attente nécessite(nt) une correction — voir le badge');
+  await updateKpis();
+}
+window.addEventListener('online', () => syncOfflineQueue());
+setInterval(() => { if(navigator.onLine) syncOfflineQueue(); }, 120000); // nouvelle tentative silencieuse toutes les 2 minutes (filet de securite)
+
+async function api(action, payload={}, silencieux=false){
+  if(!silencieux) beginRequest();
+  try{
+    const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
+      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
+      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
+      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
+    if(migrees.includes(action)){
+      return await apiSupabase(action, payload);
+    }
+    const res = await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action, ...payload})
+    });
+    const out = await res.json();
+    if(!out.ok){
+      showToast('⚠️ '+out.error);
+      const err = new Error(out.error);
+      err.isApiError = true; // erreur metier deja affichee clairement, ne pas la remplacer
+      throw err;
+    }
+    return out.data;
+  }catch(err){
+    if(!err.isApiError && !window._suppressToast) showToast('⚠️ '+(err.message || 'Connexion impossible'));
+    throw err;
+  }finally{
+    if(!silencieux) endRequest();
+  }
+}
+
+/* ============ Actions deja migrees vers Supabase ============ */
+function traduireErreur(msg){
+  if(!msg) return 'Une erreur est survenue';
+  const m = String(msg).toLowerCase();
+  if(m.includes('duplicate key') || m.includes('already exists')) return 'Cet élément existe déjà';
+  if(m.includes('row-level security') || m.includes('permission denied') || m.includes('policy')) return "Action non autorisée pour votre compte";
+  if(m.includes('jwt expired') || m.includes('invalid jwt') || m.includes('invalid claim')) return 'Session expirée — reconnecte-toi';
+  if(m.includes('invalid login credentials')) return 'Identifiant ou mot de passe incorrect';
+  if(m.includes('failed to fetch') || m.includes('network') || m.includes('networkerror')) return 'Connexion impossible — vérifie ta connexion internet';
+  if(m.includes('violates foreign key') || m.includes('not present in table')) return "Référence invalide (destination ou colis introuvable)";
+  if(m.includes('violates not-null constraint')) return 'Un champ obligatoire est manquant';
+  if(m.includes('timeout') || m.includes('timed out')) return 'Le serveur met trop de temps à répondre — réessaie';
+  return msg; // message deja clair (ecrit par nous en francais) ou cas non prevu, affiche tel quel
+}
+async function apiSupabase(action, p){
+  try{
+    let data;
+    if(action==='login'){
+      const email = String(p.id).toLowerCase() + '@nahdabusiness.internal';
+      const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password: p.motdepasse });
+      if(authErr){
+        const msgBas = (authErr.message||'').toLowerCase();
+        if(msgBas.includes('invalid login credentials') || msgBas.includes('invalid email or password')){
+          throw new Error('Identifiant ou mot de passe incorrect');
+        }
+        throw new Error(traduireErreur(authErr.message));
+      }
+      const { data: profil, error: profErr } = await sb.from('agents').select('*').eq('id', authData.user.id).single();
+      if(profErr || !profil) throw new Error(profErr ? traduireErreur(profErr.message) : 'Profil agent introuvable');
+      data = { id: profil.identifiant, nom: profil.nom, pays: profil.pays, agence: profil.agence, role: profil.role };
+
+    } else if(action==='saveColis'){
+      const lignes = p.lignesProduits || [];
+      const poidsTotal = lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(p.poids||0);
+      const prixMoyen = poidsTotal>0 ? Number(p.total||0)/poidsTotal : Number(p.prixKg||0);
+      const contenuResume = lignes.length ? lignes.map(l=>l.type).join(', ') : (p.contenu||[]).join(', ');
+      const { error } = await sb.from('colis').insert({
+        reference: p.reference, nom_client: p.nomClient, telephone: p.telephone,
+        pays_destination: p.paysDestination, agence_destination: p.agenceDestination,
+        poids: poidsTotal, prix_kg: prixMoyen, contenu: contenuResume, total: p.total,
+        statut_paiement_depart: p.statutPaiementDepart, valeur_declaree: p.valeurDeclaree,
+        photo_url: p.photoUrls || '', statut: 0, commentaire_paiement: p.commentairePaiement || '',
+        nom_depositaire: p.nomDepositaire || '', telephone_depositaire: p.telephoneDepositaire || '',
+        pays_origine: p.paysOrigine || p.agentPays || '', montant_avance: p.montantAvance || 0,
+        lignes_produits: lignes
+      });
+      if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
+      data = { reference: p.reference, photoUrl: p.photoUrls || '' };
+
+    } else if(action==='searchColisPublic'){
+      const { data: c, error } = await sb.from('colis_suivi_public').select('*').ilike('reference', p.reference).maybeSingle();
+      if(error || !c) throw new Error('Colis introuvable');
+      c.lignes_produits_detail = c.lignes_produits || [];
+      c.expeditions_detail = [];
+      data = c;
+
+    } else if(action==='searchColis'){
+      const { data: c, error } = await sb.from('colis').select('*').ilike('reference', p.reference).maybeSingle();
+      if(error || !c) throw new Error('Colis introuvable');
+      c.lignes_produits_detail = c.lignes_produits || [];
+      c.poids_expedie = Number(c.poids_expedie||0);
+      c.poids_arrive = Number(c.poids_arrive||0);
+      c.poids_restant = Math.max(0, Number(c.poids||0) - c.poids_expedie);
+      const { data: exps } = await sb.from('expeditions').select('*').eq('reference', c.reference);
+      c.expeditions_detail = exps || [];
+      if(c.voyage){
+        const { data: v } = await sb.from('voyages').select('*').eq('numero', c.voyage).maybeSingle();
+        if(v){ c.voyage_transporteur = v.transporteur; c.voyage_date_depart = v.date_depart; }
+      }
+      data = c;
+
+    } else if(action==='searchColisParTelephone'){
+      const tel = String(p.telephone||'').replace(/[\s\-\.]/g,''); // ignore espaces/tirets pour comparer plus souplement
+      const { data: rows, error } = await sb.from('colis').select('reference,nom_client,telephone,pays_destination,agence_destination,total,statut,date_creation');
+      if(error) throw new Error(traduireErreur(error.message));
+      data = (rows||[]).filter(c => String(c.telephone||'').replace(/[\s\-\.]/g,'').includes(tel))
+        .sort((a,b)=> new Date(b.date_creation) - new Date(a.date_creation));
+
+    } else if(action==='listDestinations'){
+      const { data: rows, error } = await sb.from('destinations').select('*');
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows;
+
+    } else if(action==='listColis'){
+      let q = sb.from('colis').select('*');
+      if(p.statut !== undefined && p.statut !== '') q = q.eq('statut', Number(p.statut));
+      const { data: rows, error } = await q;
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows;
+
+    } else if(action==='updateColis'){
+      const lignes = p.lignesProduits;
+      const poidsTotal = lignes && lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : p.poids;
+      const prixMoyen = (lignes && lignes.length && poidsTotal>0) ? Number(p.total||0)/poidsTotal : p.prixKg;
+      const contenuResume = (lignes && lignes.length) ? lignes.map(l=>l.type).join(', ') : undefined;
+      const champs = {
+        nom_client: p.nomClient, telephone: p.telephone, pays_destination: p.paysDestination,
+        agence_destination: p.agenceDestination, poids: poidsTotal, prix_kg: prixMoyen,
+        total: p.total, statut_paiement_depart: p.statutPaiementDepart,
+        valeur_declaree: p.valeurDeclaree, commentaire_paiement: p.commentairePaiement,
+        nom_depositaire: p.nomDepositaire, telephone_depositaire: p.telephoneDepositaire,
+        montant_avance: p.montantAvance
+      };
+      if(contenuResume !== undefined) champs.contenu = contenuResume;
+      if(lignes !== undefined) champs.lignes_produits = lignes;
+      Object.keys(champs).forEach(k => champs[k]===undefined && delete champs[k]);
+      const { error } = await sb.from('colis').update(champs).eq('reference', p.reference);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Modification refusée (vérifie que le colis t'appartient et qu'il est encore en attente)" : traduireErreur(error.message));
+      sb.from('historique_modifications').insert({
+        action: 'Modification', reference: p.reference, agent_id: p.agentId || '', agent_nom: p.agentNom || '', agent_pays: p.agentPays || ''
+      }).then(()=>{});
+      data = { updated: p.reference };
+
+    } else if(action==='deleteColis'){
+      const { data: avant } = await sb.from('colis').select('*').eq('reference', p.reference).maybeSingle();
+      const { error } = await sb.from('colis').delete().eq('reference', p.reference);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression refusée (vérifie que le colis t'appartient et qu'il est encore en attente)" : traduireErreur(error.message));
+      sb.from('historique_modifications').insert({
+        action: 'Suppression', reference: p.reference, agent_id: p.agentId || '', agent_nom: p.agentNom || '', agent_pays: p.agentPays || '',
+        donnees_avant: avant || null
+      }).then(()=>{});
+      data = { deleted: p.reference };
+
+    } else if(action==='lancerVoyage'){
+      const { error: errV } = await sb.from('voyages').insert({
+        numero: p.numero, pays_destination: p.paysDestination, agence_destination: p.agenceDestination,
+        date_depart: p.dateDepart, transporteur: p.transporteur, statut: 'En cours', pays_origine: p.agentPays || ''
+      });
+      if(errV) throw new Error(traduireErreur(errV.message));
+      for(const item of p.colis){
+        await sb.from('expeditions').insert({ reference: item.reference, voyage: p.numero, poids: item.poids, statut: 0 });
+        const { error: errRpc } = await sb.rpc('expedier_tranche', { p_reference: item.reference, p_poids: Number(item.poids||0), p_voyage: p.numero });
+        if(errRpc) throw new Error(traduireErreur(errRpc.message));
+      }
+      data = { numero: p.numero, nbColis: p.colis.length };
+
+    } else if(action==='confirmerArrivee'){
+      for(const ref of p.references){
+        const { data: exp } = await sb.from('expeditions').select('*').eq('reference', ref).eq('voyage', p.numero).eq('statut', 0).maybeSingle();
+        if(!exp) continue;
+        await sb.from('expeditions').update({ statut: 1, date_arrivee: new Date().toISOString() }).eq('id', exp.id);
+        const { data: c } = await sb.from('colis').select('poids,poids_arrive').eq('reference', ref).maybeSingle();
+        if(!c) continue;
+        const nouveauPoidsArrive = Number(c.poids_arrive||0) + Number(exp.poids||0);
+        const champs = { poids_arrive: nouveauPoidsArrive, commentaire_arrivee: p.commentaire || '' };
+        if(nouveauPoidsArrive >= Number(c.poids||0) - 0.001) champs.statut = 2;
+        const { data: majArr, error: errArr } = await sb.from('colis').update(champs).eq('reference', ref).select();
+        if(errArr || !majArr || !majArr.length) throw new Error('Impossible de confirmer l\'arrivee du colis '+ref+' (droits insuffisants)');
+      }
+      await sb.from('voyages').update({ statut: 'Arrive' }).eq('numero', p.numero);
+      data = { numero: p.numero, nbColis: p.references.length };
+
+    } else if(action==='validerPaiementRetrait'){
+      const { data: c } = await sb.from('colis').select('statut_paiement_depart,total,montant_avance').eq('reference', p.reference).maybeSingle();
+      if(!c) throw new Error('Colis introuvable');
+      const paiementDepartOk = c.statut_paiement_depart === 'Payé' || c.statut_paiement_depart === 'Paye';
+      if(!paiementDepartOk && p.agentRole !== 'Admin'){
+        const attendu = Number(c.total||0) - Number(c.montant_avance||0);
+        if(Number(p.montant||0) < attendu - 0.01) throw new Error('Montant insuffisant : '+attendu+' MAD attendus');
+      }
+      const { data: majPaie, error } = await sb.from('colis').update({ montant_retrait: p.montant, compte_retrait: p.compte }).eq('reference', p.reference).select();
+      if(error || !majPaie || !majPaie.length) throw new Error(error ? error.message : 'Validation refusee (verifie que ce colis est bien destine a ton pays)');
+      data = { reference: p.reference };
+
+    } else if(action==='marquerRetire'){
+      const { data: majRet, error } = await sb.from('colis').update({ statut: 3, date_retrait: p.date || new Date().toISOString() }).eq('reference', p.reference).select();
+      if(error || !majRet || !majRet.length) throw new Error(error ? error.message : 'Retrait refuse (verifie que ce colis est bien destine a ton pays)');
+      data = { reference: p.reference };
+
+    } else if(action==='listVoyages'){
+      const { data: voyagesRaw, error } = await sb.from('voyages').select('*');
+      if(error) throw new Error(traduireErreur(error.message));
+      const voyages = [...(voyagesRaw||[])].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
+      const { data: exps } = await sb.from('expeditions').select('reference,voyage');
+      data = voyages.map(v => {
+        const refsDuVoyage = [...new Set((exps||[]).filter(e=>e.voyage===v.numero).map(e=>e.reference))];
+        return { ...v, nb_colis: refsDuVoyage.length, references: refsDuVoyage };
+      });
+
+    } else if(action==='listColisParVoyage'){
+      const { data: exps } = await sb.from('expeditions').select('reference,poids').eq('voyage', p.numero);
+      const refs = [...new Set((exps||[]).map(e=>e.reference))];
+      if(!refs.length){ data = []; }
+      else {
+        const { data: rows, error } = await sb.from('colis').select('*').in('reference', refs);
+        if(error) throw new Error(traduireErreur(error.message));
+        data = (rows||[]).map(c => {
+          const poidsTroncon = (exps||[]).filter(e=>e.reference===c.reference).reduce((s,e)=>s+Number(e.poids||0),0);
+          return { ...c, poids_troncon_voyage: poidsTroncon };
+        });
+      }
+
+    } else if(action==='updateVoyage'){
+      const champs = {};
+      if(p.transporteur !== undefined) champs.transporteur = p.transporteur;
+      if(p.dateDepart !== undefined) champs.date_depart = p.dateDepart;
+      const { error } = await sb.from('voyages').update(champs).eq('numero', p.numero);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Modification réservée à l'agence d'origine de ce voyage" : traduireErreur(error.message));
+      data = { updated: p.numero };
+
+    } else if(action==='deleteVoyage'){
+      const { data: exps } = await sb.from('expeditions').select('id').eq('voyage', p.numero).limit(1);
+      if(exps && exps.length && p.agentRole !== 'Admin'){
+        throw new Error('Ce voyage contient déjà des colis — suppression réservée à l\'administrateur');
+      }
+      if(exps && exps.length && p.agentRole === 'Admin'){
+        await sb.from('expeditions').delete().eq('voyage', p.numero);
+      }
+      const { error } = await sb.from('voyages').delete().eq('numero', p.numero);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression réservée à l'agence d'origine de ce voyage" : traduireErreur(error.message));
+      data = { deleted: p.numero };
+
+    } else if(action==='listVoyagesEnTransit'){
+      let q = sb.from('expeditions').select('voyage').eq('statut', 0);
+      const { data: exps, error } = await q;
+      if(error) throw new Error(traduireErreur(error.message));
+      let numeros = [...new Set((exps||[]).map(e=>e.voyage))];
+      if(p.pays){
+        const { data: voyages } = await sb.from('voyages').select('numero').eq('pays_destination', p.pays);
+        const numerosDuPays = (voyages||[]).map(v=>v.numero);
+        numeros = numeros.filter(n => numerosDuPays.includes(n));
+      }
+      data = numeros;
+
+    } else if(action==='listExpeditionsVoyage'){
+      const { data: exps, error } = await sb.from('expeditions').select('*').eq('voyage', p.numero).eq('statut', 0);
+      if(error) throw new Error(traduireErreur(error.message));
+      const refs = (exps||[]).map(e=>e.reference);
+      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination').in('reference', refs.length?refs:['']);
+      data = (exps||[]).map(e => {
+        const c = (colis||[]).find(x=>x.reference===e.reference) || {};
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination };
+      });
+
+    } else if(action==='bilan' || action==='bilanDetail'){
+      const { data: allColis, error } = await sb.from('colis').select('*');
+      if(error) throw new Error(traduireErreur(error.message));
+      const colisDest = p.pays ? allColis.filter(c=>c.pays_destination===p.pays) : allColis;
+      const colisOrig = p.pays ? allColis.filter(c=>c.pays_origine===p.pays) : allColis;
+      const dansPeriode = (dateValeur, dateUnique, dateDebut, dateFin) => {
+        if(!dateDebut && !dateFin){
+          if(!dateUnique) return true;
+          return dateValeur && String(dateValeur).slice(0,10) === dateUnique;
+        }
+        if(!dateValeur) return false;
+        const d = String(dateValeur).slice(0,10);
+        if(dateDebut && d < dateDebut) return false;
+        if(dateFin && d > dateFin) return false;
+        return true;
+      };
+      const filtreActif = !!(p.date || p.dateDebut || p.dateFin);
+      const jourCreation = filtreActif ? colisOrig.filter(c=>dansPeriode(c.date_creation, p.date, p.dateDebut, p.dateFin)) : colisOrig;
+      const jourRetrait = filtreActif ? colisDest.filter(c=>dansPeriode(c.date_retrait, p.date, p.dateDebut, p.dateFin)) : colisDest;
+
+      if(action==='bilan'){
+        data = {
+          date: p.date || null,
+          totalPayeDepart: jourCreation.reduce((s,c)=>{
+            if(c.statut_paiement_depart==='Paye'||c.statut_paiement_depart==='Payé') return s+Number(c.total||0);
+            if(c.statut_paiement_depart==='Partiel') return s+Number(c.montant_avance||0);
+            return s;
+          },0),
+          totalEncaisseRetrait: jourRetrait.reduce((s,c)=>s+Number(c.montant_retrait||0),0),
+          nbColisJour: jourCreation.length,
+          nbRetraitsJour: jourRetrait.length,
+          totalColis: colisOrig.length,
+          enAttente: colisOrig.filter(c=>Number(c.statut)===0).length,
+          enVoyage: colisOrig.filter(c=>Number(c.statut)===1).length,
+          arrives: colisDest.filter(c=>Number(c.statut)===2).length,
+          retires: colisDest.filter(c=>Number(c.statut)===3).length
+        };
+      } else {
+        let result;
+        switch(p.type){
+          case 'payeDepart':
+            result = jourCreation.filter(c=>c.statut_paiement_depart==='Paye'||c.statut_paiement_depart==='Payé'||(c.statut_paiement_depart==='Partiel'&&Number(c.montant_avance)>0));
+            break;
+          case 'encaisseRetrait':
+            result = jourRetrait.filter(c=>Number(c.montant_retrait)>0);
+            break;
+          case 'enAttente':
+            result = colisOrig.filter(c=>Number(c.statut)===0);
+            break;
+          case 'enVoyage':
+            result = colisOrig.filter(c=>Number(c.statut)===1);
+            break;
+          case 'arrives':
+            result = colisDest.filter(c=>Number(c.statut)===2);
+            break;
+          case 'retires':
+            result = colisDest.filter(c=>Number(c.statut)===3);
+            break;
+          case 'totalColis':
+          default:
+            result = colisOrig;
+        }
+        result = [...result].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
+        data = result.map(c=>{
+          const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
+          return {
+            reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
+            poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
+            montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart
+          };
+        });
+      }
+
+    } else if(action==='updatePrix'){
+      const champs = {};
+      if(p.prixKg !== undefined) champs.prix_kg = p.prixKg;
+      if(p.devise !== undefined) champs.devise = p.devise;
+      if(p.tauxMad !== undefined) champs.taux_mad = p.tauxMad;
+      const { error } = await sb.from('destinations').update(champs).eq('pays', p.pays);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Modification réservée à l'administrateur" : traduireErreur(error.message));
+      data = { pays: p.pays };
+
+    } else if(action==='addDestination'){
+      const { error } = await sb.from('destinations').insert({
+        pays: p.pays, agence: p.agence, flag: p.flag, prix_kg: p.prixKg, devise: p.devise || '', taux_mad: p.tauxMad || 1
+      });
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Ajout réservé à l'administrateur" : traduireErreur(error.message));
+      data = { added: p.pays };
+
+    } else if(action==='changePassword'){
+      const { error } = await sb.auth.updateUser({ password: p.nouveauMotDePasse });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { updated: true };
+
+    } else if(action==='listHistorique'){
+      const { data: rows, error } = await sb.from('historique_modifications').select('*').order('date', { ascending: false }).limit(200);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Réservé à l'administrateur" : traduireErreur(error.message));
+      data = rows;
+
+    }
+    return data;
+  }catch(err){
+    if(!window._suppressToast) showToast('⚠️ '+err.message);
+    err.isApiError = true;
+    throw err;
+  }
+}
+
+/* Upload photo avec 1 nouvelle tentative silencieuse en cas d'echec (connexion lente) */
+async function uploadPhotoWithRetry(base64, nom, tentatives=2, silencieux=false){
+  if(!silencieux) beginRequest();
+  try{
+    for(let i=0;i<tentatives;i++){
+      try{
+        const base64Data = base64.split(',').pop();
+        const binaire = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const chemin = nom + '_' + Date.now() + '.jpg';
+        const { error } = await sb.storage.from('colis-photos').upload(chemin, binaire, { contentType: 'image/jpeg' });
+        if(error) throw new Error(traduireErreur(error.message));
+        const { data: pub } = sb.storage.from('colis-photos').getPublicUrl(chemin);
+        return { url: pub.publicUrl };
+      }catch(e){
+        if(i === tentatives-1) throw e;
+        await new Promise(r=>setTimeout(r, 1200)); // pause avant nouvelle tentative
+      }
+    }
+  }finally{
+    if(!silencieux) endRequest();
+  }
+}
+
+let currentAgent = null;
+let newColisPhotos = [];
+let voyageTab = 'depart';
+let DESTINATIONS_CACHE = [];
+let selectedDestInfo = null;
+let editingRef = null; // reference du colis en cours de modification (admin), null = mode creation
+
+const STATUT_LABELS = ['Enregistré','En voyage','Arrivé','Retiré'];
+const APP_LOGO_B64 = document.querySelector('.login-hero .logomark img') ? document.querySelector('.login-hero .logomark img').src : '';
+
+/* ================= NAVIGATION ================= */
+function goto(id, fromPopstate){
+  if(id==='screen-settings' && (!currentAgent || currentAgent.role!=='Admin')){
+    showToast('⚠️ Paramètres réservés à l\'administrateur');
+    id='screen-dashboard';
+  }
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(!fromPopstate) history.pushState({screen:id}, '', '#'+id);
+  if(id==='screen-newcolis') prepNewColis();
+  if(id==='screen-voyage') prepVoyage();
+  if(id==='screen-bilan') renderBilan();
+  if(id==='screen-settings') prepSettings();
+  if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; }
+}
+let lastDashboardBackPress = 0;
+window.addEventListener('popstate', function(e){
+  const activeScreen = document.querySelector('.screen.active');
+  const wasOnDashboard = activeScreen && activeScreen.id === 'screen-dashboard';
+
+  if(wasOnDashboard){
+    const now = Date.now();
+    if(now - lastDashboardBackPress < 2200){
+      return; // deuxieme appui rapide : on laisse l'application se fermer naturellement
+    }
+    lastDashboardBackPress = now;
+    showToast('⬅️ Appuyez de nouveau pour quitter l\'application');
+    history.pushState({screen:'screen-dashboard'}, '', '#screen-dashboard'); // absorbe ce retour, reste sur le tableau de bord
+    return;
+  }
+
+  const id = (e.state && e.state.screen) || 'screen-login';
+  if(document.getElementById(id)) goto(id, true);
+});
+history.replaceState({screen:'screen-login'}, '', '#screen-login');
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.remove('err','ok','info');
+  let duree = 3200;
+  if(msg.startsWith('⚠️')){ t.classList.add('err'); duree = 5000; }
+  else if(msg.startsWith('✅') || msg.startsWith('💰') || msg.startsWith('🚀') || msg.startsWith('📦')){ t.classList.add('ok'); duree = 3200; }
+  else { t.classList.add('info'); duree = 3200; }
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.style.display='none', duree);
+}
+
+/* ================= LOGIN ================= */
+
+async function applyAgentToDashboard(agent){
+  document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
+  document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
+  document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('dash-agent-name').textContent = agent.nom;
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations', {}, true);
+    const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===agent.pays);
+    if(destInfo && destInfo.flag){
+      document.getElementById('dash-agent-name').innerHTML = agent.nom + ' <img src="https://flagcdn.com/24x18/' + destInfo.flag.toLowerCase() + '.png" alt="" style="height:0.85em;vertical-align:middle;border-radius:2px;">';
+    }
+  }catch(e){}
+}
+async function doLogin(){
+  const btn = document.getElementById('login-btn');
+  if(btn.disabled) return;
+  const id = document.getElementById('in-agent-id').value.trim();
+  const pass = document.getElementById('in-agent-pass').value.trim();
+  const err = document.getElementById('login-err');
+  err.style.display='none';
+  if(!id){ showToast('⚠️ Sélectionne un identifiant'); return; }
+  btn.disabled = true;
+  document.getElementById('in-agent-id').disabled = true;
+  document.getElementById('in-agent-pass').disabled = true;
+  const labelOrigine = btn.textContent;
+  btn.textContent = '⏳ Connexion...';
+  try{
+    const agent = await api('login', {id, motdepasse: pass});
+    currentAgent = agent;
+    localStorage.setItem('nahda_session', JSON.stringify(agent));
+    applyAgentToDashboard(agent);
+    await updateKpis();
+    history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
+    goto('screen-dashboard', true);
+  }catch(e){ err.textContent = e.message || 'Identifiant ou mot de passe incorrect.'; err.style.display='block'; }
+  finally{
+    btn.disabled = false; btn.textContent = labelOrigine;
+    document.getElementById('in-agent-id').disabled = false;
+    document.getElementById('in-agent-pass').disabled = false;
+  }
+}
+function doLogout(){
+  currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
+  localStorage.removeItem('nahda_session');
+  history.replaceState({screen:'screen-login'}, '', '#screen-login');
+  goto('screen-login', true);
+}
+async function restoreSession(){
+  const saved = localStorage.getItem('nahda_session');
+  if(!saved) return;
+  try{
+    currentAgent = JSON.parse(saved);
+    applyAgentToDashboard(currentAgent);
+    history.replaceState({screen:'screen-dashboard'}, '', '#screen-dashboard');
+    goto('screen-dashboard', true);
+    await updateKpis();
+  }catch(e){ localStorage.removeItem('nahda_session'); }
+}
+
+
+async function updateKpis(){
+  try{
+    const filtre = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const b = await api('bilan', filtre, true);
+    document.getElementById('kpi-total').textContent = b.totalColis;
+    document.getElementById('kpi-attente').textContent = b.enAttente;
+    document.getElementById('kpi-voyage').textContent = b.enVoyage;
+    document.getElementById('kpi-retires').textContent = b.retires;
+  }catch(e){}
+}
+
+/* ================= LIGHTBOX PHOTO ================= */
+/* ================= SCANNER QR (camera agent) ================= */
+let scannerStream = null;
+let scannerRAF = null;
+let scannerCallback = null;
+
+function extractRefFromQr(text){
+  try{
+    const url = new URL(text);
+    const ref = url.searchParams.get('suivi');
+    if(ref) return ref;
+  }catch(e){}
+  return text; // si ce n'est pas une URL de suivi, on considere que le texte scanne est directement la reference
+}
+
+function openScanner(onDetected){
+  scannerCallback = onDetected;
+  document.getElementById('scanner-modal').style.display = 'flex';
+  const video = document.getElementById('scanner-video');
+  if(typeof jsQR === 'undefined'){ showToast('⚠️ Librairie scanner non chargée — vérifie ta connexion'); closeScanner(); return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scannerStream = stream;
+      video.srcObject = stream;
+      video.play();
+      scannerRAF = requestAnimationFrame(scanFrame);
+    })
+    .catch(err => {
+      showToast('⚠️ Caméra inaccessible : '+(err.message||'permission refusée'));
+      closeScanner();
+    });
+}
+function scanFrame(){
+  const video = document.getElementById('scanner-video');
+  const canvas = document.getElementById('scanner-canvas');
+  if(video && video.readyState === video.HAVE_ENOUGH_DATA){
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if(code && code.data){
+      const ref = extractRefFromQr(code.data);
+      const cb = scannerCallback;
+      closeScanner();
+      if(cb) cb(ref);
+      return;
+    }
+  }
+  scannerRAF = requestAnimationFrame(scanFrame);
+}
+function closeScanner(){
+  if(scannerRAF) cancelAnimationFrame(scannerRAF);
+  if(scannerStream){ scannerStream.getTracks().forEach(t=>t.stop()); scannerStream = null; }
+  document.getElementById('scanner-modal').style.display = 'none';
+  scannerCallback = null;
+}
+/* Scanne et remplit un champ texte, puis lance une action (recherche, retrait...) */
+function scanForField(fieldId, action){
+  openScanner(ref => {
+    document.getElementById(fieldId).value = ref;
+    showToast('📷 '+ref+' scanné');
+    if(action) action();
+  });
+}
+
+function openLightbox(url){
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox(){ document.getElementById('lightbox').style.display = 'none'; }
+
+/* ================= NOUVEAU COLIS ================= */
+async function prepNewColis(){
+  const sel = document.getElementById('nc-dest');
+  const lockNote = document.getElementById('nc-dest-lock-note');
+  sel.innerHTML = '<option>Chargement...</option>';
+  try{
+    DESTINATIONS_CACHE = await api('listDestinations');
+    sel.innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.agence}</option>`).join('');
+    // Regle metier : une agence hors Maroc (Conakry, Abidjan, etc.) ne peut expedier que vers le Maroc (hub central).
+    // Seule l'agence de Casablanca (Maroc) peut choisir librement sa destination.
+    if(!editingRef && currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!=='Maroc'){
+      const marocDest = DESTINATIONS_CACHE.find(d=>d.pays==='Maroc');
+      if(marocDest){
+        sel.value = 'Maroc';
+        sel.disabled = true;
+        lockNote.style.display = 'block';
+      }
+    } else {
+      sel.disabled = false;
+      lockNote.style.display = 'none';
+    }
+    onDestChange();
+  }catch(e){}
+  if(!editingRef){
+    document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+    if(!newColisLignes.length){ newColisLignes.push({type:'', poids:'', prixKg: selectedDestInfo?selectedDestInfo.prix_kg:0, prixModifie:false}); renderLignesProduits(); }
+  }
+}
+function onDestChange(){
+  const pays = document.getElementById('nc-dest').value;
+  selectedDestInfo = DESTINATIONS_CACHE.find(x=>x.pays===pays) || DESTINATIONS_CACHE[0] || null;
+  // Met a jour le prix/kg par defaut des lignes qui n'ont pas encore ete modifiees manuellement
+  newColisLignes.forEach(l=>{ if(!l.prixModifie) l.prixKg = selectedDestInfo ? selectedDestInfo.prix_kg : 0; });
+  renderLignesProduits();
+  calcTotal();
+}
+function onStatutPaieChange(){
+  const val = document.getElementById('nc-statutpaie').value;
+  document.getElementById('nc-commentaire-wrap').style.display = (val==='Partiel') ? 'block' : 'none';
+  updateResteAPercevoir();
+}
+function updateResteAPercevoir(){
+  const total = newColisLignes.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
+  const avance = parseFloat(document.getElementById('nc-montant-avance').value)||0;
+  const reste = Math.max(0, total - avance);
+  document.getElementById('nc-reste-info').textContent = 'Reste à percevoir au retrait : ' + reste.toLocaleString('fr-FR') + ' MAD';
+}
+let newColisLignes = [];
+function addLigneProduit(){
+  newColisLignes.push({ type:'', poids:'', prixKg: selectedDestInfo ? selectedDestInfo.prix_kg : 0, prixModifie:false });
+  renderLignesProduits();
+  calcTotal();
+}
+function removeLigneProduit(i){
+  newColisLignes.splice(i,1);
+  renderLignesProduits();
+  calcTotal();
+}
+function updateLigneProduit(i, field, value){
+  newColisLignes[i][field] = value;
+  if(field==='prixKg') newColisLignes[i].prixModifie = true;
+  renderLigneTotal(i);
+  calcTotal();
+}
+function renderLigneTotal(i){
+  const el = document.getElementById('ligne-total-'+i);
+  if(!el) return;
+  const l = newColisLignes[i];
+  const t = (parseFloat(l.poids)||0) * (parseFloat(l.prixKg)||0);
+  el.textContent = 'Sous-total : ' + t.toLocaleString('fr-FR') + ' MAD';
+}
+function renderLignesProduits(){
+  const box = document.getElementById('nc-lignes-produits');
+  if(!newColisLignes.length){
+    box.innerHTML = `<div class="empty-state" style="padding:16px;"><div class="em">📦</div><p>Ajoute au moins un type de produit (ex : vêtements, électronique...).</p></div>`;
+    return;
+  }
+  box.innerHTML = newColisLignes.map((l,i)=>`
+    <div class="ligne-produit">
+      <button type="button" class="ligne-remove" onclick="removeLigneProduit(${i})">×</button>
+      <input type="text" placeholder="Type de produit (ex : vêtements)" value="${l.type}" list="nc-types-produit" oninput="updateLigneProduit(${i},'type',this.value)">
+      <div class="ligne-row">
+        <input type="number" step="0.1" placeholder="Poids (kg)" value="${l.poids}" oninput="updateLigneProduit(${i},'poids',this.value)">
+        <input type="number" placeholder="Prix/kg (MAD)" value="${l.prixKg}" oninput="updateLigneProduit(${i},'prixKg',this.value)">
+      </div>
+      <div class="ligne-total" id="ligne-total-${i}"></div>
+    </div>`).join('');
+  newColisLignes.forEach((l,i)=>renderLigneTotal(i));
+}
+function calcTotal(){
+  const total = newColisLignes.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
+  document.getElementById('nc-total').textContent = total.toLocaleString('fr-FR')+' MAD';
+  const devLine = document.getElementById('nc-total-devise');
+  if(selectedDestInfo && selectedDestInfo.devise && selectedDestInfo.taux_mad && Number(selectedDestInfo.taux_mad) !== 1){
+    const converti = total * Number(selectedDestInfo.taux_mad);
+    devLine.textContent = `≈ ${converti.toLocaleString('fr-FR',{maximumFractionDigits:0})} ${selectedDestInfo.devise} (taux indicatif)`;
+  } else {
+    devLine.textContent = '';
+  }
+  updateResteAPercevoir();
+}
+function onPhoto(e){
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{ newColisPhotos.push(ev.target.result); renderPhotoGallery(); };
+  reader.readAsDataURL(f);
+  e.target.value = '';
+}
+function removePhoto(i){ newColisPhotos.splice(i,1); renderPhotoGallery(); }
+function renderPhotoGallery(){
+  document.getElementById('nc-photo-gallery').innerHTML = newColisPhotos.map((p,i)=>
+    `<div class="gallery-thumb"><img src="${p}"><button onclick="removePhoto(${i})">×</button></div>`).join('');
+}
+function resetNewColis(){
+  newColisLignes=[]; newColisPhotos=[]; editingRef=null;
+  renderPhotoGallery(); renderLignesProduits();
+  document.getElementById('nc-title').textContent = 'Nouveau Colis';
+  document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
+  document.getElementById('nc-statutpaie').value = 'Non payé';
+  onStatutPaieChange();
+  document.getElementById('nc-commentaire-wrap').style.display = 'none';
+  document.getElementById('nc-commentaire-paiement').value = '';
+  document.getElementById('nc-montant-avance').value = '';
+  document.getElementById('nc-depositaire-nom').value = '';
+  document.getElementById('nc-depositaire-tel').value = '';
+}
+function setNewColisFieldsDisabled(disabled){
+  document.querySelectorAll('#screen-newcolis input, #screen-newcolis select, #screen-newcolis textarea').forEach(el=>{ el.disabled = disabled; });
+}
+async function saveColis(){
+  const saveBtn = document.getElementById('nc-save-btn');
+  if(saveBtn.disabled) return; // deja en cours de traitement, ignore les clics supplementaires
+  const ref = document.getElementById('nc-ref').value.trim();
+  const nom = document.getElementById('nc-nom').value.trim();
+  if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
+  const lignesValides = newColisLignes.filter(l => l.type.trim() && parseFloat(l.poids)>0);
+  if(!lignesValides.length){ showToast('⚠️ Ajoute au moins un produit avec un type et un poids'); return; }
+  saveBtn.disabled = true;
+  setNewColisFieldsDisabled(true);
+  const labelOrigine = saveBtn.textContent;
+  saveBtn.textContent = '⏳ Enregistrement...';
+  const paysDestination = document.getElementById('nc-dest').value;
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
+  const lignesProduits = lignesValides.map(l=>({type:l.type.trim(), poids:parseFloat(l.poids)||0, prixKg:parseFloat(l.prixKg)||0}));
+  const total = lignesProduits.reduce((s,l)=>s+l.poids*l.prixKg, 0);
+  const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
+  const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
+
+  const payloadBase = {
+    reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
+    nomDepositaire: document.getElementById('nc-depositaire-nom').value.trim(),
+    telephoneDepositaire: document.getElementById('nc-depositaire-tel').value.trim(),
+    paysDestination, agenceDestination: destInfo.agence || '',
+    lignesProduits, total,
+    statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
+    commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
+    agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : '',
+    agentId: currentAgent ? currentAgent.id : '', agentNom: currentAgent ? currentAgent.nom : '',
+    dateCreation: new Date().toISOString(), paysOrigine: currentAgent ? currentAgent.pays : ''
+  };
+
+  if(!navigator.onLine && !editingRef){
+    queueOfflineColis(ref, payloadBase, [...newColisPhotos]);
+    showToast('📴 Hors ligne — colis mis en attente, sera envoyé automatiquement au retour de connexion');
+    showConfirmModal(ref, payloadBase);
+    resetNewColis();
+    saveBtn.disabled = false; saveBtn.textContent = labelOrigine; setNewColisFieldsDisabled(false);
+    return;
+  }
+
+  let photoUrls = [];
+  if(newColisPhotos.length){
+    showToast('📤 Envoi de '+newColisPhotos.length+' photo(s) en parallèle...');
+    try{
+      const uploads = await Promise.all(
+        newColisPhotos.map((photo, i) => uploadPhotoWithRetry(photo, ref+'_'+(i+1)))
+      );
+      photoUrls = uploads.map(up => {
+        if(!up || !up.url) throw new Error('Reponse serveur invalide (pas d\'URL retournee)');
+        return up.url;
+      });
+    }catch(e){
+      // Echec probable de connexion : basculer en file d'attente hors-ligne plutot que de tout perdre
+      if(!editingRef){
+        queueOfflineColis(ref, payloadBase, [...newColisPhotos]);
+        showToast('📴 Connexion instable — colis mis en attente, sera envoyé automatiquement');
+        showConfirmModal(ref, payloadBase);
+        resetNewColis();
+        saveBtn.disabled = false; saveBtn.textContent = labelOrigine; setNewColisFieldsDisabled(false);
+        return;
+      }
+      showToast('⚠️ ÉCHEC envoi photo(s) : '+(e.message||'erreur inconnue')+' — colis NON enregistré');
+      saveBtn.disabled = false; saveBtn.textContent = labelOrigine;
+      setNewColisFieldsDisabled(false);
+      return;
+    }
+  }
+
+  const payload = {...payloadBase};
+  if(photoUrls.length) payload.photoUrls = photoUrls.join(',');
+
+  try{
+    if(editingRef){
+      showToast('💾 Mise à jour en cours...');
+      await api('updateColis', {...payload, reference: editingRef});
+      showConfirmModal(editingRef);
+    } else {
+      showToast('💾 Enregistrement des données...');
+      await api('saveColis', payload);
+
+      // Verification du lien photo en arriere-plan (non bloquant, n'allonge pas l'attente)
+      if(photoUrls.length){
+        api('searchColis', {reference: ref}).then(verif => {
+          if(!verif.photo_url || verif.photo_url.trim()===''){
+            showToast('⚠️ Colis enregistré MAIS le lien photo est absent (bug à signaler)');
+            console.error('Photo envoyee (', photoUrls.join(', '), ') mais photo_url vide dans la fiche colis retournee :', verif);
+          }
+        }).catch(()=>{});
+      }
+
+      showToast('🧾 Génération du reçu...');
+      await generateReceiptPDF({...payload, reference: ref});
+      showConfirmModal(ref, {...payload, reference: ref});
+    }
+    await updateKpis();
+    resetNewColis();
+  }catch(e){
+    if(!e.isApiError && !editingRef){
+      // Echec reseau reel (navigator.onLine peut se tromper si le wifi est connecte sans vrai acces internet) :
+      // mettre en attente plutot que de faire perdre la saisie a l'agent
+      const payloadAvecPhotos = {...payloadBase};
+      if(photoUrls.length) payloadAvecPhotos.photoUrls = photoUrls.join(',');
+      queueOfflineColis(ref, payloadAvecPhotos, photoUrls.length ? [] : [...newColisPhotos]);
+      showToast('📴 Connexion indisponible — colis mis en attente, sera envoyé automatiquement');
+      showConfirmModal(ref, payloadAvecPhotos);
+      resetNewColis();
+    } else if(!e.isApiError){
+      showToast('⚠️ Erreur : '+(e.message||'échec inconnu'));
+    }
+  }finally{
+    saveBtn.disabled = false;
+    saveBtn.textContent = labelOrigine;
+    setNewColisFieldsDisabled(false);
+  }
+}
+let lastSavedPayload = null;
+function showConfirmModal(ref, payload){
+  lastSavedPayload = payload || null;
+  document.getElementById('confirm-modal-ref').textContent = 'Référence : ' + ref;
+  document.getElementById('confirm-modal-etiquette-btn').style.display = lastSavedPayload ? 'block' : 'none';
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function closeConfirmModal(){
+  document.getElementById('confirm-modal').style.display = 'none';
+  goto('screen-dashboard');
+}
+
+/* ================= REÇU PDF + QR ================= */
+async function generateEtiquettePDF(c){
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
+  try{
+    const trackingUrl = APP_BASE_URL + '?suivi=' + encodeURIComponent(c.reference);
+    const qr = qrcode(0, 'H');
+    qr.addData(trackingUrl);
+    qr.make();
+    const qrCount = qr.getModuleCount();
+
+    const { jsPDF } = window.jspdf;
+    // Format exact etiquette thermique expedition : 100 x 150mm, une seule etiquette (pas de decoupe)
+    const doc = new jsPDF({ unit:'mm', format:[100,150], orientation:'portrait' });
+    const navy = '#000000', gold = '#000000', ink = '#000000', muted = '#000000';
+    const labelW = 100, labelH = 150;
+
+    function drawEtiquette(ox, oy){
+      doc.setFillColor(navy);
+      doc.rect(ox, oy, labelW, 18, 'F');
+      if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', ox+4, oy+2.5, 13, 13);
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+      doc.text('NAHDA BUSINESS', ox+20, oy+8.5);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8);
+      doc.text('Fret aerien Maroc-Afrique', ox+20, oy+14);
+
+      doc.setTextColor(ink); doc.setFont(undefined,'bold'); doc.setFontSize(19);
+      doc.text(String(c.reference), ox+labelW/2, oy+27, { align:'center' });
+
+      doc.setDrawColor(gold); doc.setLineWidth(0.5);
+      doc.line(ox+6, oy+31, ox+labelW-6, oy+31);
+
+      // Bloc client
+      let y = oy+39;
+      doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(ink);
+      doc.text(String(c.nomClient||'-'), ox+6, y);
+      doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
+      doc.text(String(c.telephone||'-'), ox+labelW-6, y, { align:'right' });
+
+      // Bloc poids / prix / date / origine
+      y += 8;
+      const lignes = c.lignesProduits || [];
+      const poidsTotal = lignes.length ? lignes.reduce((s,l)=>s+(Number(l.poids)||0),0) : Number(c.poids||0);
+      const dateDepot = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+
+      doc.setFontSize(10.5); doc.setTextColor(muted); doc.setFont(undefined,'normal');
+      doc.text('Poids total : ' + poidsTotal + ' kg', ox+6, y);
+      y += 7.5;
+      doc.text('Dépôt : ' + dateDepot, ox+6, y);
+      doc.text('Origine : ' + (c.paysOrigine || '-'), ox+labelW-6, y, { align:'right' });
+
+      y += 8;
+      doc.setFont(undefined,'bold'); doc.setFontSize(10.5); doc.setTextColor(muted);
+      doc.text('DESTINATION', ox+labelW/2, y, { align:'center' });
+      y += 7.5;
+      doc.setFontSize(16); doc.setTextColor(ink);
+      doc.text(String(c.paysDestination||''), ox+labelW/2, y, { align:'center' });
+      y += 7;
+      doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.setTextColor(muted);
+      doc.text(String(c.agenceDestination||''), ox+labelW/2, y, { align:'center' });
+
+      // QR vectoriel centre - taille adaptee a l'espace restant (robuste si plusieurs lignes de produits)
+      const espaceRestant = (oy + labelH - 12) - (y + 6);
+      const qrSizeMm = Math.max(38, Math.min(55, espaceRestant));
+      const quiet = 4;
+      const totalModules = qrCount + quiet*2;
+      const cell = qrSizeMm / totalModules;
+      const qrX = ox + (labelW - qrSizeMm)/2;
+      const qrY = y + 6;
+      doc.setFillColor('#FFFFFF'); doc.rect(qrX, qrY, qrSizeMm, qrSizeMm, 'F');
+      doc.setFillColor(ink);
+      for (let r=0; r<qrCount; r++){
+        for (let cIdx=0; cIdx<qrCount; cIdx++){
+          if (qr.isDark(r, cIdx)){
+            doc.rect(qrX+(quiet+cIdx)*cell, qrY+(quiet+r)*cell, cell+0.01, cell+0.01, 'F');
+          }
+        }
+      }
+
+      doc.setFont(undefined,'normal'); doc.setFontSize(9.5); doc.setTextColor(muted);
+      doc.text('Scannez pour suivre ce colis', ox+labelW/2, qrY+qrSizeMm+7, { align:'center' });
+    }
+
+    drawEtiquette(0, 0);
+
+    doc.save('Etiquette_' + c.reference + '.pdf');
+  }catch(e){ showToast('⚠️ Étiquette non générée (voir console)'); console.error(e); }
+}
+async function generateReceiptPDF(c){
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
+  try{
+    const trackingUrl = APP_BASE_URL + '?suivi=' + encodeURIComponent(c.reference);
+    // Génération vectorielle synchrone du QR (pas de canvas, pas de timing async -> pas de corruption possible)
+    const qr = qrcode(0, 'H');
+    qr.addData(trackingUrl);
+    qr.make();
+    const qrCount = qr.getModuleCount();
+
+    const { jsPDF } = window.jspdf;
+    // A5 paysage : 210 x 148 mm
+    const doc = new jsPDF({ unit:'mm', format:'a5', orientation:'landscape' });
+    const W = 210, H = 148;
+    const navy = '#0B4A40', navy2 = '#0E6B5C', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255', sand = '#F1EAD9';
+
+    // ---- Bandeau supérieur ----
+    doc.setFillColor(navy);
+    doc.rect(0, 0, W, 26, 'F');
+    doc.setFillColor(gold);
+    doc.rect(0, 26, W, 1.2, 'F');
+    if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 18, 18);
+    doc.setTextColor('#FFFFFF');
+    doc.setFont(undefined, 'bold'); doc.setFontSize(15);
+    doc.text('NAHDA BUSINESS', 30, 12);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8);
+    doc.text('Fret aerien - Maroc / Afrique Centrale et Ouest', 30, 18);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.text('RECU N° ' + c.reference, W - 8, 15, { align: 'right' });
+    const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined, 'normal'); doc.setFontSize(9.5);
+    doc.text('Depose le ' + dateDepotRecu, W - 8, 22, { align: 'right' });
+
+    // ---- Colonne gauche : details colis (0 - 128mm) ----
+    let y = 35;
+    const leftX = 8, labelW = 40;
+    const row = (label, value, bold) => {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text(label, leftX, y);
+      doc.setTextColor(ink); doc.setFont(undefined, bold ? 'bold' : 'normal'); doc.setFontSize(9.5);
+      doc.text(String(value || '-'), leftX + labelW, y);
+      y += 7;
+    };
+    row('Client', c.nomClient, true);
+    row('Telephone', c.telephone);
+    if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
+    row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
+    const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
+    const largeurContenu = 108; // mm disponibles avant la colonne QR (leftX+4 a ~124mm)
+    if (lignesRecu.length) {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Contenu', leftX, y);
+      y += 5.5;
+      // Taille de police reduite si la liste est longue, pour eviter de deborder verticalement
+      const taillePolice = lignesRecu.length > 10 ? 7 : (lignesRecu.length > 6 ? 7.8 : 8.5);
+      doc.setFont(undefined,'normal'); doc.setFontSize(taillePolice);
+      const limiteY = 108; // au-dela, on resume plutot que de deborder sur le bloc total
+      let tronque = false;
+      for (const l of lignesRecu) {
+        if (y > limiteY) { tronque = true; break; }
+        doc.setTextColor(ink);
+        const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
+        const texte = '• ' + l.type + ' — ' + l.poids + ' kg × ' + formatPdfNum(l.prixKg) + ' MAD/kg = ' + formatPdfNum(sousTotal) + ' MAD';
+        const lignesDecoupees = doc.splitTextToSize(texte, largeurContenu);
+        lignesDecoupees.forEach(sousLigne => { doc.text(sousLigne, leftX + 4, y); y += taillePolice * 0.5; });
+      }
+      if (tronque) {
+        doc.setTextColor(muted); doc.setFont(undefined,'italic'); doc.setFontSize(7.5);
+        doc.text('(liste complète disponible dans l\'application)', leftX + 4, y);
+        y += 5;
+      }
+      y += 1.5;
+    } else if (c.contenu) {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Contenu', leftX, y);
+      y += 5.5;
+      doc.setTextColor(ink); doc.setFontSize(8.5);
+      const lignesDecoupees = doc.splitTextToSize(String(c.contenu), largeurContenu);
+      lignesDecoupees.forEach(sousLigne => { doc.text(sousLigne, leftX + 4, y); y += 5; });
+      y += 1.5;
+    } else {
+      row('Contenu', '-');
+    }
+    row('Paiement depart', c.statutPaiementDepart);
+    if (c.statutPaiementDepart === 'Partiel') {
+      const avance = Number(c.montantAvance || 0);
+      const reste = Math.max(0, Number(c.total || 0) - avance);
+      row('Montant verse (avance)', formatPdfNum(avance) + ' MAD');
+      doc.setFillColor(gold);
+      doc.roundedRect(leftX-2, y-4, 92, 9, 1.5, 1.5, 'F');
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9.5);
+      doc.text('RESTE A PERCEVOIR : ' + formatPdfNum(reste) + ' MAD', leftX+2, y+2);
+      y += 9;
+      if (c.commentairePaiement) row('Commentaire', c.commentairePaiement);
+    }
+    row('Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD');
+
+    // Conversion devise destination (si renseignee dans NAHDA_DESTINATIONS)
+    const destInfo = DESTINATIONS_CACHE.find(d => d.pays === c.paysDestination);
+    const hasDevise = destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad) !== 1;
+    const montantConverti = hasDevise ? Number(c.total || 0) * Number(destInfo.taux_mad) : null;
+
+    // Bloc total (encadre, en bas de colonne gauche)
+    const boxH = hasDevise ? 19 : 14;
+    doc.setFillColor(navy);
+    doc.roundedRect(leftX, y + 2, 118, boxH, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(11);
+    doc.text('TOTAL A PAYER', leftX + 5, y + 9.5);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(12.5);
+    doc.text(formatPdfNum(c.total) + ' MAD', leftX + 111, y + 9.5, { align: 'right' });
+    if (hasDevise) {
+      doc.setTextColor(sand); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('soit environ ' + formatPdfNum(montantConverti) + ' ' + destInfo.devise + ' (taux indicatif)', leftX + 111, y + 16, { align: 'right' });
+    }
+
+    // ---- Separateur vertical ----
+    doc.setDrawColor(sand); doc.setLineWidth(0.6);
+    doc.line(132, 32, 132, H - 8);
+
+    // ---- Colonne droite : QR code (132 - 202mm) ----
+    const rightX = 140;
+
+    if (qrCount) {
+      const qrSize = 46, qx0 = rightX + 6, qy0 = 44;
+      const cell = qrSize / qrCount;
+      const quiet = cell * 4; // marge de silence conforme (4 modules), proportionnelle a la densite reelle
+      doc.setFillColor('#FFFFFF');
+      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'F');
+      doc.setDrawColor(gold); doc.setLineWidth(0.8);
+      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'S');
+      doc.setFillColor('#000000');
+      for (let r = 0; r < qrCount; r++) {
+        for (let cI = 0; cI < qrCount; cI++) {
+          if (qr.isDark(r, cI)) {
+            doc.rect(qx0 + cI * cell, qy0 + r * cell, cell + 0.03, cell + 0.03, 'F');
+          }
+        }
+      }
+    }
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
+    doc.text('Scannez pour suivre votre colis', rightX + 31, 106, { align: 'center' });
+    doc.text('en temps reel', rightX + 31, 110, { align: 'center' });
+
+    // ---- Pied de page ----
+    doc.setDrawColor(sand); doc.setLineWidth(0.4);
+    doc.line(8, H - 18, W - 8, H - 18);
+    doc.setTextColor(muted); doc.setFontSize(7);
+    doc.setFont(undefined,'bold');
+    doc.text(COMPANY_CONTACT.adresse, 8, H - 13);
+    doc.text('Tel : ' + COMPANY_CONTACT.telephone, 8, H - 9);
+    doc.setFont(undefined,'normal');
+    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), W - 8, H - 13, { align: 'right' });
+    doc.text('Document genere electroniquement, valable comme preuve de depot', W - 8, H - 9, { align: 'right' });
+
+
+    doc.save('Recu_' + c.reference + '.pdf');
+  }catch(e){ showToast('⚠️ Reçu PDF non généré (voir console)'); console.error(e); }
+}
+
+/* ================= SUIVI PUBLIC (QR code, sans connexion) ================= */
+async function renderPublicTracking(ref){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-suivi-public').classList.add('active');
+  const box = document.getElementById('suivi-public-content');
+  box.innerHTML = skeletonHTML(3);
+  try{
+    const c = await api('searchColisPublic', {reference: ref});
+    box.innerHTML = renderResultCard(c, false, true);
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
+  }
+}
+
+/* ================= RECHERCHE ================= */
+async function searchColis(){
+  const ref = document.getElementById('sr-ref').value.trim();
+  const box = document.getElementById('sr-result');
+  if(!ref) return;
+  box.innerHTML = skeletonHTML(1);
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+    const c = await api('searchColis', {reference: ref});
+    box.innerHTML = renderResultCard(c, true);
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de reçu.</p></div>`;
+  }
+}
+async function searchColisParTelephone(){
+  const tel = document.getElementById('sr-tel').value.trim();
+  const box = document.getElementById('sr-result');
+  if(!tel){ showToast('⚠️ Renseigne un numéro de téléphone'); return; }
+  box.innerHTML = skeletonHTML(2);
+  try{
+    const list = await api('searchColisParTelephone', {telephone: tel});
+    if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de téléphone.</p></div>`; return; }
+    box.innerHTML = `<div class="checklist-total">📱 ${list.length} colis trouvé(s) pour ce numéro</div>` +
+      list.map(c=>`
+      <div class="checklist-item" style="cursor:pointer;" onclick="document.getElementById('sr-ref').value='${c.reference}'; searchColis();">
+        <div class="txt">
+          <div class="r">${c.reference}</div>
+          <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${STATUT_LABELS[Number(c.statut)]}</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
+      </div>`).join('');
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce numéro de téléphone.</p></div>`;
+  }
+}
+function toEmbeddableUrl(url){
+  if(!url) return url;
+  const m = String(url).match(/id=([^&]+)/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000` : url;
+}
+function renderResultCard(c, showAdminActions, isPublic){
+  const statut = Number(c.statut)||0;
+  const steps = STATUT_LABELS.map((l,i)=>{
+    const cls = i<statut ? 'done' : (i===statut ? 'current' : '');
+    const ic = i<statut ? '✓' : (i===statut?'●':'');
+    return `<div class="tl-step"><div class="tl-dot ${cls}">${ic}</div><div class="tl-label">${l}</div></div>`;
+  }).join('');
+  const photoUrls = String(c.photo_url||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const photoBlock = photoUrls.length
+    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:90px;height:90px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer;" onclick="openLightbox('${toEmbeddableUrl(u)}')" onerror="this.style.display='none'">`).join('')}</div>`
+    : `<div class="empty-state" style="padding:16px;"><div class="em">🖼️</div><p>Aucune photo enregistrée pour ce colis.</p></div>`;
+
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_destination);
+  let deviseLine = '';
+  if(destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad)!==1){
+    const converti = Number(c.total||0) * Number(destInfo.taux_mad);
+    deviseLine = ` <span style="color:var(--muted);font-size:11px;">(≈ ${converti.toLocaleString('fr-FR',{maximumFractionDigits:0})} ${destInfo.devise})</span>`;
+  }
+
+  const isAdmin = currentAgent && currentAgent.role==='Admin';
+  const canModify = showAdminActions && (isAdmin || (currentAgent && c.pays_origine===currentAgent.pays && Number(c.statut)===0));
+  const adminActions = canModify ? `
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-outline" onclick='editColis(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
+      <button class="btn btn-red" onclick="deleteColisConfirm('${c.reference}')">🗑️ Supprimer</button>
+    </div>` : '';
+  const receiptBtn = showAdminActions ? `<button class="btn btn-gold" style="margin-top:10px;width:100%;" onclick='generateReceiptPDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🧾 Télécharger le reçu PDF</button><button class="btn btn-outline" style="margin-top:8px;width:100%;" onclick='generateEtiquettePDF(colisToReceiptPayload(${JSON.stringify(c).replace(/'/g,"&#39;")}))'>🏷️ Étiquette à imprimer</button>` : '';
+
+  const lignesDetail = c.lignes_produits_detail || [];
+  const expeditions = c.expeditions_detail || [];
+  const expeditionsBlock = (expeditions.length && !isPublic) ? `
+    <div class="result-row" style="display:block;">
+      <span class="k">Historique d'expédition</span>
+      <div style="margin-top:6px;">${expeditions.map(ex=>`
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;">
+          <span>Voyage ${ex.voyage} — ${ex.poids} kg</span>
+          <span style="color:${Number(ex.statut)===1?'var(--green)':'var(--amber)'};font-weight:700;">${Number(ex.statut)===1?'✓ Arrivé':'◐ En transit'}</span>
+        </div>`).join('')}</div>
+    </div>` : '';
+  const contenuBlock = lignesDetail.length
+    ? `<div style="margin:4px 0 10px;">${lignesDetail.map(l=>`
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--sand-2);">
+          <span>${l.type} · ${l.poids} kg × ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</span>
+          <span style="font-family:var(--font-mono);font-weight:600;">${(Number(l.poids)*Number(l.prixKg)).toLocaleString('fr-FR')} MAD</span>
+        </div>`).join('')}</div>`
+    : `<div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
+       <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>`;
+
+  return `<div class="result-card">
+    ${photoBlock}
+    <div class="result-row"><span class="k">Référence</span><span class="v">${c.reference}</span></div>
+    <div class="result-row"><span class="k">Client</span><span class="v">${c.nom_client}</span></div>
+    <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
+    <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
+    ${statut>=1 && c.voyage ? `<div class="result-row"><span class="k">N° voyage</span><span class="v">${c.voyage}</span></div>` : ''}
+    ${statut>=1 && c.voyage_transporteur && !isPublic ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
+    ${statut>=1 && c.voyage_date_depart ? `<div class="result-row"><span class="k">Date de départ</span><span class="v">${new Date(c.voyage_date_depart).toLocaleDateString('fr-FR')}</span></div>` : ''}
+    ${contenuBlock}
+    ${expeditionsBlock}
+    <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
+    <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
+    ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
+    ${c.commentaire_arrivee && !isPublic ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
+    <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
+    <div class="timeline">${steps}</div>
+    ${receiptBtn}
+    ${adminActions}
+  </div>`;
+}
+
+/* Convertit un colis brut (API) au format attendu par le générateur de reçu */
+function colisToReceiptPayload(c){
+  return {
+    reference: c.reference, nomClient: c.nom_client, telephone: c.telephone,
+    nomDepositaire: c.nom_depositaire, telephoneDepositaire: c.telephone_depositaire,
+    paysDestination: c.pays_destination, agenceDestination: c.agence_destination,
+    lignesProduits: c.lignes_produits_detail || [],
+    contenu: c.contenu || '', poids: c.poids,
+    total: c.total, statutPaiementDepart: c.statut_paiement_depart, montantAvance: c.montant_avance,
+    commentairePaiement: c.commentaire_paiement, valeurDeclaree: c.valeur_declaree,
+    statut: c.statut, dateCreation: c.date_creation, paysOrigine: c.pays_origine
+  };
+}
+
+/* ---- Edition / suppression (admin) ---- */
+async function editColis(c){
+  editingRef = c.reference;
+  goto('screen-newcolis');
+  await new Promise(r=>setTimeout(r, 400)); // laisser prepNewColis charger les destinations
+  document.getElementById('nc-title').textContent = 'Modifier colis '+c.reference;
+  document.getElementById('nc-save-btn').textContent = '💾 METTRE À JOUR';
+  document.getElementById('nc-ref').value = c.reference;
+  document.getElementById('nc-nom').value = c.nom_client;
+  document.getElementById('nc-tel').value = c.telephone;
+  document.getElementById('nc-depositaire-nom').value = c.nom_depositaire || '';
+  document.getElementById('nc-depositaire-tel').value = c.telephone_depositaire || '';
+  document.getElementById('nc-dest').value = c.pays_destination;
+  onDestChange();
+  const lignesExistantes = c.lignes_produits_detail || [];
+  newColisLignes = lignesExistantes.length
+    ? lignesExistantes.map(l=>({type:l.type, poids:l.poids, prixKg:l.prixKg, prixModifie:true}))
+    : [{type: c.contenu || '', poids: c.poids || '', prixKg: c.prix_kg || 0, prixModifie:true}];
+  renderLignesProduits();
+  document.getElementById('nc-statutpaie').value = c.statut_paiement_depart;
+  onStatutPaieChange();
+  document.getElementById('nc-commentaire-paiement').value = c.commentaire_paiement || '';
+  document.getElementById('nc-valeur').value = c.valeur_declaree;
+  calcTotal();
+}
+async function deleteColisConfirm(reference){
+  if(!confirm('Supprimer définitivement le colis '+reference+' ? Cette action est irréversible.')) return;
+  const saisie = prompt('Confirmation finale : retape exactement le numéro de reçu « '+reference+' » pour confirmer la suppression définitive.');
+  if(saisie === null) return;
+  if(saisie.trim() !== reference){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
+  try{
+    await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentId: currentAgent.id, agentNom: currentAgent.nom});
+    showToast('🗑️ Colis '+reference+' supprimé');
+    document.getElementById('sr-result').innerHTML='';
+    document.getElementById('sr-ref').value='';
+    await updateKpis();
+  }catch(e){}
+}
+
+/* ================= VOYAGE ================= */
+async function prepVoyage(){ await switchVoyageTab(voyageTab); }
+async function switchVoyageTab(tab){
+  voyageTab = tab;
+  document.getElementById('tab-depart').classList.toggle('active', tab==='depart');
+  document.getElementById('tab-arrivee').classList.toggle('active', tab==='arrivee');
+  document.getElementById('tab-historique').classList.toggle('active', tab==='historique');
+  document.getElementById('voyage-depart-panel').style.display = tab==='depart' ? 'block':'none';
+  document.getElementById('voyage-arrivee-panel').style.display = tab==='arrivee' ? 'block':'none';
+  document.getElementById('voyage-historique-panel').style.display = tab==='historique' ? 'block':'none';
+  if(tab==='depart') await renderDepartList();
+  else if(tab==='arrivee') await renderArriveeSelect();
+  else await renderHistoriqueList();
+}
+let HISTORIQUE_CACHE = [];
+const STATUT_VOYAGE_CLASS = { 'En cours': 'st-1', 'Arrive': 'st-2', 'Arrivé': 'st-2' };
+async function renderHistoriqueList(){
+  const box = document.getElementById('historique-list');
+  document.getElementById('historique-search').value = '';
+  box.innerHTML = skeletonHTML(3);
+  try{
+    let list = await api('listVoyages');
+    if(currentAgent && currentAgent.role!=='Admin') list = list.filter(v=>v.pays_destination===currentAgent.pays || v.pays_origine===currentAgent.pays);
+    HISTORIQUE_CACHE = list;
+    renderHistoriqueHTML(list);
+  }catch(e){ box.innerHTML=''; }
+}
+function renderHistoriqueHTML(list){
+  const box = document.getElementById('historique-list');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🗂</div><p>Aucun voyage enregistré.</p></div>`; return; }
+  box.innerHTML = list.map(v=>{
+    const cls = STATUT_VOYAGE_CLASS[v.statut] || 'st-0';
+    const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
+    const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
+    return `<div class="histo-card" style="cursor:pointer;" onclick='showVoyageColisDetail(${JSON.stringify(v).replace(/'/g,"&#39;")})'>
+      <div class="histo-top">
+        <span class="histo-numero">${v.numero}</span>
+        <span class="status-pill ${cls}">${v.statut}</span>
+      </div>
+      <div class="histo-meta">
+        <b>Voyageur :</b> ${v.transporteur || '—'}<br>
+        <b>Date de départ :</b> ${dateStr}<br>
+        <b>Destination :</b> ${v.pays_destination || '—'} — ${v.agence_destination || ''}<br>
+        <b>Colis transportés :</b> ${v.nb_colis}
+      </div>
+      ${v.references && v.references.length ? `<div class="histo-refs">${v.references.map(r=>`<span>${r}</span>`).join('')}</div>` : ''}
+      ${peutGerer ? `<div class="btn-row" style="margin-top:10px;" onclick="event.stopPropagation()">
+        <button class="btn btn-outline" onclick='modifierVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
+        <button class="btn btn-red" onclick="supprimerVoyageConfirm('${v.numero}', ${v.nb_colis})">🗑️ Supprimer</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+async function modifierVoyage(v){
+  const nouveauTransporteur = prompt('Nom du voyageur / transporteur :', v.transporteur || '');
+  if(nouveauTransporteur === null) return;
+  const nouvelleDate = prompt('Date de départ (AAAA-MM-JJ) :', v.date_depart || '');
+  if(nouvelleDate === null) return;
+  try{
+    await api('updateVoyage', {numero: v.numero, transporteur: nouveauTransporteur.trim(), dateDepart: nouvelleDate.trim(), agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('✅ Voyage mis à jour');
+    await renderHistoriqueList();
+  }catch(e){}
+}
+async function supprimerVoyageConfirm(numero, nbColis){
+  if(nbColis > 0 && currentAgent.role !== 'Admin'){
+    showToast('⚠️ Ce voyage contient ' + nbColis + ' colis — suppression réservée à l\'administrateur');
+    return;
+  }
+  const message = nbColis > 0
+    ? 'Ce voyage contient ' + nbColis + ' colis. Le supprimer retirera aussi leur lien à ce voyage. Continuer ?'
+    : 'Supprimer définitivement le voyage ' + numero + ' ?';
+  if(!confirm(message)) return;
+  const saisie = prompt('Confirmation finale : retape exactement « ' + numero + ' » pour confirmer.');
+  if(saisie === null) return;
+  if(saisie.trim() !== numero){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
+  try{
+    await api('deleteVoyage', {numero, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('🗑️ Voyage ' + numero + ' supprimé');
+    await renderHistoriqueList();
+  }catch(e){}
+}
+async function showColisInfoModal(reference){
+  document.getElementById('bilan-detail-title').textContent = 'Colis ' + reference;
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(1);
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+    const c = await api('searchColis', {reference});
+    document.getElementById('bilan-detail-body').innerHTML = renderResultCard(c, false);
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
+  }
+}
+async function showVoyageColisDetail(v){
+  document.getElementById('bilan-detail-title').textContent = 'Colis du voyage ' + v.numero;
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero: v.numero});
+    renderBilanDetailList(BILAN_DETAIL_CACHE);
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis trouvé pour ce voyage.</p></div>`;
+  }
+}
+function filterHistoriqueList(){
+  const q = document.getElementById('historique-search').value.trim().toLowerCase();
+  if(!q){ renderHistoriqueHTML(HISTORIQUE_CACHE); return; }
+  const filtered = HISTORIQUE_CACHE.filter(v =>
+    String(v.numero).toLowerCase().includes(q) ||
+    String(v.transporteur).toLowerCase().includes(q) ||
+    String(v.pays_destination).toLowerCase().includes(q)
+  );
+  renderHistoriqueHTML(filtered);
+}
+
+let departSelection = [];
+async function renderDepartList(){
+  document.getElementById('depart-search').value = '';
+  const sel = document.getElementById('vd-destination');
+  const lockNote = document.getElementById('vd-dest-lock-note');
+  if(sel.options.length <= 1){
+    try{
+      if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+      DESTINATIONS_CACHE.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays+' — '+d.agence;
+        sel.appendChild(opt);
+      });
+    }catch(e){}
+  }
+  if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!=='Maroc'){
+    sel.value = 'Maroc';
+    sel.disabled = true;
+    lockNote.style.display = 'block';
+  } else {
+    sel.disabled = false;
+    lockNote.style.display = 'none';
+  }
+  renderDepartSelectionHTML();
+}
+function onVdDestinationChange(){
+  if(departSelection.length){
+    departSelection = [];
+    renderDepartSelectionHTML();
+    showToast('ℹ️ Sélection de colis réinitialisée (changement de destination)');
+  }
+}
+function renderDepartSelectionHTML(){
+  const box = document.getElementById('depart-list');
+  if(!departSelection.length){ box.innerHTML = `<div class="empty-state"><div class="em">🔎</div><p>Recherche un colis par son numéro de reçu pour l'ajouter au voyage.</p></div>`; return; }
+  const totalPoids = departSelection.reduce((s,c)=>s+(parseFloat(c.poidsEnvoye)||0),0);
+  let html = `<div class="checklist-total">📦 ${departSelection.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total sur ce voyage</div>`;
+  html += departSelection.map((c,i)=>{
+    const complet = c.poidsEnvoye >= c.poids_restant - 0.001;
+    return `
+    <div class="checklist-item" style="align-items:flex-start;">
+      <div class="txt">
+        <div class="r">${c.reference}</div>
+        <div class="d">${c.nom_client} · ${c.pays_destination} · restant : ${c.poids_restant} kg${c.poids_expedie>0?' (déjà '+c.poids_expedie+' kg envoyés avant)':''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <input type="number" step="0.1" value="${c.poidsEnvoye}" min="0" max="${c.poids_restant}" style="width:90px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;" oninput="updatePoidsEnvoye(${i}, this.value)">
+          <span style="font-size:11px;color:var(--muted);">kg envoyés sur ce voyage</span>
+        </div>
+        <span class="status-pill ${complet?'st-2':'st-1'}" style="margin-top:6px;display:inline-block;">${complet ? '✓ Envoi complet' : '◐ Envoi en tranche'}</span>
+      </div>
+      <button onclick="retirerColisDepart('${c.reference}')" style="border:none;background:none;color:var(--red);font-size:18px;font-weight:700;cursor:pointer;">×</button>
+    </div>`;
+  }).join('');
+  box.innerHTML = html;
+}
+function updatePoidsEnvoye(i, value){
+  const c = departSelection[i];
+  let v = parseFloat(value)||0;
+  if(v > c.poids_restant) v = c.poids_restant;
+  if(v < 0) v = 0;
+  c.poidsEnvoye = v;
+  renderDepartSelectionHTML();
+}
+async function ajouterColisDepart(){
+  const input = document.getElementById('depart-search');
+  const ref = input.value.trim();
+  if(!ref) return;
+  const destinationChoisie = document.getElementById('vd-destination').value;
+  if(!destinationChoisie){ showToast('⚠️ Choisis d\'abord la destination du voyageur'); return; }
+  showToast('🔍 Recherche du colis '+ref+'...');
+  try{
+    const c = await api('searchColis', {reference: ref});
+    const poidsRestant = Math.max(0, Number(c.poids||0) - Number(c.poids_expedie||0));
+    if(Number(c.statut) >= 2 || poidsRestant <= 0){ showToast('⚠️ Colis non disponible pour un départ (déjà entièrement expédié ou statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
+    if(c.pays_destination !== destinationChoisie){ showToast('⚠️ Ce colis est destiné à '+c.pays_destination+', pas à '+destinationChoisie); return; }
+    if(departSelection.find(x=>x.reference===c.reference)){ showToast('⚠️ Déjà ajouté'); return; }
+    departSelection.push({
+      reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination, agence_destination:c.agence_destination,
+      poids: Number(c.poids||0), poids_expedie: Number(c.poids_expedie||0), poids_restant: poidsRestant, poidsEnvoye: poidsRestant
+    });
+    renderDepartSelectionHTML();
+    input.value='';
+    showToast('✅ '+ref+' ajouté au voyage');
+  }catch(e){}
+}
+function retirerColisDepart(ref){
+  departSelection = departSelection.filter(c=>c.reference!==ref);
+  renderDepartSelectionHTML();
+}
+async function lancerVoyage(){
+  const numero = document.getElementById('vd-numero').value.trim();
+  const date = document.getElementById('vd-date').value;
+  const transporteur = document.getElementById('vd-transporteur').value.trim();
+  const destinationChoisie = document.getElementById('vd-destination').value;
+  if(!destinationChoisie){ showToast('⚠️ Choisis la destination du voyageur'); return; }
+  if(!departSelection.length){ showToast('⚠️ Ajoute au moins un colis'); return; }
+  if(!numero){ showToast('⚠️ Numéro de voyage requis'); return; }
+  if(departSelection.some(c=>!(c.poidsEnvoye>0))){ showToast('⚠️ Renseigne un poids envoyé supérieur à 0 pour chaque colis'); return; }
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===destinationChoisie) || {};
+  try{
+    await api('lancerVoyage', {
+      numero, paysDestination: destinationChoisie, agenceDestination: destInfo.agence || departSelection[0].agence_destination,
+      dateDepart: date, transporteur, agentPays: currentAgent ? currentAgent.pays : '',
+      colis: departSelection.map(c=>({reference:c.reference, poids:c.poidsEnvoye}))
+    });
+    showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
+    document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
+    departSelection = [];
+    await updateKpis(); renderDepartSelectionHTML();
+  }catch(e){}
+}
+let VOYAGES_CACHE = [];
+async function renderArriveeSelect(){
+  const sel = document.getElementById('va-select');
+  sel.innerHTML = '<option value="">Chargement...</option>';
+  try{
+    VOYAGES_CACHE = await api('listVoyages');
+    const filtrePays = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+    const numeros = await api('listVoyagesEnTransit', filtrePays);
+    sel.innerHTML = numeros.length ? numeros.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">Aucun voyage en cours pour votre pays</option>';
+  }catch(e){}
+  await renderArriveeList();
+}
+let ARRIVEE_TRONCONS_CACHE = [];
+async function renderArriveeList(){
+  const num = document.getElementById('va-select').value;
+  document.getElementById('arrivee-search').value = '';
+  const infoBox = document.getElementById('va-voyageur-info');
+  const box = document.getElementById('arrivee-list');
+  if(!num){
+    infoBox.style.display = 'none';
+    box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Sélectionne un voyage.</p></div>`;
+    ARRIVEE_TRONCONS_CACHE = [];
+    return;
+  }
+  const v = VOYAGES_CACHE.find(x=>x.numero===num);
+  if(v){
+    infoBox.style.display = 'block';
+    infoBox.innerHTML = `<div class="name">✈️ ${v.transporteur||'Voyageur non renseigné'}</div><div class="loc">📅 Départ le ${v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—'} · ${v.pays_destination||''}</div>`;
+  } else {
+    infoBox.style.display = 'none';
+  }
+  box.innerHTML = skeletonHTML(2);
+  try{
+    ARRIVEE_TRONCONS_CACHE = await api('listExpeditionsVoyage', {numero: num});
+    renderArriveeListHTML(ARRIVEE_TRONCONS_CACHE);
+  }catch(e){ box.innerHTML = ''; }
+}
+function renderArriveeListHTML(list){
+  const box = document.getElementById('arrivee-list');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
+  const totalPoids = list.reduce((s,t)=>s+(parseFloat(t.poids_envoye)||0),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total en transit</div>`;
+  html += list.map(t=>`
+    <div class="checklist-item">
+      <input type="checkbox" class="arr-check" value="${t.reference}" checked onclick="event.stopPropagation()">
+      <div class="txt" style="cursor:pointer;" onclick="showColisInfoModal('${t.reference}')"><div class="r">${t.reference}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
+      <button onclick="showColisInfoModal('${t.reference}')" style="border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;">ℹ️</button>
+    </div>`).join('');
+  box.innerHTML = html;
+}
+function filterArriveeList(){
+  const q = document.getElementById('arrivee-search').value.trim().toLowerCase();
+  if(!q){ renderArriveeListHTML(ARRIVEE_TRONCONS_CACHE); return; }
+  const filtered = ARRIVEE_TRONCONS_CACHE.filter(t =>
+    String(t.reference).toLowerCase().includes(q) || String(t.nom_client||'').toLowerCase().includes(q)
+  );
+  renderArriveeListHTML(filtered);
+}
+function toggleArriveeByScan(){
+  const ref = document.getElementById('arrivee-search').value.trim();
+  const cb = document.querySelector('.arr-check[value="'+ref.replace(/"/g,'')+'"]');
+  if(cb){ cb.checked = true; cb.scrollIntoView({behavior:'smooth', block:'center'}); showToast('✅ '+ref+' sélectionné'); }
+  else showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage');
+}
+async function confirmerArrivee(){
+  const num = document.getElementById('va-select').value;
+  const refs = Array.from(document.querySelectorAll('.arr-check:checked')).map(i=>i.value);
+  const comment = document.getElementById('va-comment').value.trim();
+  if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
+  try{
+    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('✅ Arrivée confirmée pour '+refs.length+' tronçon(s)');
+    document.getElementById('va-comment').value='';
+    await updateKpis(); await renderArriveeSelect();
+  }catch(e){}
+}
+
+/* ================= RETRAIT ================= */
+let retraitCourant=null;
+async function chargerRetrait(){
+  const ref = document.getElementById('rt-ref').value.trim();
+  const box = document.getElementById('rt-fiche');
+  if(!ref) return;
+  retraitPaiementValide = false;
+  box.innerHTML = skeletonHTML(1);
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+    const c = await api('searchColis', {reference: ref});
+    if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!==c.pays_destination){
+      box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p><b>Retrait réservé à l'agence de destination : ${c.pays_destination}</b></p></div>`;
+      retraitCourant = null; updateRetireButtonState(); return;
+    }
+    if(Number(c.statut) === 3){
+      box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p style="font-size:15px;font-weight:700;color:var(--green);">Ce colis a déjà été retiré.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Retrait effectué le ${c.date_retrait ? new Date(c.date_retrait).toLocaleDateString('fr-FR') : '—'}.</p></div>`;
+      retraitCourant = null; updateRetireButtonState(); return;
+    }
+    if(Number(c.statut) !== 2){
+      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p style="font-size:15px;font-weight:700;color:var(--amber);">Ce colis n'est pas encore arrivé.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Statut actuel : ${STATUT_LABELS[Number(c.statut)]}</p></div>`;
+      retraitCourant = null; updateRetireButtonState(); return;
+    }
+    retraitCourant = c;
+    box.innerHTML = renderResultCard(c, false);
+    const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0));
+    retraitCourant.resteAttendu = resteAPercevoir;
+    document.getElementById('rt-montant').value = resteAPercevoir;
+    const montantInput = document.getElementById('rt-montant');
+    montantInput.readOnly = (currentAgent.role !== 'Admin');
+    document.getElementById('rt-montant-lock-note').style.display = (currentAgent.role !== 'Admin') ? 'block' : 'none';
+    if(Number(c.montant_avance||0) > 0){
+      showToast('ℹ️ Avance de '+Number(c.montant_avance).toLocaleString('fr-FR')+' MAD déjà versée au départ — reste à percevoir : '+resteAPercevoir.toLocaleString('fr-FR')+' MAD');
+    }
+    updateRetireButtonState();
+    await updateRetraitDevise();
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
+    retraitCourant = null; updateRetireButtonState();
+  }
+}
+async function updateRetraitDevise(){
+  const box = document.getElementById('rt-montant-devise');
+  if(!retraitCourant){ box.textContent = ''; return; }
+  const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+  }catch(e){}
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===retraitCourant.pays_destination);
+  if(destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad)!==1){
+    const converti = montant * Number(destInfo.taux_mad);
+    box.textContent = montant.toLocaleString('fr-FR') + ' MAD  ≈  ' + converti.toLocaleString('fr-FR',{maximumFractionDigits:0}) + ' ' + destInfo.devise;
+  } else {
+    box.textContent = montant.toLocaleString('fr-FR') + ' MAD';
+  }
+}
+function updateRetireButtonState(){
+  const btn = document.getElementById('rt-retire-btn');
+  const validerBtn = document.getElementById('rt-valider-btn');
+  const compteSelect = document.getElementById('rt-compte');
+  const OPTION_PAYE_DEPART = 'Payé au pays de départ';
+  const existeDeja = Array.from(compteSelect.options).some(o=>o.value===OPTION_PAYE_DEPART);
+  if(!retraitCourant){
+    btn.disabled = true;
+    validerBtn.disabled = false;
+    document.getElementById('rt-montant').readOnly = false;
+    document.getElementById('rt-montant-lock-note').style.display = 'none';
+    if(existeDeja) compteSelect.remove(0);
+    return;
+  }
+  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  btn.disabled = !(paiementDepartOk || retraitPaiementValide);
+  validerBtn.disabled = paiementDepartOk || retraitPaiementValide; // rien a valider : deja regle (au depot ou au retrait)
+  if(paiementDepartOk && !existeDeja){
+    const opt = document.createElement('option');
+    opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
+    compteSelect.insertBefore(opt, compteSelect.firstChild);
+    compteSelect.value = OPTION_PAYE_DEPART;
+  } else if(!paiementDepartOk && existeDeja){
+    compteSelect.remove(0);
+  }
+}
+let retraitPaiementValide = false;
+async function validerPaiementRetrait(){
+  if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  if(paiementDepartOk){ showToast('ℹ️ Ce colis est déjà payé intégralement au départ — aucune validation nécessaire'); return; }
+  const montant = parseFloat(document.getElementById('rt-montant').value)||0;
+  if(montant <= 0){ showToast('⚠️ Renseigne un montant valide'); return; }
+  const attendu = Number(retraitCourant.resteAttendu || 0);
+  if(montant < attendu - 0.01){
+    showToast('⚠️ Montant insuffisant — '+attendu.toLocaleString('fr-FR')+' MAD attendus, seulement '+montant.toLocaleString('fr-FR')+' MAD saisis. Le retrait ne peut pas être validé partiellement.');
+    return;
+  }
+  try{
+    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('💰 Paiement validé — '+montant.toLocaleString('fr-FR')+' MAD');
+    retraitPaiementValide = true;
+    updateRetireButtonState();
+  }catch(e){}
+}
+async function marquerRetire(){
+  if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
+  const attendu = Number(retraitCourant.resteAttendu || 0);
+  if(!paiementDepartOk && !retraitPaiementValide){
+    showToast('⚠️ Colis non payé au départ — renseigne le montant et valide le paiement avant de marquer le retrait');
+    return;
+  }
+  if(!paiementDepartOk && montant < attendu - 0.01){
+    showToast('⚠️ Montant insuffisant ('+attendu.toLocaleString('fr-FR')+' MAD attendus) — le retrait ne peut pas être marqué avec un paiement partiel');
+    return;
+  }
+  try{
+    // On s'assure que le paiement est bien enregistre avant de finaliser le retrait
+    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('📦 Colis '+retraitCourant.reference+' marqué RETIRÉ');
+    await updateKpis();
+    document.getElementById('rt-fiche').innerHTML='';
+    document.getElementById('rt-ref').value='';
+    retraitCourant=null;
+    retraitPaiementValide=false;
+  }catch(e){}
+}
+
+/* ================= BILAN ================= */
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+let bilanMode = 'jour';
+function setBilanMode(mode){
+  bilanMode = mode;
+  document.getElementById('bilan-mode-jour-btn').classList.toggle('btn-primary', mode==='jour');
+  document.getElementById('bilan-mode-jour-btn').classList.toggle('btn-outline', mode!=='jour');
+  document.getElementById('bilan-mode-periode-btn').classList.toggle('btn-primary', mode==='periode');
+  document.getElementById('bilan-mode-periode-btn').classList.toggle('btn-outline', mode!=='periode');
+  document.getElementById('bilan-jour-wrap').style.display = mode==='jour' ? 'flex' : 'none';
+  document.getElementById('bilan-periode-wrap').style.display = mode==='periode' ? 'block' : 'none';
+  if(mode==='periode'){
+    const fin = document.getElementById('bilan-date-fin');
+    const debut = document.getElementById('bilan-date-debut');
+    if(!fin.value) fin.value = todayISO();
+    if(!debut.value){ const d = new Date(); d.setDate(d.getDate()-6); debut.value = d.toISOString().slice(0,10); }
+  }
+  renderBilan();
+}
+function setBilanToday(){
+  document.getElementById('bilan-date').value = todayISO();
+  renderBilan();
+}
+function shiftBilanDate(delta){
+  const input = document.getElementById('bilan-date');
+  const d = new Date(input.value || todayISO());
+  d.setDate(d.getDate() + delta);
+  input.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  renderBilan();
+}
+async function renderBilan(){
+  const dateInput = document.getElementById('bilan-date');
+  if(!dateInput.value) dateInput.value = todayISO();
+  const box = document.getElementById('bilan-scroll');
+  box.innerHTML = skeletonHTML(3);
+
+  const paysWrap = document.getElementById('bilan-pays-wrap');
+  const paysSelect = document.getElementById('bilan-pays-filter');
+  let paysChoisi = '';
+
+  if(currentAgent.role==='Admin'){
+    paysWrap.style.display = 'block';
+    if(paysSelect.options.length <= 1){
+      try{
+        if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+        DESTINATIONS_CACHE.forEach(d=>{
+          const opt = document.createElement('option');
+          opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays;
+          paysSelect.appendChild(opt);
+        });
+      }catch(e){}
+    }
+    paysChoisi = paysSelect.value;
+  } else {
+    paysWrap.style.display = 'none';
+  }
+
+  try{
+    const filtre = {};
+    let periodeLabel;
+    if(bilanMode==='periode'){
+      const debut = document.getElementById('bilan-date-debut').value;
+      const fin = document.getElementById('bilan-date-fin').value;
+      if(debut) filtre.dateDebut = debut;
+      if(fin) filtre.dateFin = fin;
+      periodeLabel = 'Du ' + (debut ? new Date(debut).toLocaleDateString('fr-FR') : '—') + ' au ' + (fin ? new Date(fin).toLocaleDateString('fr-FR') : '—');
+    } else {
+      filtre.date = dateInput.value;
+      periodeLabel = dateInput.value === todayISO() ? "Aujourd'hui" : new Date(dateInput.value).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    }
+    if(currentAgent.role!=='Admin') filtre.pays = currentAgent.pays;
+    else if(paysChoisi) filtre.pays = paysChoisi;
+    const b = await api('bilan', filtre);
+    let scopeLabel;
+    if(currentAgent.role!=='Admin') scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie de : ${currentAgent.pays}</div>`;
+    else if(paysChoisi) scopeLabel = `<div class="banner-demo" style="background:#E5E9F2;color:var(--navy-2);">Trésorerie filtrée : ${paysChoisi} (Admin)</div>`;
+    else scopeLabel = `<div class="banner-demo" style="background:#DDEFE5;color:var(--green);">Vue globale — tous pays (Admin)</div>`;
+    BILAN_FILTRE = filtre;
+    const jourLabel = periodeLabel;
+    BILAN_DATA = {
+      b, jourLabel, date: filtre.date || (filtre.dateDebut+'_'+filtre.dateFin),
+      scopeTexte: currentAgent.role!=='Admin' ? ('Trésorerie de : '+currentAgent.pays) : (paysChoisi ? ('Trésorerie filtrée : '+paysChoisi+' (Admin)') : 'Vue globale — tous pays (Admin)')
+    };
+    document.getElementById('bilan-pdf-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
+    box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
+      <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')"><div><div class="l">Payé au départ (période)</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
+      <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')"><div><div class="l">Encaissé au retrait (période)</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+      <h2 class="section-title" style="margin-top:18px;">Vue d'ensemble (toutes dates)</h2>
+      <div class="bilan-card" onclick="showBilanDetail('totalColis','Tous les colis')"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('enAttente','Colis en attente')"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('arrives','Colis arrivés (non retirés)')"><div><div class="l">Arrivés — en attente de retrait</div><div class="v">${b.arrives}</div></div><div class="ic">🛬</div></div>
+      <div class="bilan-card" onclick="showBilanDetail('retires','Colis retirés')"><div><div class="l">Colis retirés</div><div class="v">${b.retires}</div></div><div class="ic">✅</div></div>
+    `;
+  }catch(e){ box.innerHTML=''; }
+}
+
+let BILAN_FILTRE = {};
+let BILAN_DATA = null;
+
+async function generateBilanPDF(){
+  if(currentAgent.role!=='Admin'){ showToast('⚠️ Réservé à l\'administrateur'); return; }
+  if(!BILAN_DATA){ showToast('⚠️ Aucune donnée à exporter'); return; }
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  showToast('📄 Génération du bilan PDF...');
+  try{
+    const { b, jourLabel, date, scopeTexte } = BILAN_DATA;
+    const [listeDepart, listeRetrait] = await Promise.all([
+      api('bilanDetail', {...BILAN_FILTRE, type:'payeDepart'}),
+      api('bilanDetail', {...BILAN_FILTRE, type:'encaisseRetrait'})
+    ]);
+    const lignes = [
+      ...listeDepart.map(c=>({...c, typeLabel:'Paiement dépôt', montant:c.total})),
+      ...listeRetrait.map(c=>({...c, typeLabel:'Paiement retrait', montant:c.montant_retrait}))
+    ];
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const W = 210, H = 297;
+    const navy = '#0B4A40', navy2='#0E6B5C', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255', sand = '#F1EAD9';
+
+    function drawHeader(){
+      doc.setFillColor(navy);
+      doc.rect(0, 0, W, 26, 'F');
+      doc.setFillColor(gold);
+      doc.rect(0, 26, W, 1.2, 'F');
+      if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 18, 18);
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(15);
+      doc.text('NAHDA BUSINESS', 30, 12);
+      doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text('Bilan de trésorerie \u2014 ' + jourLabel, 30, 19);
+      doc.setTextColor(muted); doc.setFontSize(7);
+      doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' par ' + currentAgent.nom, W-8, H-6, {align:'right'});
+    }
+    function drawTableHeader(y){
+      doc.setFillColor(navy);
+      doc.rect(8, y, W-16, 9, 'F');
+      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+      doc.text('N° Reçu', 10, y+6);
+      doc.text('Client', 42, y+6);
+      doc.text('Poids', 96, y+6);
+      doc.text('Prix U.', 116, y+6);
+      doc.text('Total', 140, y+6);
+      doc.text('Type de paiement', 165, y+6);
+      return y + 9;
+    }
+
+    drawHeader();
+    let y = 34;
+    doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    doc.text(scopeTexte, 8, y); y += 6;
+
+    // Bloc synthese
+    doc.setFillColor(navy);
+    doc.roundedRect(8, y, 92, 16, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+    doc.text('PAYÉ AU DÉPÔT', 12, y+6);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(11);
+    doc.text(formatPdfNum(b.totalPayeDepart) + ' MAD', 12, y+12.5);
+
+    doc.setFillColor(navy2);
+    doc.roundedRect(110, y, 92, 16, 2, 2, 'F');
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+    doc.text('ENCAISSÉ AU RETRAIT', 114, y+6);
+    doc.setTextColor('#FFFFFF'); doc.setFontSize(11);
+    doc.text(formatPdfNum(b.totalEncaisseRetrait) + ' MAD', 114, y+12.5);
+    y += 24;
+
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.setTextColor(navy);
+    doc.text('DÉTAIL DES COLIS (' + lignes.length + ')', 8, y);
+    y += 6;
+    y = drawTableHeader(y);
+
+    doc.setFont(undefined,'normal'); doc.setFontSize(8);
+    lignes.forEach((c, i) => {
+      if (y > H - 20) { doc.addPage(); drawHeader(); y = 34; y = drawTableHeader(y); }
+      if (i % 2 === 0) { doc.setFillColor(sand); doc.rect(8, y, W-16, 8, 'F'); }
+      doc.setTextColor(ink);
+      doc.text(String(c.reference||'-'), 10, y+5.5);
+      doc.text(String(c.nom_client||'-').substring(0,22), 42, y+5.5);
+      doc.text(String(c.poids||0) + ' kg', 96, y+5.5);
+      doc.text(formatPdfNum(c.prix_kg) + ' MAD', 116, y+5.5);
+      doc.text(formatPdfNum(c.montant) + ' MAD', 140, y+5.5);
+      doc.setTextColor(c.typeLabel === 'Paiement retrait' ? navy2 : '#B8791E');
+      doc.setFont(undefined,'bold');
+      doc.text(c.typeLabel, 165, y+5.5);
+      doc.setFont(undefined,'normal');
+      y += 8;
+    });
+
+    doc.setDrawColor(sand); doc.setLineWidth(0.4);
+    doc.line(8, H-14, W-8, H-14);
+    doc.setTextColor(muted); doc.setFontSize(7);
+    doc.text(COMPANY_CONTACT.adresse + '  \u2014  Tel : ' + COMPANY_CONTACT.telephone, 8, H-9);
+
+    doc.save('Bilan_Tresorerie_' + date + (BILAN_FILTRE.pays ? '_'+BILAN_FILTRE.pays : '_Global') + '.pdf');
+  }catch(e){ showToast('⚠️ Bilan PDF non généré (voir console)'); console.error(e); }
+}
+
+function showDashboardDetail(type, label){
+  BILAN_FILTRE = (currentAgent && currentAgent.role!=='Admin') ? {pays: currentAgent.pays} : {};
+  showBilanDetail(type, label);
+}
+let BILAN_DETAIL_CACHE = [];
+async function showBilanDetail(type, label){
+  document.getElementById('bilan-detail-title').textContent = label;
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  const destSelect = document.getElementById('bilan-detail-dest-filter');
+  destSelect.style.display = '';
+  destSelect.value = '';
+  if(destSelect.options.length <= 1){
+    try{
+      if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+      DESTINATIONS_CACHE.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value = d.pays; opt.textContent = flagEmoji(d.flag)+' '+d.pays;
+        destSelect.appendChild(opt);
+      });
+    }catch(e){}
+  }
+  try{
+    BILAN_DETAIL_CACHE = await api('bilanDetail', {...BILAN_FILTRE, type});
+    renderBilanDetailList(BILAN_DETAIL_CACHE);
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = '';
+  }
+}
+function filterBilanDetailList(){
+  const pays = document.getElementById('bilan-detail-dest-filter').value;
+  const filtered = pays ? BILAN_DETAIL_CACHE.filter(c=>c.pays_destination===pays) : BILAN_DETAIL_CACHE;
+  renderBilanDetailList(filtered);
+}
+function renderBilanDetailList(list){
+  const box = document.getElementById('bilan-detail-body');
+  if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
+  const poidsAffiche = c => c.poids_troncon_voyage !== undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
+  const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
+  html += list.map(c=>`
+    <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+      <div class="txt">
+        <div class="r">${c.reference}</div>
+        <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
+      </div>
+      <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
+    </div>`).join('');
+  box.innerHTML = html;
+}
+function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; }
+
+/* ================= PARAMÈTRES (admin uniquement) ================= */
+function togglePanel(id){
+  document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
+}
+async function prepSettings(){
+  try{
+    DESTINATIONS_CACHE = await api('listDestinations');
+    document.getElementById('ps-prix-dest').innerHTML = DESTINATIONS_CACHE.map(d=>`<option value="${d.pays}">${flagEmoji(d.flag)} ${d.pays} — ${d.prix_kg} MAD/kg${d.devise?' — '+d.devise:''}</option>`).join('');
+    prefillPrixPanel();
+  }catch(e){}
+}
+function prefillPrixPanel(){
+  const pays = document.getElementById('ps-prix-dest').value;
+  const d = DESTINATIONS_CACHE.find(x=>x.pays===pays);
+  document.getElementById('ps-prix-val').value = d ? d.prix_kg : '';
+  document.getElementById('ps-prix-devise').value = d ? (d.devise||'') : '';
+  document.getElementById('ps-prix-taux').value = d ? (d.taux_mad||'') : '';
+}
+async function updatePrix(){
+  const pays = document.getElementById('ps-prix-dest').value;
+  const val = parseFloat(document.getElementById('ps-prix-val').value);
+  const devise = document.getElementById('ps-prix-devise').value.trim();
+  const taux = parseFloat(document.getElementById('ps-prix-taux').value) || undefined;
+  if(!val){ showToast('⚠️ Entrez un prix valide'); return; }
+  try{
+    await api('updatePrix', {pays, prixKg: val, devise, tauxMad: taux, agentRole: currentAgent.role});
+    showToast('✅ Prix/devise mis à jour pour '+pays);
+    await prepSettings();
+    prefillPrixPanel();
+  }catch(e){}
+}
+async function addDestination(){
+  const nom=document.getElementById('ps-dest-nom').value.trim();
+  const flag=document.getElementById('ps-dest-flag').value.trim()||'';
+  const prix=parseFloat(document.getElementById('ps-dest-prix').value)||0;
+  if(!nom){ showToast('⚠️ Nom de destination requis'); return; }
+  try{
+    await api('addDestination', {pays: nom, agence:'', flag, prixKg: prix, agentRole: currentAgent.role});
+    showToast('✅ Destination '+nom+' ajoutée');
+    ['ps-dest-nom','ps-dest-flag','ps-dest-prix'].forEach(i=>document.getElementById(i).value='');
+    await prepSettings();
+  }catch(e){}
+}
+async function changePassword(){
+  const val = document.getElementById('ps-newpass').value.trim();
+  if(!val || !currentAgent){ showToast('⚠️ Mot de passe invalide'); return; }
+  try{
+    await api('changePassword', {id: currentAgent.id, nouveauMotDePasse: val});
+    showToast('🔑 Mot de passe mis à jour');
+    document.getElementById('ps-newpass').value='';
+  }catch(e){}
+}
+async function showHistoriqueModifications(){
+  document.getElementById('bilan-detail-title').textContent = 'Historique des modifications';
+  document.getElementById('bilan-detail-dest-filter').style.display = 'none';
+  document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(3);
+  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  try{
+    const rows = await api('listHistorique', {agentRole: currentAgent.role});
+    const box = document.getElementById('bilan-detail-body');
+    if(!rows.length){ box.innerHTML = `<div class="empty-state"><div class="em">📜</div><p>Aucune modification ou suppression enregistrée.</p></div>`; return; }
+    box.innerHTML = rows.map(r=>{
+      const dateStr = r.date ? new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—';
+      const couleur = r.action==='Suppression' ? 'var(--red)' : 'var(--navy)';
+      return `<div class="checklist-item" style="align-items:flex-start;">
+        <div class="txt">
+          <div class="r">${r.reference} <span style="color:${couleur};font-weight:700;">· ${r.action}</span></div>
+          <div class="d">Par ${r.agent_nom||'—'} (${r.agent_id||'—'}) · ${r.agent_pays||''} · ${dateStr}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('bilan-detail-body').innerHTML = '';
+  }
+}
+
+/* init */
+let lastProcessedSuivi = null;
+function checkSuiviRouting(){
+  const params = new URLSearchParams(location.search);
+  const suivi = params.get('suivi') || (location.hash.startsWith('#suivi=') ? decodeURIComponent(location.hash.replace('#suivi=','')) : null);
+  if(suivi && suivi !== lastProcessedSuivi){
+    lastProcessedSuivi = suivi;
+    renderPublicTracking(suivi);
+    return true;
+  }
+  return false;
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) checkSuiviRouting(); });
+window.addEventListener('pageshow', checkSuiviRouting);
+if(!checkSuiviRouting()){
+  restoreSession();
+}
+updateOfflineBadge();
+if(navigator.onLine) syncOfflineQueue();
+
+
+/* PWA — installation écran d'accueil + cache offline */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // Echec normal si le fichier est ouvert en local (file://) au lieu d'être hébergé en http(s)
+    });
+  });
+}
+
+</script>
+</body>
+</html>
