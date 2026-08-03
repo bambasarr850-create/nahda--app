@@ -1243,6 +1243,14 @@ function pushModalHistoryState(){
   const activeScreen = document.querySelector('.screen.active');
   history.pushState({modal:true, screen: activeScreen ? activeScreen.id : 'screen-dashboard'}, '', location.hash);
 }
+function naviguerVersColisDepuisModal(reference){
+  // Ferme la fenetre SANS declencher history.back() : evite la competition avec goto()
+  // qui pousse deja son propre etat d'historique correct pour l'ecran de destination.
+  document.getElementById('bilan-detail-modal').style.display = 'none';
+  document.getElementById('sr-ref').value = reference;
+  goto('screen-search');
+  searchColis();
+}
 function fermerModalesOuvertes(){
   const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox'];
   let uneEtaitOuverte = false;
@@ -2255,7 +2263,7 @@ function renderVoyageColisListWithActions(list, v){
         <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
       </div>
       <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;">
-        <button class="btn btn-outline" onclick='closeBilanDetail(); document.getElementById("sr-ref").value="${c.reference}"; goto("screen-search"); searchColis();'>🔍 Fiche</button>
+        <button class="btn btn-outline" onclick='naviguerVersColisDepuisModal("${c.reference}")'>🔍 Fiche</button>
         ${peutGerer ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
         <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
       </div>
@@ -2861,7 +2869,7 @@ function renderBilanDetailList(list){
   const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
   html += list.map(c=>`
-    <div class="checklist-item" style="cursor:pointer;" onclick="closeBilanDetail(); document.getElementById('sr-ref').value='${c.reference}'; goto('screen-search'); searchColis();">
+    <div class="checklist-item" style="cursor:pointer;" onclick="naviguerVersColisDepuisModal('${c.reference}')">
       <div class="txt">
         <div class="r">${c.reference}</div>
         <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
