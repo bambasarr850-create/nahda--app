@@ -1244,11 +1244,14 @@ function pushModalHistoryState(){
   history.pushState({modal:true, screen: activeScreen ? activeScreen.id : 'screen-dashboard'}, '', location.hash);
 }
 function naviguerVersColisDepuisModal(reference){
-  // Ferme la fenetre SANS declencher history.back() : evite la competition avec goto()
-  // qui pousse deja son propre etat d'historique correct pour l'ecran de destination.
+  // Ferme la fenetre et REMPLACE l'entree d'historique de la modale (au lieu d'en empiler
+  // une nouvelle par-dessus) : evite a la fois la competition avec history.back()
+  // et toute entree fantome qui perturberait un 2e appui sur retour ensuite.
   document.getElementById('bilan-detail-modal').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-search').classList.add('active');
+  history.replaceState({screen:'screen-search'}, '', '#screen-search');
   document.getElementById('sr-ref').value = reference;
-  goto('screen-search');
   searchColis();
 }
 function fermerModalesOuvertes(){
