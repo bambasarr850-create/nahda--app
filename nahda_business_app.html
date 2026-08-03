@@ -806,7 +806,7 @@ async function api(action, payload={}, silencieux=false){
   try{
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
-      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage',
+      'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       return await apiSupabase(action, payload);
@@ -1023,6 +1023,26 @@ async function apiSupabase(action, p){
           return { ...c, poids_troncon_voyage: poidsTroncon };
         });
       }
+
+    } else if(action==='updateVoyage'){
+      const champs = {};
+      if(p.transporteur !== undefined) champs.transporteur = p.transporteur;
+      if(p.dateDepart !== undefined) champs.date_depart = p.dateDepart;
+      const { error } = await sb.from('voyages').update(champs).eq('numero', p.numero);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Modification réservée à l'agence d'origine de ce voyage" : traduireErreur(error.message));
+      data = { updated: p.numero };
+
+    } else if(action==='deleteVoyage'){
+      const { data: exps } = await sb.from('expeditions').select('id').eq('voyage', p.numero).limit(1);
+      if(exps && exps.length && p.agentRole !== 'Admin'){
+        throw new Error('Ce voyage contient déjà des colis — suppression réservée à l\'administrateur');
+      }
+      if(exps && exps.length && p.agentRole === 'Admin'){
+        await sb.from('expeditions').delete().eq('voyage', p.numero);
+      }
+      const { error } = await sb.from('voyages').delete().eq('numero', p.numero);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression réservée à l'agence d'origine de ce voyage" : traduireErreur(error.message));
+      data = { deleted: p.numero };
 
     } else if(action==='listVoyagesEnTransit'){
       let q = sb.from('expeditions').select('voyage').eq('statut', 0);
@@ -2097,6 +2117,7 @@ function renderHistoriqueHTML(list){
   box.innerHTML = list.map(v=>{
     const cls = STATUT_VOYAGE_CLASS[v.statut] || 'st-0';
     const dateStr = v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—';
+    const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
     return `<div class="histo-card" style="cursor:pointer;" onclick='showVoyageColisDetail(${JSON.stringify(v).replace(/'/g,"&#39;")})'>
       <div class="histo-top">
         <span class="histo-numero">${v.numero}</span>
@@ -2109,8 +2130,41 @@ function renderHistoriqueHTML(list){
         <b>Colis transportés :</b> ${v.nb_colis}
       </div>
       ${v.references && v.references.length ? `<div class="histo-refs">${v.references.map(r=>`<span>${r}</span>`).join('')}</div>` : ''}
+      ${peutGerer ? `<div class="btn-row" style="margin-top:10px;" onclick="event.stopPropagation()">
+        <button class="btn btn-outline" onclick='modifierVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>✏️ Modifier</button>
+        <button class="btn btn-red" onclick="supprimerVoyageConfirm('${v.numero}', ${v.nb_colis})">🗑️ Supprimer</button>
+      </div>` : ''}
     </div>`;
   }).join('');
+}
+async function modifierVoyage(v){
+  const nouveauTransporteur = prompt('Nom du voyageur / transporteur :', v.transporteur || '');
+  if(nouveauTransporteur === null) return;
+  const nouvelleDate = prompt('Date de départ (AAAA-MM-JJ) :', v.date_depart || '');
+  if(nouvelleDate === null) return;
+  try{
+    await api('updateVoyage', {numero: v.numero, transporteur: nouveauTransporteur.trim(), dateDepart: nouvelleDate.trim(), agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('✅ Voyage mis à jour');
+    await renderHistoriqueList();
+  }catch(e){}
+}
+async function supprimerVoyageConfirm(numero, nbColis){
+  if(nbColis > 0 && currentAgent.role !== 'Admin'){
+    showToast('⚠️ Ce voyage contient ' + nbColis + ' colis — suppression réservée à l\'administrateur');
+    return;
+  }
+  const message = nbColis > 0
+    ? 'Ce voyage contient ' + nbColis + ' colis. Le supprimer retirera aussi leur lien à ce voyage. Continuer ?'
+    : 'Supprimer définitivement le voyage ' + numero + ' ?';
+  if(!confirm(message)) return;
+  const saisie = prompt('Confirmation finale : retape exactement « ' + numero + ' » pour confirmer.');
+  if(saisie === null) return;
+  if(saisie.trim() !== numero){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
+  try{
+    await api('deleteVoyage', {numero, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    showToast('🗑️ Voyage ' + numero + ' supprimé');
+    await renderHistoriqueList();
+  }catch(e){}
 }
 async function showColisInfoModal(reference){
   document.getElementById('bilan-detail-title').textContent = 'Colis ' + reference;
