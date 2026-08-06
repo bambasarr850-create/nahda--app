@@ -555,6 +555,25 @@
       </div>
 
       <div class="settings-item" onclick="showHistoriqueModifications()"><div><div class="t">📜 Historique des modifications</div><div class="d">Qui a modifié ou supprimé quoi, et quand</div></div><span>›</span></div>
+      <div class="settings-item" onclick="togglePanel('p-affiche')"><div><div class="t">🖼️ Générer une affiche</div><div class="d">Image promotionnelle de départ, prête à partager</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-affiche">
+        <div class="field">
+          <label>Pays de départ</label>
+          <select id="aff-depart" onchange="onAfficheDepartChange()">
+            <option value="Maroc">🇲🇦 Casablanca (Maroc)</option>
+            <option value="Cote d'Ivoire">🇨🇮 Abidjan (Côte d'Ivoire)</option>
+            <option value="Guinee">🇬🇳 Conakry (Guinée)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Pays de destination</label>
+          <select id="aff-destination"></select>
+        </div>
+        <div class="field"><label>Date de départ</label><input type="date" id="aff-date"></div>
+        <div class="field"><label>Prix par kg (MAD)</label><input type="number" id="aff-prix" placeholder="ex : 80"></div>
+        <button class="btn btn-primary" onclick="genererAffichePromo()">🖼️ Générer l'affiche</button>
+        <canvas id="aff-canvas" width="1000" height="1250" style="display:none;"></canvas>
+      </div>
 
       <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
         <div style="font-size:11px;color:var(--muted);">Application développée par</div>
@@ -811,7 +830,8 @@ async function api(action, payload={}, silencieux=false){
       'modifierPoidsTranche','retirerColisDuVoyage',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
-      return await apiSupabase(action, payload);
+      const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
+      return await Promise.race([apiSupabase(action, payload), delaiMax]);
     }
     const res = await fetch(API_URL, {
       method:'POST',
@@ -827,7 +847,7 @@ async function api(action, payload={}, silencieux=false){
     }
     return out.data;
   }catch(err){
-    if(!err.isApiError && !window._suppressToast) showToast('⚠️ '+(err.message || 'Connexion impossible'));
+    if(!err.isApiError && !window._suppressToast) showToast('⚠️ '+traduireErreur(err.message || 'Connexion impossible'));
     throw err;
   }finally{
     if(!silencieux) endRequest();
@@ -845,7 +865,7 @@ function traduireErreur(msg){
   if(m.includes('failed to fetch') || m.includes('network') || m.includes('networkerror')) return 'Connexion impossible — vérifie ta connexion internet';
   if(m.includes('violates foreign key') || m.includes('not present in table')) return "Référence invalide (destination ou colis introuvable)";
   if(m.includes('violates not-null constraint')) return 'Un champ obligatoire est manquant';
-  if(m.includes('timeout') || m.includes('timed out')) return 'Le serveur met trop de temps à répondre — réessaie';
+  if(m.includes('timeout') || m.includes('timed out') || m.includes('delai_depasse')) return 'Connexion trop lente ou indisponible (réseau connecté sans accès internet réel ?) — réessaie';
   return msg; // message deja clair (ecrit par nous en francais) ou cas non prevu, affiche tel quel
 }
 async function apiSupabase(action, p){
@@ -1269,9 +1289,9 @@ function fermerModalesOuvertes(){
 window.addEventListener('popstate', function(e){
   // Priorite absolue : si une fenetre modale est ouverte, le bouton retour la ferme d'abord,
   // sans changer d'ecran — coherent avec ce que l'utilisateur attend visuellement.
+  // Le retour naturel du navigateur suffit ici : pas besoin de repousser un etat par-dessus
+  // (ca creait une entree en double qui decalait le comptage des appuis suivants).
   if(fermerModalesOuvertes()){
-    const activeScreen = document.querySelector('.screen.active');
-    history.pushState({screen: activeScreen ? activeScreen.id : 'screen-dashboard'}, '', location.hash);
     return;
   }
 
@@ -2187,6 +2207,103 @@ function renderHistoriqueHTML(list){
     </div>`;
   }).join('');
 }
+async function genererPdfVoyage(v){
+  if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
+  showToast('📄 Génération du PDF...');
+  try{
+    const list = await api('listColisParVoyage', {numero: v.numero});
+    if(!list.length){ showToast('⚠️ Aucun colis dans ce voyage à exporter'); return; }
+    // Valeur par kg = densite de valeur : un colis leger et precieux (ex. 2kg/2000 MAD = 1000 MAD/kg)
+    // passe avant un colis lourd de valeur totale superieure mais moins dense (ex. 20kg/2500 MAD = 125 MAD/kg)
+    const avecValeurParKg = list.map(c => {
+      const poidsTroncon = Number(c.poids_troncon_voyage||0);
+      const poidsTotalColis = Number(c.poids||0);
+      // Valeur/kg = propriete intrinseque du colis (densite de valeur), basee sur son poids TOTAL declare
+      const valeurParKg = poidsTotalColis > 0 ? Number(c.valeur_declaree||0) / poidsTotalColis : 0;
+      // Valeur de la tranche = seulement la part correspondant au poids envoye sur CE voyage precis,
+      // pas la valeur totale du colis s'il a ete envoye en plusieurs fois
+      const valeurTranche = valeurParKg * poidsTroncon;
+      return { ...c, valeur_par_kg: valeurParKg, valeur_tranche: valeurTranche };
+    });
+    const listeTriee = avecValeurParKg.sort((a,b) => b.valeur_par_kg - a.valeur_par_kg);
+    const poidsTotal = listeTriee.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
+    const valeurTotale = listeTriee.reduce((s,c)=>s+Number(c.valeur_tranche||0),0);
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const W = 210, H = 297;
+    const navy = '#0B4A40', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255';
+    const margeGauche = 8, margeDroite = 8, largeurUtile = W - margeGauche - margeDroite;
+
+    // En-tete
+    doc.setFillColor(navy); doc.rect(0, 0, W, 24, 'F');
+    doc.setFillColor(gold); doc.rect(0, 24, W, 1, 'F');
+    if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 16, 16);
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+    doc.text('NAHDA BUSINESS', 27, 11);
+    doc.setFont(undefined,'normal'); doc.setFontSize(8);
+    doc.text('Rapport de voyage', 27, 17);
+    doc.setFont(undefined,'bold'); doc.setFontSize(10);
+    doc.text('Voyage ' + v.numero, W-margeDroite, 11, {align:'right'});
+    doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
+    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR'), W-margeDroite, 17, {align:'right'});
+
+    let y = 32;
+    // Infos voyage (encadre)
+    doc.setDrawColor(gold); doc.setLineWidth(0.5); doc.setFillColor('#FBF6EC');
+    doc.rect(margeGauche, y, largeurUtile, 26, 'FD');
+    doc.setTextColor(ink); doc.setFont(undefined,'bold'); doc.setFontSize(9.5);
+    doc.text('Voyageur : ' + (v.transporteur||'—'), margeGauche+4, y+7);
+    doc.setFont(undefined,'normal'); doc.setTextColor(muted);
+    doc.text('Date de depart : ' + (v.date_depart ? new Date(v.date_depart).toLocaleDateString('fr-FR') : '—'), margeGauche+4, y+13);
+    doc.text('Destination : ' + (v.pays_destination||'—') + ' — ' + (v.agence_destination||''), margeGauche+4, y+19);
+    doc.setFont(undefined,'bold'); doc.setTextColor(navy); doc.setFontSize(9);
+    doc.text('Statut : ' + (v.statut||'—'), W-margeDroite-4, y+7, {align:'right'});
+    doc.text('Poids total envoye : ' + formatPdfNum(poidsTotal) + ' kg', W-margeDroite-4, y+13, {align:'right'});
+    doc.text('Valeur transportee sur ce voyage : ' + formatPdfNum(valeurTotale) + ' MAD', W-margeDroite-4, y+19, {align:'right'});
+    y += 26 + 8;
+
+    // Tableau des colis (tri valeur decroissante)
+    doc.setFillColor(navy); doc.rect(margeGauche, y, largeurUtile, 8, 'F');
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(8.5);
+    doc.text('N Recu', margeGauche+3, y+5.5);
+    doc.text('Client', margeGauche+38, y+5.5);
+    doc.text('Poids (kg)', margeGauche+100, y+5.5);
+    doc.text('Valeur/kg (MAD)', margeGauche+128, y+5.5);
+    doc.text('Valeur (ce voyage)', W-margeDroite-3, y+5.5, {align:'right'});
+    y += 8;
+
+    doc.setDrawColor('#D9D2C2'); doc.setLineWidth(0.2);
+    listeTriee.forEach((c, i) => {
+      if(y > H - 20){ doc.addPage(); y = 15; }
+      const poidsC = Number(c.poids_troncon_voyage||0);
+      doc.setFillColor(i%2===0 ? '#FFFFFF' : '#F7F3EA');
+      doc.rect(margeGauche, y, largeurUtile, 7, 'F');
+      doc.rect(margeGauche, y, largeurUtile, 7);
+      doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
+      doc.text(String(c.reference), margeGauche+3, y+4.7);
+      doc.text(String(c.nom_client||'-').substring(0,22), margeGauche+38, y+4.7);
+      doc.text(formatPdfNum(poidsC) + ' kg', margeGauche+100, y+4.7);
+      doc.setFont(undefined,'bold'); doc.setTextColor('#8A6A1F');
+      doc.text(formatPdfNum(c.valeur_par_kg) + ' MAD/kg', margeGauche+128, y+4.7);
+      doc.setTextColor(ink);
+      doc.text(formatPdfNum(c.valeur_tranche||0) + ' MAD', W-margeDroite-3, y+4.7, {align:'right'});
+      y += 7;
+    });
+
+    // Ligne total
+    doc.setFillColor(navy); doc.rect(margeGauche, y, largeurUtile, 8, 'F');
+    doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9);
+    doc.text('TOTAL', margeGauche+3, y+5.5);
+    doc.text(formatPdfNum(poidsTotal) + ' kg', margeGauche+100, y+5.5);
+    doc.text(formatPdfNum(valeurTotale) + ' MAD', W-margeDroite-3, y+5.5, {align:'right'});
+
+    doc.save('Voyage_' + v.numero.replace(/[^a-zA-Z0-9_-]/g,'_') + '_Nahda_Business.pdf');
+    showToast('✅ PDF généré');
+  }catch(e){
+    showToast('⚠️ Erreur génération PDF : ' + (e.message||'inconnue'));
+  }
+}
 async function modifierVoyage(v){
   const nouveauTransporteur = prompt('Nom du voyageur / transporteur :', v.transporteur || '');
   if(nouveauTransporteur === null) return;
@@ -2248,10 +2365,11 @@ async function showVoyageColisDetail(v){
 function renderVoyageColisListWithActions(list, v){
   const box = document.getElementById('bilan-detail-body');
   const peutGererVoyage = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
-  const gestionVoyage = peutGererVoyage ? `<div class="btn-row" style="margin-bottom:12px;">
-    <button class="btn btn-outline" onclick='modifierVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>✏️ Modifier ce voyage</button>
-    <button class="btn btn-red" onclick="supprimerVoyageConfirm('${v.numero}', ${v.nb_colis})">🗑️ Supprimer ce voyage</button>
-  </div>` : '';
+  const gestionVoyage = `<div class="btn-row" style="margin-bottom:12px;">
+    ${peutGererVoyage ? `<button class="btn btn-outline" onclick='modifierVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>✏️ Modifier ce voyage</button>
+    <button class="btn btn-red" onclick="supprimerVoyageConfirm('${v.numero}', ${v.nb_colis})">🗑️ Supprimer ce voyage</button>` : ''}
+    <button class="btn btn-gold" onclick='genererPdfVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>📄 Générer un PDF</button>
+  </div>`;
   if(!list.length){ box.innerHTML = gestionVoyage + `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans ce voyage.</p></div>`; return; }
   const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
   const totalPoids = list.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
@@ -2267,8 +2385,9 @@ function renderVoyageColisListWithActions(list, v){
       </div>
       <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;">
         <button class="btn btn-outline" onclick='naviguerVersColisDepuisModal("${c.reference}")'>🔍 Fiche</button>
-        ${peutGerer ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
+        ${(peutGerer && Number(c.statut)===1) ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
         <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
+        ${(peutGerer && Number(c.statut)!==1) ? `<span style="font-size:11px;color:var(--muted);align-self:center;">🔒 Colis ${Number(c.statut)>=2?'déjà arrivé/retiré':''} — modification impossible (trésorerie déjà impactée)</span>` : ''}
       </div>
     </div>`).join('');
   box.innerHTML = gestionVoyage + html;
@@ -2287,7 +2406,11 @@ async function modifierPoidsTranche(reference, numero, poidsActuel){
   if(isNaN(val) || val < 0){ showToast('⚠️ Poids invalide'); return; }
   try{
     await api('modifierPoidsTranche', {reference, numero, nouveauPoids: val});
-    showToast('✅ Poids du tronçon mis à jour');
+    if(val < poidsActuel){
+      showToast('✅ Poids réduit — le reste (' + (poidsActuel - val).toLocaleString('fr-FR') + ' kg) est maintenant disponible pour un prochain départ');
+    } else {
+      showToast('✅ Poids du tronçon mis à jour');
+    }
     BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
     const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
     renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
@@ -2884,9 +3007,184 @@ function renderBilanDetailList(list){
 function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; if(history.state && history.state.modal) history.back(); }
 
 /* ================= PARAMÈTRES (admin uniquement) ================= */
+/* ================= AFFICHE PROMOTIONNELLE (Parametres, admin) ================= */
+const VILLES_AFFICHE = {
+  'Maroc': { ville:'CASABLANCA', flagCode:'MA', adresse:"38 Rue Moussa El Ayoubi, Bourgogne", tels:['+212 629 20 43 75','+212 669 79 05 18'] },
+  "Cote d'Ivoire": { ville:'ABIDJAN', flagCode:'CI', adresse:"Abobo Plaque Anador, près de la Mosquée Koweit", tels:['+225 07 88 92 38 44','+225 07 06 80 47 10'] },
+  'Guinee': { ville:'CONAKRY', flagCode:'GN', adresse:"Hamdallaye, Carrefour Dar Essalam", tels:['+224 611 79 18 07','+224 610 02 87 74'] }
+};
+function onAfficheDepartChange(){
+  const depart = document.getElementById('aff-depart').value;
+  const sel = document.getElementById('aff-destination');
+  sel.innerHTML = '';
+  Object.keys(VILLES_AFFICHE).filter(p=>p!==depart).forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = (p==='Maroc'?'🇲🇦':p==="Cote d'Ivoire"?'🇨🇮':'🇬🇳') + ' ' + VILLES_AFFICHE[p].ville;
+    sel.appendChild(opt);
+  });
+}
+function afficheRoundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+function afficheCenterText(ctx, text, x, y, font, color, letterSpacing){
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  if(letterSpacing){
+    const widths = [...text].map(ch => ctx.measureText(ch).width + letterSpacing);
+    const total = widths.reduce((a,b)=>a+b,0) - letterSpacing;
+    let cx = x - total/2;
+    [...text].forEach((ch,i)=>{ ctx.textAlign='left'; ctx.fillText(ch, cx, y); cx += widths[i]; });
+  } else { ctx.fillText(text, x, y); }
+}
+function afficheDrawFlag(ctx, pays, x, y, w, h){
+  ctx.save();
+  afficheRoundRect(ctx, x, y, w, h, 3); ctx.clip();
+  if(pays === 'Maroc'){
+    ctx.fillStyle = '#C1272D'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#006233'; ctx.lineWidth = Math.max(1, h*0.045);
+    const cx = x+w/2, cy = y+h/2, rOuter = h*0.32, rInner = rOuter*0.382;
+    ctx.beginPath();
+    for(let i=0;i<10;i++){
+      const r = i%2===0 ? rOuter : rInner;
+      const a = -Math.PI/2 + i*(Math.PI/5);
+      const px = cx + r*Math.cos(a), py = cy + r*Math.sin(a);
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.stroke();
+  } else if(pays === 'Guinee'){
+    ctx.fillStyle = '#CE1126'; ctx.fillRect(x, y, w/3, h);
+    ctx.fillStyle = '#FCD116'; ctx.fillRect(x+w/3, y, w/3, h);
+    ctx.fillStyle = '#009460'; ctx.fillRect(x+2*w/3, y, w/3, h);
+  } else if(pays === "Cote d'Ivoire"){
+    ctx.fillStyle = '#F77F00'; ctx.fillRect(x, y, w/3, h);
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x+w/3, y, w/3, h);
+    ctx.fillStyle = '#009E60'; ctx.fillRect(x+2*w/3, y, w/3, h);
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
+  afficheRoundRect(ctx, x, y, w, h, 3); ctx.stroke();
+}
+async function genererAffichePromo(){
+  const depart = document.getElementById('aff-depart').value;
+  const destination = document.getElementById('aff-destination').value;
+  const dateStr = document.getElementById('aff-date').value;
+  const prixMad = parseFloat(document.getElementById('aff-prix').value);
+  if(!dateStr){ showToast('⚠️ Choisis une date de départ'); return; }
+  if(!prixMad || prixMad<=0){ showToast('⚠️ Renseigne un prix par kg valide'); return; }
+  showToast('🖼️ Génération de l\'affiche...');
+  try{
+    if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
+    const infoDepart = VILLES_AFFICHE[depart];
+    const infoDest = VILLES_AFFICHE[destination];
+    const destData = DESTINATIONS_CACHE.find(d=>d.pays===destination);
+    const devise = (destData && destData.devise) ? destData.devise : 'MAD';
+    const taux = (destData && destData.taux_mad) ? Number(destData.taux_mad) : 1;
+    const prixConverti = Math.round(prixMad * taux);
+
+    const jours = ['DIMANCHE','LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI'];
+    const mois = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+    const d = new Date(dateStr+'T12:00:00');
+    const jourNom = jours[d.getDay()];
+    const jourNum = String(d.getDate()).padStart(2,'0');
+    const moisNom = mois[d.getMonth()];
+    const annee = d.getFullYear();
+
+    const canvas = document.getElementById('aff-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 1000, H = 1250;
+    const NAVY_DARK = '#08222A', GOLD = '#C89B3C', WHITE = '#FFFFFF';
+
+    const bgGrad = ctx.createLinearGradient(0,0,0,H);
+    bgGrad.addColorStop(0,'#0A3038'); bgGrad.addColorStop(0.5,'#0D3E48'); bgGrad.addColorStop(1,'#082228');
+    ctx.fillStyle = bgGrad; ctx.fillRect(0,0,W,H);
+
+    const glow = ctx.createRadialGradient(W/2,620,50,W/2,620,420);
+    glow.addColorStop(0,'rgba(200,155,60,0.28)'); glow.addColorStop(1,'rgba(200,155,60,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0,0,W,H);
+
+    afficheCenterText(ctx, 'NAHDA BUSINESS', W/2, 78, 'bold 54px Arial', WHITE, 2);
+    afficheCenterText(ctx, 'EXPÉDITION RAPIDE & SÉCURISÉE EN 48H', W/2, 112, 'bold 20px Arial', GOLD, 3);
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(40,132); ctx.lineTo(W-40,132); ctx.stroke();
+
+    afficheDrawFlag(ctx, destination, W/2-30, 165, 60, 42);
+
+    afficheCenterText(ctx, infoDepart.ville, W/2, 300, 'bold 84px Arial', WHITE);
+    afficheDrawFlag(ctx, depart, W/2-140, 335, 62, 42);
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(W/2-55,356); ctx.lineTo(W/2+55,356); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2+45,346); ctx.lineTo(W/2+55,356); ctx.lineTo(W/2+45,366); ctx.stroke();
+    afficheDrawFlag(ctx, destination, W/2+78, 335, 62, 42);
+    afficheCenterText(ctx, infoDest.ville, W/2, 460, 'bold 84px Arial', WHITE);
+
+    const boxY = 510, boxH = 220;
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 3;
+    afficheRoundRect(ctx, W/2-260, boxY, 520, boxH, 20); ctx.stroke();
+    ctx.fillStyle = GOLD; afficheRoundRect(ctx, W/2-70, boxY-18, 140, 36, 18); ctx.fill();
+    afficheCenterText(ctx, 'DÉPART', W/2, boxY+6, 'bold 18px Arial', NAVY_DARK, 1);
+    afficheCenterText(ctx, jourNom, W/2, boxY+75, 'bold 44px Arial', GOLD, 2);
+    afficheCenterText(ctx, jourNum, W/2, boxY+175, 'bold 110px Arial', WHITE);
+    afficheCenterText(ctx, moisNom+' '+annee, W/2, boxY+210, 'bold 34px Arial', WHITE, 2);
+
+    const tarifY = boxY+boxH+50;
+    ctx.fillStyle = WHITE; afficheRoundRect(ctx, W/2-55, tarifY-24, 110, 34, 17); ctx.fill();
+    afficheCenterText(ctx, 'TARIF', W/2, tarifY, 'bold 16px Arial', NAVY_DARK, 1);
+    const texteTarif = 'À PARTIR DE ' + prixMad + ' DH / KG   ◆   ' + prixConverti.toLocaleString('fr-FR').replace(/\u202F/g,' ') + ' ' + devise + ' / KG';
+    ctx.font = 'bold 30px Arial';
+    const largeurTexte = ctx.measureText(texteTarif).width;
+    const largeurPill = Math.max(640, largeurTexte + 80);
+    ctx.fillStyle = GOLD; afficheRoundRect(ctx, W/2-largeurPill/2, tarifY+18, largeurPill, 64, 32); ctx.fill();
+    afficheCenterText(ctx, texteTarif, W/2, tarifY+60, 'bold 30px Arial', NAVY_DARK);
+
+    const sepY = tarifY+130;
+    ctx.strokeStyle = 'rgba(200,155,60,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(40,sepY); ctx.lineTo(W-40,sepY); ctx.stroke();
+
+    const contactY = sepY+55;
+    afficheDrawFlag(ctx, depart, 60, contactY-28, 34, 24);
+    ctx.textAlign='left'; ctx.font='bold 28px Arial'; ctx.fillStyle=WHITE;
+    ctx.fillText(infoDepart.ville, 105, contactY-6);
+    ctx.font='18px Arial'; ctx.fillStyle='#CFC9BC';
+    ctx.fillText(infoDepart.adresse, 60, contactY+28);
+    ctx.font='bold 24px Arial'; ctx.fillStyle=GOLD;
+    ctx.fillText(infoDepart.tels[0], 60, contactY+62);
+    ctx.fillText(infoDepart.tels[1], 60, contactY+94);
+
+    ctx.strokeStyle = 'rgba(200,155,60,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(W/2,contactY-45); ctx.lineTo(W/2,contactY+105); ctx.stroke();
+
+    afficheDrawFlag(ctx, destination, W/2+45, contactY-28, 34, 24);
+    ctx.font='bold 28px Arial'; ctx.fillStyle=WHITE;
+    ctx.fillText(infoDest.ville, W/2+90, contactY-6);
+    ctx.font='18px Arial'; ctx.fillStyle='#CFC9BC';
+    ctx.fillText(infoDest.adresse, W/2+45, contactY+28);
+    ctx.font='bold 24px Arial'; ctx.fillStyle=GOLD;
+    ctx.fillText(infoDest.tels[0], W/2+45, contactY+62);
+    ctx.fillText(infoDest.tels[1], W/2+45, contactY+94);
+
+    const footY = H-50;
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(40,footY-30); ctx.lineTo(W-40,footY-30); ctx.stroke();
+    afficheCenterText(ctx, '◆   www.nahdabusiness.com   ◆', W/2, footY, 'bold 24px Arial', WHITE, 1);
+
+    const lien = document.createElement('a');
+    lien.download = 'Affiche_' + infoDepart.ville + '_' + infoDest.ville + '_' + dateStr + '.png';
+    lien.href = canvas.toDataURL('image/png');
+    lien.click();
+    showToast('✅ Affiche générée et téléchargée');
+  }catch(e){
+    showToast('⚠️ Erreur génération affiche : ' + (e.message||'inconnue'));
+  }
+}
 function togglePanel(id){
   document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
   document.getElementById(id).classList.toggle('open');
+  if(id==='p-affiche') onAfficheDepartChange();
 }
 async function prepSettings(){
   try{
