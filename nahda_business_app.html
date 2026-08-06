@@ -315,6 +315,7 @@
       <div><h1>Tableau de bord</h1><div class="sub" id="dash-date"></div></div>
       <div class="topbar-spacer"></div>
       <div id="offline-badge" onclick="showVoirFileAttente()" style="display:none;align-items:center;justify-content:center;background:var(--gold);color:var(--navy);font-size:11px;font-weight:800;width:24px;height:24px;border-radius:50%;margin-right:8px;cursor:pointer;">0</div>
+      <div id="messages-badge" onclick="goto('screen-messages')" style="display:none;align-items:center;justify-content:center;background:var(--red);color:#FFFFFF;font-size:11px;font-weight:800;width:24px;height:24px;border-radius:50%;margin-right:8px;cursor:pointer;">0</div>
       <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
     </div>
     <div class="scroll">
@@ -336,6 +337,7 @@
         <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
         <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
         <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-btn" onclick="goto('screen-messages')"><div class="ic" style="background:#DCE8F0;">💬</div><span>Messages</span></div>
         <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
         <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
         <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
@@ -527,6 +529,31 @@
   </section>
 
   <!-- ============ PARAMÈTRES ============ -->
+  <section class="screen" id="screen-messages">
+    <div class="topbar">
+      <button class="back-btn" onclick="goto('screen-dashboard')">←</button>
+      <h1>Messages</h1>
+    </div>
+    <div class="scroll">
+      <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="ouvrirNouvelleConversationLibre()">✉️ Nouvelle conversation</button>
+      <div id="conversations-list"></div>
+    </div>
+  </section>
+
+  <div id="thread-modal" onclick="if(event.target===this)closeThreadModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:117;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--sand);width:100%;max-height:85%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span id="thread-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;">Conversation</span>
+        <button onclick="closeThreadModal()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
+      </div>
+      <div id="thread-messages" style="overflow-y:auto;flex:1;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="thread-input" placeholder="Écrire un message..." style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;">
+        <button class="btn btn-primary" style="width:auto;padding:0 18px;" onclick="envoyerMessageThread()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
   <section class="screen" id="screen-settings">
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Paramètres</h1></div>
     <div class="scroll">
@@ -828,6 +855,7 @@ async function api(action, payload={}, silencieux=false){
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
+      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
@@ -995,17 +1023,29 @@ async function apiSupabase(action, p){
       data = { numero: p.numero, nbColis: p.colis.length };
 
     } else if(action==='confirmerArrivee'){
+      let paysOrigineDejaEnvoye = null;
       for(const ref of p.references){
         const { data: exp } = await sb.from('expeditions').select('*').eq('reference', ref).eq('voyage', p.numero).eq('statut', 0).maybeSingle();
         if(!exp) continue;
         await sb.from('expeditions').update({ statut: 1, date_arrivee: new Date().toISOString() }).eq('id', exp.id);
-        const { data: c } = await sb.from('colis').select('poids,poids_arrive').eq('reference', ref).maybeSingle();
+        const { data: c } = await sb.from('colis').select('poids,poids_arrive,pays_origine,pays_destination').eq('reference', ref).maybeSingle();
         if(!c) continue;
         const nouveauPoidsArrive = Number(c.poids_arrive||0) + Number(exp.poids||0);
         const champs = { poids_arrive: nouveauPoidsArrive, commentaire_arrivee: p.commentaire || '' };
         if(nouveauPoidsArrive >= Number(c.poids||0) - 0.001) champs.statut = 2;
         const { data: majArr, error: errArr } = await sb.from('colis').update(champs).eq('reference', ref).select();
         if(errArr || !majArr || !majArr.length) throw new Error('Impossible de confirmer l\'arrivee du colis '+ref+' (droits insuffisants)');
+        // Alerte automatique a l'agence d'origine si un commentaire est saisi (routes Casablanca<->Conakry/Abidjan uniquement)
+        if(p.commentaire && p.commentaire.trim() && c.pays_origine && c.pays_destination){
+          const routeValide = (c.pays_origine==='Maroc' || c.pays_destination==='Maroc');
+          if(routeValide){
+            sb.from('messages').insert({
+              colis_reference: ref, pays_a: c.pays_origine, pays_b: c.pays_destination,
+              auteur_pays: p.agentPays || c.pays_destination, auteur_nom: p.agentNom || '',
+              contenu: p.commentaire.trim(), type: 'auto_commentaire'
+            }).then(()=>{});
+          }
+        }
       }
       await sb.from('voyages').update({ statut: 'Arrive' }).eq('numero', p.numero);
       data = { numero: p.numero, nbColis: p.references.length };
@@ -1079,6 +1119,44 @@ async function apiSupabase(action, p){
       const { error } = await sb.rpc('retirer_colis_du_voyage', { p_reference: p.reference, p_voyage: p.numero });
       if(error) throw new Error(traduireErreur(error.message));
       data = { removed: p.reference };
+
+    } else if(action==='listConversations'){
+      const { data: rows, error } = await sb.from('messages')
+        .select('*').or('pays_a.eq.'+currentAgent.pays+',pays_b.eq.'+currentAgent.pays)
+        .order('created_at', { ascending: false });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows || [];
+
+    } else if(action==='listMessages'){
+      let q = sb.from('messages').select('*').order('created_at', { ascending: true });
+      if(p.colisReference) q = q.eq('colis_reference', p.colisReference);
+      else q = q.is('colis_reference', null).eq('pays_a', p.paysA).eq('pays_b', p.paysB);
+      const { data: rows, error } = await q;
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows || [];
+
+    } else if(action==='envoyerMessage'){
+      const { error } = await sb.from('messages').insert({
+        colis_reference: p.colisReference || null, pays_a: p.paysA, pays_b: p.paysB,
+        auteur_pays: p.agentPays, auteur_nom: p.agentNom, contenu: p.contenu, type: p.type || 'manuel'
+      });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { envoye: true };
+
+    } else if(action==='compterMessagesNonLus'){
+      const { data: agentRow } = await sb.from('agents').select('dernier_message_lu_at').eq('id', p.agentId).maybeSingle();
+      const depuis = (agentRow && agentRow.dernier_message_lu_at) ? agentRow.dernier_message_lu_at : '1970-01-01';
+      const { data: rows, error } = await sb.from('messages').select('id')
+        .or('pays_a.eq.'+p.agentPays+',pays_b.eq.'+p.agentPays)
+        .neq('auteur_pays', p.agentPays)
+        .gt('created_at', depuis);
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { nonLus: (rows||[]).length };
+
+    } else if(action==='marquerMessagesLus'){
+      const { error } = await sb.from('agents').update({ dernier_message_lu_at: new Date().toISOString() }).eq('id', p.agentId);
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { marque: true };
 
     } else if(action==='listVoyagesEnTransit'){
       let q = sb.from('expeditions').select('voyage').eq('statut', 0);
@@ -1257,6 +1335,7 @@ function goto(id, fromPopstate){
   if(id==='screen-bilan') renderBilan();
   if(id==='screen-settings') prepSettings();
   if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; }
+  if(id==='screen-messages') renderConversations();
 }
 let lastDashboardBackPress = 0;
 function pushModalHistoryState(){
@@ -1275,7 +1354,7 @@ function naviguerVersColisDepuisModal(reference){
   searchColis();
 }
 function fermerModalesOuvertes(){
-  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox'];
+  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','thread-modal'];
   let uneEtaitOuverte = false;
   modales.forEach(id=>{
     const el = document.getElementById(id);
@@ -1332,6 +1411,7 @@ async function applyAgentToDashboard(agent){
   document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
   document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
   document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
+  updateMessagesBadge();
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('dash-agent-name').textContent = agent.nom;
   try{
@@ -2618,7 +2698,7 @@ async function confirmerArrivee(){
   const comment = document.getElementById('va-comment').value.trim();
   if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
   try{
-    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
     showToast('✅ Arrivée confirmée pour '+refs.length+' tronçon(s)');
     document.getElementById('va-comment').value='';
     await updateKpis(); await renderArriveeSelect();
@@ -3180,6 +3260,128 @@ async function genererAffichePromo(){
   }catch(e){
     showToast('⚠️ Erreur génération affiche : ' + (e.message||'inconnue'));
   }
+}
+/* ================= MESSAGERIE ENTRE AGENCES (Casablanca <-> Conakry / Abidjan) ================= */
+let CONVERSATIONS_CACHE = [];
+let threadActuel = null; // {colisReference, paysA, paysB}
+
+function autrePaysPourConversationLibre(){
+  // Casablanca (hub) peut choisir ; les autres agences ne discutent qu'avec Casablanca
+  return currentAgent.pays === 'Maroc' ? null : 'Maroc';
+}
+function nomAffichagePays(p){
+  return p==='Maroc' ? '🇲🇦 Casablanca' : p==="Cote d'Ivoire" ? '🇨🇮 Abidjan' : p==='Guinee' ? '🇬🇳 Conakry' : p;
+}
+async function updateMessagesBadge(){
+  if(!currentAgent) return;
+  try{
+    const r = await api('compterMessagesNonLus', {agentId: currentAgent.id, agentPays: currentAgent.pays}, true);
+    const badge = document.getElementById('messages-badge');
+    if(r.nonLus > 0){ badge.style.display='flex'; badge.textContent = r.nonLus > 99 ? '99+' : r.nonLus; }
+    else badge.style.display = 'none';
+  }catch(e){}
+}
+async function renderConversations(){
+  const box = document.getElementById('conversations-list');
+  box.innerHTML = skeletonHTML(3);
+  try{
+    CONVERSATIONS_CACHE = await api('listConversations', {});
+    // Marquer comme lu des l'ouverture de l'ecran (Phase 1 : lecture simple, pas par conversation individuelle)
+    api('marquerMessagesLus', {agentId: currentAgent.id}, true).then(()=>updateMessagesBadge());
+
+    if(!CONVERSATIONS_CACHE.length){
+      box.innerHTML = `<div class="empty-state"><div class="em">💬</div><p>Aucun message pour l'instant.</p></div>`;
+      return;
+    }
+    // Regrouper par fil : colis_reference si presente, sinon paire de pays (conversation libre)
+    const groupes = {};
+    CONVERSATIONS_CACHE.forEach(m=>{
+      const cle = m.colis_reference ? ('colis:'+m.colis_reference) : ('libre:'+m.pays_a+'-'+m.pays_b);
+      if(!groupes[cle]) groupes[cle] = [];
+      groupes[cle].push(m);
+    });
+    const fils = Object.values(groupes).map(msgs=>msgs.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+    fils.sort((a,b)=> new Date(b[0].created_at) - new Date(a[0].created_at));
+
+    box.innerHTML = fils.map(msgs=>{
+      const dernier = msgs[0];
+      const autrePays = dernier.pays_a === currentAgent.pays ? dernier.pays_b : dernier.pays_a;
+      const titre = dernier.colis_reference ? ('📦 ' + dernier.colis_reference) : ('Conversation avec ' + nomAffichagePays(autrePays));
+      const dateStr = new Date(dernier.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+      return `<div class="checklist-item" style="cursor:pointer;" onclick='ouvrirThread(${JSON.stringify(dernier.colis_reference)}, ${JSON.stringify(dernier.pays_a)}, ${JSON.stringify(dernier.pays_b)})'>
+        <div class="txt">
+          <div class="r">${titre}</div>
+          <div class="d">${nomAffichagePays(autrePays)} · ${(dernier.contenu||'').substring(0,60)}${(dernier.contenu||'').length>60?'…':''}</div>
+          <div class="d" style="font-size:10.5px;">${dateStr}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">⚠️</div><p>Impossible de charger les messages.</p></div>`;
+  }
+}
+async function ouvrirThread(colisReference, paysA, paysB){
+  threadActuel = { colisReference: colisReference || null, paysA, paysB };
+  const autrePays = paysA === currentAgent.pays ? paysB : paysA;
+  document.getElementById('thread-title').textContent = colisReference ? ('📦 ' + colisReference) : ('Conversation avec ' + nomAffichagePays(autrePays));
+  document.getElementById('thread-messages').innerHTML = skeletonHTML(2);
+  document.getElementById('thread-input').value = '';
+  pushModalHistoryState();
+  document.getElementById('thread-modal').style.display = 'flex';
+  await rafraichirThread();
+}
+async function rafraichirThread(){
+  if(!threadActuel) return;
+  try{
+    const msgs = await api('listMessages', {colisReference: threadActuel.colisReference, paysA: threadActuel.paysA, paysB: threadActuel.paysB});
+    const box = document.getElementById('thread-messages');
+    if(!msgs.length){ box.innerHTML = `<div class="empty-state"><div class="em">💬</div><p>Aucun message dans ce fil.</p></div>`; return; }
+    box.innerHTML = msgs.map(m=>{
+      const estMoi = m.auteur_pays === currentAgent.pays;
+      const dateStr = new Date(m.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+      return `<div style="align-self:${estMoi?'flex-end':'flex-start'};max-width:80%;">
+        <div style="background:${estMoi?'var(--navy)':'var(--white)'};color:${estMoi?'#FFFFFF':'var(--ink)'};padding:10px 14px;border-radius:14px;font-size:13.5px;border:1px solid var(--line);">
+          ${m.type==='auto_commentaire' ? '<div style="font-size:10.5px;opacity:0.75;margin-bottom:3px;">⚠️ Commentaire automatique (arrivée)</div>' : ''}
+          ${m.contenu}
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:${estMoi?'right':'left'};">${m.auteur_nom||''} · ${dateStr}</div>
+      </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  }catch(e){}
+}
+async function envoyerMessageThread(){
+  const contenu = document.getElementById('thread-input').value.trim();
+  if(!contenu || !threadActuel) return;
+  try{
+    await api('envoyerMessage', {
+      colisReference: threadActuel.colisReference, paysA: threadActuel.paysA, paysB: threadActuel.paysB,
+      contenu, agentPays: currentAgent.pays, agentNom: currentAgent.nom, type: 'manuel'
+    });
+    document.getElementById('thread-input').value = '';
+    await rafraichirThread();
+  }catch(e){}
+}
+function closeThreadModal(){
+  document.getElementById('thread-modal').style.display = 'none';
+  threadActuel = null;
+  if(history.state && history.state.modal) history.back();
+  renderConversations();
+}
+async function ouvrirNouvelleConversationLibre(){
+  let autrePays = autrePaysPourConversationLibre();
+  if(!autrePays){
+    // Admin/Casablanca : demander quelle agence
+    const choix = prompt("Écrire à quelle agence ? Tape 'conakry' ou 'abidjan'");
+    if(!choix) return;
+    const c = choix.trim().toLowerCase();
+    if(c.includes('conakry')) autrePays = 'Guinee';
+    else if(c.includes('abidjan')) autrePays = "Cote d'Ivoire";
+    else { showToast('⚠️ Réponds "conakry" ou "abidjan"'); return; }
+  }
+  const paysA = 'Maroc';
+  const paysB = autrePays;
+  await ouvrirThread(null, paysA, paysB);
 }
 function togglePanel(id){
   document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
