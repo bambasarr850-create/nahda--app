@@ -1144,7 +1144,7 @@ async function apiSupabase(action, p){
       data = { envoye: true };
 
     } else if(action==='compterMessagesNonLus'){
-      const { data: agentRow } = await sb.from('agents').select('dernier_message_lu_at').eq('id', p.agentId).maybeSingle();
+      const { data: agentRow } = await sb.from('agents').select('dernier_message_lu_at').eq('identifiant', p.agentId).maybeSingle();
       const depuis = (agentRow && agentRow.dernier_message_lu_at) ? agentRow.dernier_message_lu_at : '1970-01-01';
       const { data: rows, error } = await sb.from('messages').select('id')
         .or('pays_a.eq.'+p.agentPays+',pays_b.eq.'+p.agentPays)
@@ -1154,7 +1154,7 @@ async function apiSupabase(action, p){
       data = { nonLus: (rows||[]).length };
 
     } else if(action==='marquerMessagesLus'){
-      const { error } = await sb.from('agents').update({ dernier_message_lu_at: new Date().toISOString() }).eq('id', p.agentId);
+      const { error } = await sb.from('agents').update({ dernier_message_lu_at: new Date().toISOString() }).eq('identifiant', p.agentId);
       if(error) throw new Error(traduireErreur(error.message));
       data = { marque: true };
 
@@ -3308,7 +3308,7 @@ async function renderConversations(){
       const autrePays = dernier.pays_a === currentAgent.pays ? dernier.pays_b : dernier.pays_a;
       const titre = dernier.colis_reference ? ('📦 ' + dernier.colis_reference) : ('Conversation avec ' + nomAffichagePays(autrePays));
       const dateStr = new Date(dernier.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
-      return `<div class="checklist-item" style="cursor:pointer;" onclick='ouvrirThread(${JSON.stringify(dernier.colis_reference)}, ${JSON.stringify(dernier.pays_a)}, ${JSON.stringify(dernier.pays_b)})'>
+      return `<div class="checklist-item" style="cursor:pointer;" onclick='ouvrirThread(${JSON.stringify(dernier.colis_reference).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_a).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_b).replace(/'/g,"&#39;")})'>
         <div class="txt">
           <div class="r">${titre}</div>
           <div class="d">${nomAffichagePays(autrePays)} · ${(dernier.contenu||'').substring(0,60)}${(dernier.contenu||'').length>60?'…':''}</div>
