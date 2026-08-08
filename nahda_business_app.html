@@ -125,8 +125,8 @@
   .menu-btn span{font-family:var(--font-display);font-size:13.5px;font-weight:600;color:var(--navy);}
   .menu-btn.wide{grid-column:1/3;flex-direction:row;align-items:center;}
 
-  .kpi-strip{display:flex;gap:10px;margin-bottom:16px;}
-  .kpi{flex:1;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);cursor:pointer;transition:transform .12s;}
+  .kpi-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+  .kpi{flex:1;min-width:30%;background:var(--white);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);cursor:pointer;transition:transform .12s;}
   .kpi:active{transform:scale(.95);background:var(--sand-2);}
   .kpi .n{font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--navy);}
   .kpi .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
@@ -329,6 +329,7 @@
         <div class="kpi" onclick="showDashboardDetail('totalColis','Tous les colis')"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
         <div class="kpi" onclick="showDashboardDetail('enAttente','Colis en attente')"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
         <div class="kpi" onclick="showDashboardDetail('enVoyage','Colis en voyage')"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
+        <div class="kpi" onclick="showDashboardDetail('arrives','Arrivés (non retirés)')"><div class="n" id="kpi-arrives">0</div><div class="l">Arrivés</div></div>
         <div class="kpi" onclick="showDashboardDetail('retires','Colis retirés')"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
       </div>
 
@@ -1369,6 +1370,14 @@ function naviguerVersColisDepuisModal(reference){
   document.getElementById('sr-ref').value = reference;
   searchColis();
 }
+function naviguerVersRetraitDepuisModal(reference){
+  document.getElementById('bilan-detail-modal').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-retrait').classList.add('active');
+  history.replaceState({screen:'screen-retrait'}, '', '#screen-retrait');
+  document.getElementById('rt-ref').value = reference;
+  chargerRetrait();
+}
 function fermerModalesOuvertes(){
   const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','thread-modal'];
   let uneEtaitOuverte = false;
@@ -1492,6 +1501,7 @@ async function updateKpis(){
     document.getElementById('kpi-total').textContent = b.totalColis;
     document.getElementById('kpi-attente').textContent = b.enAttente;
     document.getElementById('kpi-voyage').textContent = b.enVoyage;
+    document.getElementById('kpi-arrives').textContent = b.arrives;
     document.getElementById('kpi-retires').textContent = b.retires;
   }catch(e){}
 }
@@ -2469,7 +2479,8 @@ function renderVoyageColisListWithActions(list, v){
   if(!list.length){ box.innerHTML = gestionVoyage + `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans ce voyage.</p></div>`; return; }
   const peutGerer = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
   const totalPoids = list.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
-  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
+  const totalMontant = list.reduce((s,c)=>s+Number(c.montant_retrait||c.total||0),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> · <b>${totalMontant.toLocaleString('fr-FR')} MAD</b> au total</div>`;
   html += list.map((c,i)=>`
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
@@ -3077,29 +3088,34 @@ async function showBilanDetail(type, label){
   }
   try{
     BILAN_DETAIL_CACHE = await api('bilanDetail', {...BILAN_FILTRE, type});
-    renderBilanDetailList(BILAN_DETAIL_CACHE);
+    BILAN_DETAIL_TYPE = type;
+    renderBilanDetailList(BILAN_DETAIL_CACHE, type);
   }catch(e){
     document.getElementById('bilan-detail-body').innerHTML = '';
   }
 }
+let BILAN_DETAIL_TYPE = null;
 function filterBilanDetailList(){
   const pays = document.getElementById('bilan-detail-dest-filter').value;
   const filtered = pays ? BILAN_DETAIL_CACHE.filter(c=>c.pays_destination===pays) : BILAN_DETAIL_CACHE;
-  renderBilanDetailList(filtered);
+  renderBilanDetailList(filtered, BILAN_DETAIL_TYPE);
 }
-function renderBilanDetailList(list){
+function renderBilanDetailList(list, type){
   const box = document.getElementById('bilan-detail-body');
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Aucun colis dans cette catégorie.</p></div>`; return; }
   const poidsAffiche = c => c.poids_troncon_voyage !== undefined ? Number(c.poids_troncon_voyage||0) : Number(c.poids||0);
+  const montantAffiche = c => Number(c.montant_retrait||c.total||0);
   const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
-  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total</div>`;
+  const totalMontant = list.reduce((s,c)=>s+montantAffiche(c),0);
+  let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> · <b>${totalMontant.toLocaleString('fr-FR')} MAD</b> au total</div>`;
+  const versRetrait = type === 'arrives';
   html += list.map(c=>`
-    <div class="checklist-item" style="cursor:pointer;" onclick="naviguerVersColisDepuisModal('${c.reference}')">
+    <div class="checklist-item" style="cursor:pointer;" onclick="${versRetrait ? `naviguerVersRetraitDepuisModal('${c.reference}')` : `naviguerVersColisDepuisModal('${c.reference}')`}">
       <div class="txt">
-        <div class="r">${c.reference}</div>
+        <div class="r">${c.reference}${versRetrait ? ' <span style="color:var(--gold);font-size:11px;">→ Retrait</span>' : ''}</div>
         <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
       </div>
-      <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.montant_retrait||c.total||0).toLocaleString('fr-FR')} MAD</div>
+      <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${montantAffiche(c).toLocaleString('fr-FR')} MAD</div>
     </div>`).join('');
   box.innerHTML = html;
 }
