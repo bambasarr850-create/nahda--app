@@ -544,7 +544,10 @@
     <div style="background:var(--sand);width:100%;max-height:85%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span id="thread-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;">Conversation</span>
-        <button onclick="closeThreadModal()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="thread-delete-conv-btn" onclick="supprimerConversationConfirm()" style="display:none;width:30px;height:30px;border-radius:50%;border:none;background:#FCE8E8;color:var(--red);font-size:14px;">🗑️</button>
+          <button onclick="closeThreadModal()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
+        </div>
       </div>
       <div id="thread-messages" style="overflow-y:auto;flex:1;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
       <div style="display:flex;gap:8px;">
@@ -855,7 +858,7 @@ async function api(action, payload={}, silencieux=false){
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
-      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus',
+      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
@@ -1157,6 +1160,19 @@ async function apiSupabase(action, p){
       const { error } = await sb.from('agents').update({ dernier_message_lu_at: new Date().toISOString() }).eq('identifiant', p.agentId);
       if(error) throw new Error(traduireErreur(error.message));
       data = { marque: true };
+
+    } else if(action==='supprimerMessage'){
+      const { error } = await sb.from('messages').delete().eq('id', p.id);
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Tu ne peux supprimer que les messages envoyés par ta propre agence" : traduireErreur(error.message));
+      data = { supprime: true };
+
+    } else if(action==='supprimerConversation'){
+      let q = sb.from('messages').delete();
+      if(p.colisReference) q = q.eq('colis_reference', p.colisReference);
+      else q = q.is('colis_reference', null).eq('pays_a', p.paysA).eq('pays_b', p.paysB);
+      const { error } = await q;
+      if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression de conversation réservée à l'administrateur (ou à ta propre agence pour tes propres messages)" : traduireErreur(error.message));
+      data = { supprime: true };
 
     } else if(action==='listVoyagesEnTransit'){
       let q = sb.from('expeditions').select('voyage').eq('statut', 0);
@@ -2730,6 +2746,9 @@ async function chargerRetrait(){
     }
     retraitCourant = c;
     box.innerHTML = renderResultCard(c, false);
+    // Si le paiement a deja ete valide precedemment (montant_retrait deja enregistre en base),
+    // pas besoin de le redemander meme si l'agent avait quitte la page sans marquer "retire"
+    retraitPaiementValide = Number(c.montant_retrait||0) > 0;
     const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0));
     retraitCourant.resteAttendu = resteAPercevoir;
     document.getElementById('rt-montant').value = resteAPercevoir;
@@ -3192,7 +3211,26 @@ async function genererAffichePromo(){
     ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(40,132); ctx.lineTo(W-40,132); ctx.stroke();
 
-    afficheDrawFlag(ctx, destination, W/2-30, 165, 60, 42);
+    // Logo Nahda Business a la place du drapeau, en haut de l'affiche
+    if(APP_LOGO_B64){
+      try{
+        const logoImg = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = APP_LOGO_B64;
+        });
+        const logoSize = 76;
+        afficheRoundRect(ctx, W/2-logoSize/2, 155, logoSize, logoSize, 16);
+        ctx.save(); ctx.clip();
+        ctx.drawImage(logoImg, W/2-logoSize/2, 155, logoSize, logoSize);
+        ctx.restore();
+      }catch(e){
+        afficheDrawFlag(ctx, destination, W/2-30, 165, 60, 42); // secours si le logo ne charge pas
+      }
+    } else {
+      afficheDrawFlag(ctx, destination, W/2-30, 165, 60, 42);
+    }
 
     afficheCenterText(ctx, infoDepart.ville, W/2, 300, 'bold 84px Arial', WHITE);
     afficheDrawFlag(ctx, depart, W/2-140, 335, 62, 42);
@@ -3324,6 +3362,7 @@ async function ouvrirThread(colisReference, paysA, paysB){
   threadActuel = { colisReference: colisReference || null, paysA, paysB };
   const autrePays = paysA === currentAgent.pays ? paysB : paysA;
   document.getElementById('thread-title').textContent = colisReference ? ('📦 ' + colisReference) : ('Conversation avec ' + nomAffichagePays(autrePays));
+  document.getElementById('thread-delete-conv-btn').style.display = (currentAgent.role==='Admin') ? 'flex' : 'none';
   document.getElementById('thread-messages').innerHTML = skeletonHTML(2);
   document.getElementById('thread-input').value = '';
   pushModalHistoryState();
@@ -3338,13 +3377,17 @@ async function rafraichirThread(){
     if(!msgs.length){ box.innerHTML = `<div class="empty-state"><div class="em">💬</div><p>Aucun message dans ce fil.</p></div>`; return; }
     box.innerHTML = msgs.map(m=>{
       const estMoi = m.auteur_pays === currentAgent.pays;
+      const peutSupprimer = estMoi || currentAgent.role==='Admin';
       const dateStr = new Date(m.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
       return `<div style="align-self:${estMoi?'flex-end':'flex-start'};max-width:80%;">
-        <div style="background:${estMoi?'var(--navy)':'var(--white)'};color:${estMoi?'#FFFFFF':'var(--ink)'};padding:10px 14px;border-radius:14px;font-size:13.5px;border:1px solid var(--line);">
+        <div style="background:${estMoi?'var(--navy)':'var(--white)'};color:${estMoi?'#FFFFFF':'var(--ink)'};padding:10px 14px;border-radius:14px;font-size:13.5px;border:1px solid var(--line);position:relative;">
           ${m.type==='auto_commentaire' ? '<div style="font-size:10.5px;opacity:0.75;margin-bottom:3px;">⚠️ Commentaire automatique (arrivée)</div>' : ''}
           ${m.contenu}
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:${estMoi?'right':'left'};">${m.auteur_nom||''} · ${dateStr}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:${estMoi?'right':'left'};display:flex;gap:8px;justify-content:${estMoi?'flex-end':'flex-start'};align-items:center;">
+          <span>${m.auteur_nom||''} · ${dateStr}</span>
+          ${peutSupprimer ? `<span onclick="supprimerMessageConfirm(${m.id})" style="cursor:pointer;color:var(--red);">🗑️</span>` : ''}
+        </div>
       </div>`;
     }).join('');
     box.scrollTop = box.scrollHeight;
@@ -3360,6 +3403,23 @@ async function envoyerMessageThread(){
     });
     document.getElementById('thread-input').value = '';
     await rafraichirThread();
+  }catch(e){}
+}
+async function supprimerMessageConfirm(id){
+  if(!confirm('Supprimer ce message ?')) return;
+  try{
+    await api('supprimerMessage', {id});
+    showToast('🗑️ Message supprimé');
+    await rafraichirThread();
+  }catch(e){}
+}
+async function supprimerConversationConfirm(){
+  if(!threadActuel) return;
+  if(!confirm('Supprimer TOUTE cette conversation ? Cette action est irréversible.')) return;
+  try{
+    await api('supprimerConversation', {colisReference: threadActuel.colisReference, paysA: threadActuel.paysA, paysB: threadActuel.paysB});
+    showToast('🗑️ Conversation supprimée');
+    closeThreadModal();
   }catch(e){}
 }
 function closeThreadModal(){
