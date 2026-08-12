@@ -457,7 +457,6 @@
           <select id="va-select" onchange="renderArriveeList()"></select>
         </div>
         <div id="va-voyageur-info" class="agent-card" style="display:none;padding:12px 16px;margin-bottom:14px;"></div>
-        <div class="field"><label>Commentaire</label><textarea id="va-comment" rows="2" placeholder="Observation à l'arrivée..."></textarea></div>
         <h2 class="section-title">Colis à confirmer — sélectionner</h2>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="arrivee-search" placeholder="🔎 Filtrer / rechercher un numéro de reçu..." oninput="filterArriveeList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
@@ -859,7 +858,7 @@ async function api(action, payload={}, silencieux=false){
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
-      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation',
+      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
@@ -1027,32 +1026,35 @@ async function apiSupabase(action, p){
       data = { numero: p.numero, nbColis: p.colis.length };
 
     } else if(action==='confirmerArrivee'){
-      let paysOrigineDejaEnvoye = null;
       for(const ref of p.references){
         const { data: exp } = await sb.from('expeditions').select('*').eq('reference', ref).eq('voyage', p.numero).eq('statut', 0).maybeSingle();
         if(!exp) continue;
         await sb.from('expeditions').update({ statut: 1, date_arrivee: new Date().toISOString() }).eq('id', exp.id);
-        const { data: c } = await sb.from('colis').select('poids,poids_arrive,pays_origine,pays_destination').eq('reference', ref).maybeSingle();
+        const { data: c } = await sb.from('colis').select('poids,poids_arrive').eq('reference', ref).maybeSingle();
         if(!c) continue;
         const nouveauPoidsArrive = Number(c.poids_arrive||0) + Number(exp.poids||0);
-        const champs = { poids_arrive: nouveauPoidsArrive, commentaire_arrivee: p.commentaire || '' };
+        const champs = { poids_arrive: nouveauPoidsArrive };
         if(nouveauPoidsArrive >= Number(c.poids||0) - 0.001) champs.statut = 2;
         const { data: majArr, error: errArr } = await sb.from('colis').update(champs).eq('reference', ref).select();
         if(errArr || !majArr || !majArr.length) throw new Error('Impossible de confirmer l\'arrivee du colis '+ref+' (droits insuffisants)');
-        // Alerte automatique a l'agence d'origine si un commentaire est saisi (routes Casablanca<->Conakry/Abidjan uniquement)
-        if(p.commentaire && p.commentaire.trim() && c.pays_origine && c.pays_destination){
-          const routeValide = (c.pays_origine==='Maroc' || c.pays_destination==='Maroc');
-          if(routeValide){
-            sb.from('messages').insert({
-              colis_reference: ref, pays_a: c.pays_origine, pays_b: c.pays_destination,
-              auteur_pays: p.agentPays || c.pays_destination, auteur_nom: p.agentNom || '',
-              contenu: p.commentaire.trim(), type: 'auto_commentaire'
-            }).then(()=>{});
-          }
-        }
       }
       await sb.from('voyages').update({ statut: 'Arrive' }).eq('numero', p.numero);
       data = { numero: p.numero, nbColis: p.references.length };
+
+    } else if(action==='signalerProbleme'){
+      const { data: c } = await sb.from('colis').select('pays_origine,pays_destination').eq('reference', p.reference).maybeSingle();
+      if(!c) throw new Error('Colis introuvable');
+      const { error } = await sb.from('colis').update({ probleme: true, commentaire_arrivee: p.commentaire || '' }).eq('reference', p.reference);
+      if(error) throw new Error(traduireErreur(error.message));
+      // Alerte automatique a l'agence d'origine (routes Casablanca<->Conakry/Abidjan uniquement)
+      if(c.pays_origine && c.pays_destination && (c.pays_origine==='Maroc' || c.pays_destination==='Maroc')){
+        sb.from('messages').insert({
+          colis_reference: p.reference, pays_a: c.pays_origine, pays_b: c.pays_destination,
+          auteur_pays: p.agentPays || '', auteur_nom: p.agentNom || '',
+          contenu: '⚠️ Problème signalé : ' + (p.commentaire||''), type: 'auto_commentaire'
+        }).then(()=>{});
+      }
+      data = { reference: p.reference };
 
     } else if(action==='validerPaiementRetrait'){
       const { data: c } = await sb.from('colis').select('statut_paiement_depart,total,montant_avance').eq('reference', p.reference).maybeSingle();
@@ -1191,10 +1193,10 @@ async function apiSupabase(action, p){
       const { data: exps, error } = await sb.from('expeditions').select('*').eq('voyage', p.numero).eq('statut', 0);
       if(error) throw new Error(traduireErreur(error.message));
       const refs = (exps||[]).map(e=>e.reference);
-      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination').in('reference', refs.length?refs:['']);
+      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme').in('reference', refs.length?refs:['']);
       data = (exps||[]).map(e => {
         const c = (colis||[]).find(x=>x.reference===e.reference) || {};
-        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination };
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false };
       });
 
     } else if(action==='bilan' || action==='bilanDetail'){
@@ -1476,6 +1478,7 @@ async function doLogin(){
   }
 }
 function doLogout(){
+  if(!confirm('Se déconnecter de ce compte ?')) return;
   currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
   localStorage.removeItem('nahda_session');
   history.replaceState({screen:'screen-login'}, '', '#screen-login');
@@ -2699,9 +2702,9 @@ function renderArriveeListHTML(list){
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total en transit</div>`;
   html += list.map(t=>`
     <div class="checklist-item">
-      <input type="checkbox" class="arr-check" value="${t.reference}" checked onclick="event.stopPropagation()">
-      <div class="txt" style="cursor:pointer;" onclick="showColisInfoModal('${t.reference}')"><div class="r">${t.reference}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
-      <button onclick="showColisInfoModal('${t.reference}')" style="border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;">ℹ️</button>
+      <input type="checkbox" class="arr-check" value="${t.reference}" onclick="event.stopPropagation()">
+      <div class="txt" style="cursor:pointer;" onclick="ouvrirMenuColisArrivee('${t.reference}')"><div class="r">${t.reference}${t.probleme?' ⚠️':''}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
+      <button onclick="ouvrirMenuColisArrivee('${t.reference}')" style="border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;">ℹ️</button>
     </div>`).join('');
   box.innerHTML = html;
 }
@@ -2719,15 +2722,27 @@ function toggleArriveeByScan(){
   if(cb){ cb.checked = true; cb.scrollIntoView({behavior:'smooth', block:'center'}); showToast('✅ '+ref+' sélectionné'); }
   else showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage');
 }
+function ouvrirMenuColisArrivee(reference){
+  const choix = confirm('Colis ' + reference + '\n\nOK = Afficher la fiche\nAnnuler = Ajouter un commentaire / signaler un problème');
+  if(choix) showColisInfoModal(reference);
+  else ouvrirCommentaireColis(reference);
+}
+async function ouvrirCommentaireColis(reference){
+  const commentaire = prompt('Commentaire / problème à signaler pour ' + reference + ' (ex. « colis saisi par la douane »). Ce commentaire n\'est jamais visible par le client.');
+  if(commentaire === null || !commentaire.trim()) return;
+  try{
+    await api('signalerProbleme', {reference, commentaire: commentaire.trim(), agentPays: currentAgent.pays, agentNom: currentAgent.nom});
+    showToast('⚠️ Problème signalé pour ' + reference);
+    await renderArriveeList();
+  }catch(e){}
+}
 async function confirmerArrivee(){
   const num = document.getElementById('va-select').value;
   const refs = Array.from(document.querySelectorAll('.arr-check:checked')).map(i=>i.value);
-  const comment = document.getElementById('va-comment').value.trim();
   if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
   try{
-    await api('confirmerArrivee', {numero:num, references:refs, commentaire:comment, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
+    await api('confirmerArrivee', {numero:num, references:refs, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
     showToast('✅ Arrivée confirmée pour '+refs.length+' tronçon(s)');
-    document.getElementById('va-comment').value='';
     await updateKpis(); await renderArriveeSelect();
   }catch(e){}
 }
