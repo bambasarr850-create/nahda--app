@@ -2700,13 +2700,25 @@ function renderArriveeListHTML(list){
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
   const totalPoids = list.reduce((s,t)=>s+(parseFloat(t.poids_envoye)||0),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total en transit</div>`;
-  html += list.map(t=>`
-    <div class="checklist-item">
-      <input type="checkbox" class="arr-check" value="${t.reference}" onclick="event.stopPropagation()">
-      <div class="txt" style="cursor:pointer;" onclick="ouvrirMenuColisArrivee('${t.reference}')"><div class="r">${t.reference}${t.probleme?' ⚠️':''}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
-      <button onclick="ouvrirMenuColisArrivee('${t.reference}')" style="border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;">ℹ️</button>
+  html += list.map((t,i)=>`
+    <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;width:100%;gap:10px;">
+        <input type="checkbox" class="arr-check" value="${t.reference}" onclick="event.stopPropagation()">
+        <div class="txt" style="cursor:pointer;flex:1;" onclick="toggleArriveeActions(${i})"><div class="r">${t.reference}${t.probleme?' ⚠️':''}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
+      </div>
+      <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;">
+        <button class="btn btn-outline" onclick="showColisInfoModal('${t.reference}')">🔍 Fiche</button>
+        <button class="btn btn-outline" onclick="ouvrirCommentaireColis('${t.reference}')">💬 Commentaire</button>
+      </div>
     </div>`).join('');
   box.innerHTML = html;
+}
+function toggleArriveeActions(index){
+  const el = document.getElementById('arrivee-actions-'+index);
+  if(!el) return;
+  const visible = el.style.display === 'flex';
+  document.querySelectorAll('[id^="arrivee-actions-"]').forEach(d=>d.style.display='none');
+  el.style.display = visible ? 'none' : 'flex';
 }
 function filterArriveeList(){
   const q = document.getElementById('arrivee-search').value.trim().toLowerCase();
@@ -2721,11 +2733,6 @@ function toggleArriveeByScan(){
   const cb = document.querySelector('.arr-check[value="'+ref.replace(/"/g,'')+'"]');
   if(cb){ cb.checked = true; cb.scrollIntoView({behavior:'smooth', block:'center'}); showToast('✅ '+ref+' sélectionné'); }
   else showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage');
-}
-function ouvrirMenuColisArrivee(reference){
-  const choix = confirm('Colis ' + reference + '\n\nOK = Afficher la fiche\nAnnuler = Ajouter un commentaire / signaler un problème');
-  if(choix) showColisInfoModal(reference);
-  else ouvrirCommentaireColis(reference);
 }
 async function ouvrirCommentaireColis(reference){
   const commentaire = prompt('Commentaire / problème à signaler pour ' + reference + ' (ex. « colis saisi par la douane »). Ce commentaire n\'est jamais visible par le client.');
