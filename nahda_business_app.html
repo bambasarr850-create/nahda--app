@@ -540,6 +540,64 @@
     </div>
   </section>
 
+  <div id="logout-confirm-modal" onclick="if(event.target===this)document.getElementById('logout-confirm-modal').style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:118;align-items:center;justify-content:center;">
+    <div style="background:var(--sand);width:85%;max-width:340px;border-radius:18px;padding:22px;text-align:center;">
+      <div style="font-size:34px;margin-bottom:10px;">🚪</div>
+      <div style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:16px;margin-bottom:8px;">Se déconnecter ?</div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:18px;">Tu devras ressaisir ton identifiant et ton mot de passe pour te reconnecter.</div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="document.getElementById('logout-confirm-modal').style.display='none'">Annuler</button>
+        <button class="btn btn-red" onclick="confirmerLogout()">Se déconnecter</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="choix-agence-modal" onclick="if(event.target===this)document.getElementById('choix-agence-modal').style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:119;align-items:center;justify-content:center;">
+    <div style="background:var(--sand);width:85%;max-width:340px;border-radius:18px;padding:22px;text-align:center;">
+      <div style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;margin-bottom:16px;">✉️ Écrire à quelle agence ?</div>
+      <div class="btn-row" style="flex-direction:column;gap:10px;">
+        <button class="btn btn-outline" style="width:100%;" onclick="choisirAgenceConversation('Guinee')">🇬🇳 Conakry</button>
+        <button class="btn btn-outline" style="width:100%;" onclick="choisirAgenceConversation('Cote d\'Ivoire')">🇨🇮 Abidjan</button>
+        <button class="btn" style="width:100%;background:none;color:var(--muted);" onclick="document.getElementById('choix-agence-modal').style.display='none'">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="generic-confirm-modal" onclick="if(event.target===this)_genericConfirmNo()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:119;align-items:center;justify-content:center;">
+    <div style="background:var(--sand);width:85%;max-width:340px;border-radius:18px;padding:22px;text-align:center;">
+      <div id="generic-confirm-icon" style="font-size:34px;margin-bottom:10px;">⚠️</div>
+      <div id="generic-confirm-text" style="color:var(--ink);font-size:14px;margin-bottom:18px;white-space:pre-line;"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="_genericConfirmNo()">Annuler</button>
+        <button id="generic-confirm-yes-btn" class="btn btn-red" onclick="_genericConfirmYes()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="generic-prompt-modal" onclick="if(event.target===this)_genericPromptCancel()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:119;align-items:center;justify-content:center;">
+    <div style="background:var(--sand);width:85%;max-width:360px;border-radius:18px;padding:22px;">
+      <div id="generic-prompt-title" style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;margin-bottom:12px;"></div>
+      <div class="field"><input type="text" id="generic-prompt-input" style="width:100%;"></div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn btn-outline" onclick="_genericPromptCancel()">Annuler</button>
+        <button class="btn btn-primary" onclick="_genericPromptOk()">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="commentaire-modal" onclick="if(event.target===this)document.getElementById('commentaire-modal').style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:118;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--sand);width:100%;border-radius:20px 20px 0 0;padding:18px;">
+      <div style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15px;margin-bottom:4px;">💬 Commentaire / signaler un problème</div>
+      <div id="commentaire-ref-label" style="color:var(--muted);font-size:12.5px;margin-bottom:12px;"></div>
+      <div class="field"><textarea id="commentaire-texte" rows="3" placeholder="ex : colis saisi par la douane..."></textarea></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Ce commentaire n'est jamais visible par le client, uniquement par les agences.</div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="document.getElementById('commentaire-modal').style.display='none'">Annuler</button>
+        <button class="btn btn-primary" onclick="validerCommentaireColis()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
   <div id="thread-modal" onclick="if(event.target===this)closeThreadModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:117;align-items:flex-end;justify-content:center;">
     <div style="background:var(--sand);width:100%;max-height:85%;border-radius:20px 20px 0 0;padding:18px;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -1381,7 +1439,7 @@ function naviguerVersRetraitDepuisModal(reference){
   chargerRetrait();
 }
 function fermerModalesOuvertes(){
-  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','thread-modal'];
+  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','thread-modal','logout-confirm-modal','commentaire-modal','generic-confirm-modal','generic-prompt-modal','choix-agence-modal'];
   let uneEtaitOuverte = false;
   modales.forEach(id=>{
     const el = document.getElementById(id);
@@ -1478,7 +1536,10 @@ async function doLogin(){
   }
 }
 function doLogout(){
-  if(!confirm('Se déconnecter de ce compte ?')) return;
+  document.getElementById('logout-confirm-modal').style.display = 'flex';
+}
+function confirmerLogout(){
+  document.getElementById('logout-confirm-modal').style.display = 'none';
   currentAgent=null; document.getElementById('in-agent-id').value=''; document.getElementById('in-agent-pass').value='';
   localStorage.removeItem('nahda_session');
   history.replaceState({screen:'screen-login'}, '', '#screen-login');
@@ -2254,18 +2315,19 @@ async function editColis(c){
   document.getElementById('nc-valeur').value = c.valeur_declaree;
   calcTotal();
 }
-async function deleteColisConfirm(reference){
-  if(!confirm('Supprimer définitivement le colis '+reference+' ? Cette action est irréversible.')) return;
-  const saisie = prompt('Confirmation finale : retape exactement le numéro de reçu « '+reference+' » pour confirmer la suppression définitive.');
-  if(saisie === null) return;
-  if(saisie.trim() !== reference){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
-  try{
-    await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentId: currentAgent.id, agentNom: currentAgent.nom});
-    showToast('🗑️ Colis '+reference+' supprimé');
-    document.getElementById('sr-result').innerHTML='';
-    document.getElementById('sr-ref').value='';
-    await updateKpis();
-  }catch(e){}
+function deleteColisConfirm(reference){
+  showConfirmGeneric('Supprimer définitivement le colis '+reference+' ?\nCette action est irréversible.', () => {
+    showPromptGeneric('Retape exactement « '+reference+' » pour confirmer la suppression', '', async (saisie) => {
+      if(saisie.trim() !== reference){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
+      try{
+        await api('deleteColis', {reference, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentId: currentAgent.id, agentNom: currentAgent.nom});
+        showToast('🗑️ Colis '+reference+' supprimé');
+        document.getElementById('sr-result').innerHTML='';
+        document.getElementById('sr-ref').value='';
+        await updateKpis();
+      }catch(e){}
+    });
+  }, '🗑️');
 }
 
 /* ================= VOYAGE ================= */
@@ -2413,36 +2475,37 @@ async function genererPdfVoyage(v){
     showToast('⚠️ Erreur génération PDF : ' + (e.message||'inconnue'));
   }
 }
-async function modifierVoyage(v){
-  const nouveauTransporteur = prompt('Nom du voyageur / transporteur :', v.transporteur || '');
-  if(nouveauTransporteur === null) return;
-  const nouvelleDate = prompt('Date de départ (AAAA-MM-JJ) :', v.date_depart || '');
-  if(nouvelleDate === null) return;
-  try{
-    await api('updateVoyage', {numero: v.numero, transporteur: nouveauTransporteur.trim(), dateDepart: nouvelleDate.trim(), agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    showToast('✅ Voyage mis à jour');
-    closeBilanDetail();
-    await renderHistoriqueList();
-  }catch(e){}
+function modifierVoyage(v){
+  showPromptGeneric('Nom du voyageur / transporteur', v.transporteur || '', (nouveauTransporteur) => {
+    showPromptGeneric('Date de départ (AAAA-MM-JJ)', v.date_depart || '', async (nouvelleDate) => {
+      try{
+        await api('updateVoyage', {numero: v.numero, transporteur: nouveauTransporteur.trim(), dateDepart: nouvelleDate.trim(), agentRole: currentAgent.role, agentPays: currentAgent.pays});
+        showToast('✅ Voyage mis à jour');
+        closeBilanDetail();
+        await renderHistoriqueList();
+      }catch(e){}
+    });
+  });
 }
-async function supprimerVoyageConfirm(numero, nbColis){
+function supprimerVoyageConfirm(numero, nbColis){
   if(nbColis > 0 && currentAgent.role !== 'Admin'){
     showToast('⚠️ Ce voyage contient ' + nbColis + ' colis — suppression réservée à l\'administrateur');
     return;
   }
   const message = nbColis > 0
-    ? 'Ce voyage contient ' + nbColis + ' colis. Le supprimer retirera aussi leur lien à ce voyage. Continuer ?'
+    ? 'Ce voyage contient ' + nbColis + ' colis. Le supprimer retirera aussi leur lien à ce voyage.\nContinuer ?'
     : 'Supprimer définitivement le voyage ' + numero + ' ?';
-  if(!confirm(message)) return;
-  const saisie = prompt('Confirmation finale : retape exactement « ' + numero + ' » pour confirmer.');
-  if(saisie === null) return;
-  if(saisie.trim() !== numero){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
-  try{
-    await api('deleteVoyage', {numero, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    showToast('🗑️ Voyage ' + numero + ' supprimé');
-    closeBilanDetail();
-    await renderHistoriqueList();
-  }catch(e){}
+  showConfirmGeneric(message, () => {
+    showPromptGeneric('Retape exactement « ' + numero + ' » pour confirmer', '', async (saisie) => {
+      if(saisie.trim() !== numero){ showToast('⚠️ Numéro saisi différent — suppression annulée par sécurité'); return; }
+      try{
+        await api('deleteVoyage', {numero, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+        showToast('🗑️ Voyage ' + numero + ' supprimé');
+        closeBilanDetail();
+        await renderHistoriqueList();
+      }catch(e){}
+    });
+  }, '🗑️');
 }
 async function showColisInfoModal(reference){
   document.getElementById('bilan-detail-title').textContent = 'Colis ' + reference;
@@ -2509,32 +2572,33 @@ function toggleColisActions(index){
   document.querySelectorAll('[id^="colis-actions-"]').forEach(d=>d.style.display='none');
   el.style.display = visible ? 'none' : 'flex';
 }
-async function modifierPoidsTranche(reference, numero, poidsActuel){
-  const nouveauPoids = prompt('Poids envoyé sur CE voyage précis (kg) pour ' + reference + ' :', poidsActuel);
-  if(nouveauPoids === null) return;
-  const val = parseFloat(nouveauPoids);
-  if(isNaN(val) || val < 0){ showToast('⚠️ Poids invalide'); return; }
-  try{
-    await api('modifierPoidsTranche', {reference, numero, nouveauPoids: val});
-    if(val < poidsActuel){
-      showToast('✅ Poids réduit — le reste (' + (poidsActuel - val).toLocaleString('fr-FR') + ' kg) est maintenant disponible pour un prochain départ');
-    } else {
-      showToast('✅ Poids du tronçon mis à jour');
-    }
-    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
-    const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
-    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
-  }catch(e){}
+function modifierPoidsTranche(reference, numero, poidsActuel){
+  showPromptGeneric('Poids envoyé sur CE voyage précis (kg) pour ' + reference, poidsActuel, async (nouveauPoids) => {
+    const val = parseFloat(nouveauPoids);
+    if(isNaN(val) || val < 0){ showToast('⚠️ Poids invalide'); return; }
+    try{
+      await api('modifierPoidsTranche', {reference, numero, nouveauPoids: val});
+      if(val < poidsActuel){
+        showToast('✅ Poids réduit — le reste (' + (poidsActuel - val).toLocaleString('fr-FR') + ' kg) est maintenant disponible pour un prochain départ');
+      } else {
+        showToast('✅ Poids du tronçon mis à jour');
+      }
+      BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
+      const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
+      renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
+    }catch(e){}
+  });
 }
-async function retirerColisDuVoyageConfirm(reference, numero){
-  if(!confirm('Retirer le colis ' + reference + ' de ce voyage ? Il redeviendra disponible pour un futur envoi si aucun autre tronçon ne le concerne.')) return;
-  try{
-    await api('retirerColisDuVoyage', {reference, numero});
-    showToast('🗑️ Colis retiré du voyage');
-    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
-    const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
-    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
-  }catch(e){}
+function retirerColisDuVoyageConfirm(reference, numero){
+  showConfirmGeneric('Retirer le colis ' + reference + ' de ce voyage ?\nIl redeviendra disponible pour un futur envoi si aucun autre tronçon ne le concerne.', async () => {
+    try{
+      await api('retirerColisDuVoyage', {reference, numero});
+      showToast('🗑️ Colis retiré du voyage');
+      BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
+      const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
+      renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
+    }catch(e){}
+  });
 }
 function filterHistoriqueList(){
   const q = document.getElementById('historique-search').value.trim().toLowerCase();
@@ -2734,12 +2798,58 @@ function toggleArriveeByScan(){
   if(cb){ cb.checked = true; cb.scrollIntoView({behavior:'smooth', block:'center'}); showToast('✅ '+ref+' sélectionné'); }
   else showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage');
 }
-async function ouvrirCommentaireColis(reference){
-  const commentaire = prompt('Commentaire / problème à signaler pour ' + reference + ' (ex. « colis saisi par la douane »). Ce commentaire n\'est jamais visible par le client.');
-  if(commentaire === null || !commentaire.trim()) return;
+let _confirmCallback = null;
+function showConfirmGeneric(message, onConfirm, icone){
+  document.getElementById('generic-confirm-text').textContent = message;
+  document.getElementById('generic-confirm-icon').textContent = icone || '⚠️';
+  _confirmCallback = onConfirm;
+  pushModalHistoryState();
+  document.getElementById('generic-confirm-modal').style.display = 'flex';
+}
+function _genericConfirmYes(){
+  document.getElementById('generic-confirm-modal').style.display = 'none';
+  const cb = _confirmCallback; _confirmCallback = null;
+  if(cb) cb();
+}
+function _genericConfirmNo(){
+  document.getElementById('generic-confirm-modal').style.display = 'none';
+  _confirmCallback = null;
+}
+
+let _promptCallback = null;
+function showPromptGeneric(titre, valeurDefaut, onSubmit){
+  document.getElementById('generic-prompt-title').textContent = titre;
+  document.getElementById('generic-prompt-input').value = valeurDefaut || '';
+  _promptCallback = onSubmit;
+  pushModalHistoryState();
+  document.getElementById('generic-prompt-modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('generic-prompt-input').focus(), 100);
+}
+function _genericPromptOk(){
+  const val = document.getElementById('generic-prompt-input').value;
+  document.getElementById('generic-prompt-modal').style.display = 'none';
+  const cb = _promptCallback; _promptCallback = null;
+  if(cb) cb(val);
+}
+function _genericPromptCancel(){
+  document.getElementById('generic-prompt-modal').style.display = 'none';
+  _promptCallback = null;
+}
+
+let commentaireColisRef = null;
+function ouvrirCommentaireColis(reference){
+  commentaireColisRef = reference;
+  document.getElementById('commentaire-ref-label').textContent = 'Colis ' + reference;
+  document.getElementById('commentaire-texte').value = '';
+  document.getElementById('commentaire-modal').style.display = 'flex';
+}
+async function validerCommentaireColis(){
+  const commentaire = document.getElementById('commentaire-texte').value.trim();
+  if(!commentaire || !commentaireColisRef) return;
+  document.getElementById('commentaire-modal').style.display = 'none';
   try{
-    await api('signalerProbleme', {reference, commentaire: commentaire.trim(), agentPays: currentAgent.pays, agentNom: currentAgent.nom});
-    showToast('⚠️ Problème signalé pour ' + reference);
+    await api('signalerProbleme', {reference: commentaireColisRef, commentaire, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
+    showToast('⚠️ Problème signalé pour ' + commentaireColisRef);
     await renderArriveeList();
   }catch(e){}
 }
@@ -3443,22 +3553,24 @@ async function envoyerMessageThread(){
     await rafraichirThread();
   }catch(e){}
 }
-async function supprimerMessageConfirm(id){
-  if(!confirm('Supprimer ce message ?')) return;
-  try{
-    await api('supprimerMessage', {id});
-    showToast('🗑️ Message supprimé');
-    await rafraichirThread();
-  }catch(e){}
+function supprimerMessageConfirm(id){
+  showConfirmGeneric('Supprimer ce message ?', async () => {
+    try{
+      await api('supprimerMessage', {id});
+      showToast('🗑️ Message supprimé');
+      await rafraichirThread();
+    }catch(e){}
+  }, '🗑️');
 }
-async function supprimerConversationConfirm(){
+function supprimerConversationConfirm(){
   if(!threadActuel) return;
-  if(!confirm('Supprimer TOUTE cette conversation ? Cette action est irréversible.')) return;
-  try{
-    await api('supprimerConversation', {colisReference: threadActuel.colisReference, paysA: threadActuel.paysA, paysB: threadActuel.paysB});
-    showToast('🗑️ Conversation supprimée');
-    closeThreadModal();
-  }catch(e){}
+  showConfirmGeneric('Supprimer TOUTE cette conversation ?\nCette action est irréversible.', async () => {
+    try{
+      await api('supprimerConversation', {colisReference: threadActuel.colisReference, paysA: threadActuel.paysA, paysB: threadActuel.paysB});
+      showToast('🗑️ Conversation supprimée');
+      closeThreadModal();
+    }catch(e){}
+  }, '🗑️');
 }
 function closeThreadModal(){
   document.getElementById('thread-modal').style.display = 'none';
@@ -3466,20 +3578,18 @@ function closeThreadModal(){
   if(history.state && history.state.modal) history.back();
   renderConversations();
 }
-async function ouvrirNouvelleConversationLibre(){
+function ouvrirNouvelleConversationLibre(){
   let autrePays = autrePaysPourConversationLibre();
   if(!autrePays){
-    // Admin/Casablanca : demander quelle agence
-    const choix = prompt("Écrire à quelle agence ? Tape 'conakry' ou 'abidjan'");
-    if(!choix) return;
-    const c = choix.trim().toLowerCase();
-    if(c.includes('conakry')) autrePays = 'Guinee';
-    else if(c.includes('abidjan')) autrePays = "Cote d'Ivoire";
-    else { showToast('⚠️ Réponds "conakry" ou "abidjan"'); return; }
+    document.getElementById('choix-agence-modal').style.display = 'flex';
+    pushModalHistoryState();
+    return;
   }
-  const paysA = 'Maroc';
-  const paysB = autrePays;
-  await ouvrirThread(null, paysA, paysB);
+  ouvrirThread(null, 'Maroc', autrePays);
+}
+function choisirAgenceConversation(pays){
+  document.getElementById('choix-agence-modal').style.display = 'none';
+  ouvrirThread(null, 'Maroc', pays);
 }
 function togglePanel(id){
   document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
