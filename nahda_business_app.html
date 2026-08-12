@@ -500,6 +500,15 @@
         <label>Compte de retrait</label>
         <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
       </div>
+      <div class="field">
+        <label>Nom de la personne qui retire le colis *</label>
+        <input id="rt-retirant-nom" placeholder="Nom complet">
+      </div>
+      <div class="field">
+        <label>Téléphone de la personne qui retire *</label>
+        <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Pré-rempli avec les infos du client — modifie si une autre personne vient récupérer le colis.</div>
+      </div>
       <div class="btn-row">
         <button class="btn btn-gold" id="rt-valider-btn" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
         <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
@@ -1151,8 +1160,8 @@ async function apiSupabase(action, p){
       data = { reference: p.reference };
 
     } else if(action==='marquerRetire'){
-      const { data: majRet, error } = await sb.from('colis').update({ statut: 3, date_retrait: p.date || new Date().toISOString() }).eq('reference', p.reference).select();
-      if(error || !majRet || !majRet.length) throw new Error(error ? error.message : 'Retrait refuse (verifie que ce colis est bien destine a ton pays)');
+      const { data: majRet, error } = await sb.from('colis').update({ statut: 3, date_retrait: p.date || new Date().toISOString(), nom_retirant: p.retirantNom || '', telephone_retirant: p.retirantTel || '' }).eq('reference', p.reference).select();
+      if(error || !majRet || !majRet.length) throw new Error(error ? traduireErreur(error.message) : 'Retrait refuse (verifie que ce colis est bien destine a ton pays)');
       data = { reference: p.reference };
 
     } else if(action==='listVoyages'){
@@ -2302,6 +2311,7 @@ function renderResultCard(c, showAdminActions, isPublic){
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
     ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
     ${c.commentaire_arrivee && !isPublic ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
+    ${c.nom_retirant && !isPublic ? `<div class="result-row"><span class="k">Retiré par</span><span class="v">${c.nom_retirant} — ${c.telephone_retirant||''}</span></div>` : ''}
     <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
     <div class="timeline">${steps}</div>
     ${receiptBtn}
@@ -2955,6 +2965,8 @@ async function chargerRetrait(){
     }
     retraitCourant = c;
     box.innerHTML = renderResultCard(c, false);
+    document.getElementById('rt-retirant-nom').value = c.nom_client || '';
+    document.getElementById('rt-retirant-tel').value = c.telephone || '';
     // Si le paiement a deja ete valide precedemment (montant_retrait deja enregistre en base),
     // pas besoin de le redemander meme si l'agent avait quitte la page sans marquer "retire"
     retraitPaiementValide = Number(c.montant_retrait||0) > 0;
@@ -3036,6 +3048,12 @@ async function validerPaiementRetrait(){
 }
 async function marquerRetire(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  const retirantNom = document.getElementById('rt-retirant-nom').value.trim();
+  const retirantTel = document.getElementById('rt-retirant-tel').value.trim();
+  if(!retirantNom || !retirantTel){
+    showToast('⚠️ Le nom et le téléphone de la personne qui retire sont obligatoires');
+    return;
+  }
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
   const attendu = Number(retraitCourant.resteAttendu || 0);
@@ -3050,7 +3068,7 @@ async function marquerRetire(){
   try{
     // On s'assure que le paiement est bien enregistre avant de finaliser le retrait
     await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
+    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value, retirantNom, retirantTel, agentRole: currentAgent.role, agentPays: currentAgent.pays});
     showToast('📦 Colis '+retraitCourant.reference+' marqué RETIRÉ');
     await updateKpis();
     document.getElementById('rt-fiche').innerHTML='';
