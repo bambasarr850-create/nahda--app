@@ -33,7 +33,9 @@
     --font-mono:'JetBrains Mono',monospace;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:#0d1420;font-family:var(--font-body);color:var(--ink);}
+  html,body{margin:0;padding:0;background:#0d1420;font-family:var(--font-body);color:var(--ink);
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+  input, textarea, select{-webkit-user-select:text; user-select:text; -webkit-touch-callout:default;}
 
   .phone-wrap{display:flex;justify-content:center;align-items:flex-start;padding:24px 8px;min-height:100vh;}
   .phone{
@@ -536,6 +538,7 @@
     </div>
     <div class="scroll">
       <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="ouvrirNouvelleConversationLibre()">✉️ Nouvelle conversation</button>
+      <input type="text" id="messages-search" placeholder="🔎 Rechercher par numéro de reçu..." oninput="filterConversations()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
       <div id="conversations-list"></div>
     </div>
   </section>
@@ -608,6 +611,7 @@
           <button onclick="closeThreadModal()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--sand-2);color:var(--navy);font-size:16px;">×</button>
         </div>
       </div>
+      <button id="thread-voir-fiche-btn" onclick="voirFicheDepuisThread()" style="display:none;width:100%;margin-bottom:12px;" class="btn btn-outline">🔍 Voir la fiche de ce colis</button>
       <div id="thread-messages" style="overflow-y:auto;flex:1;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
       <div style="display:flex;gap:8px;">
         <input type="text" id="thread-input" placeholder="Écrire un message..." style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;">
@@ -1116,8 +1120,16 @@ async function apiSupabase(action, p){
       data = { reference: p.reference };
 
     } else if(action==='resoudreProbleme'){
+      const { data: c } = await sb.from('colis').select('pays_origine,pays_destination').eq('reference', p.reference).maybeSingle();
       const { error } = await sb.from('colis').update({ probleme: false, commentaire_arrivee: '' }).eq('reference', p.reference);
       if(error) throw new Error(traduireErreur(error.message));
+      if(c && c.pays_origine && c.pays_destination && (c.pays_origine==='Maroc' || c.pays_destination==='Maroc')){
+        sb.from('messages').insert({
+          colis_reference: p.reference, pays_a: c.pays_origine, pays_b: c.pays_destination,
+          auteur_pays: p.agentPays || '', auteur_nom: p.agentNom || '',
+          contenu: '✅ Problème résolu pour ce colis', type: 'auto_commentaire'
+        }).then(()=>{});
+      }
       data = { reference: p.reference };
 
     } else if(action==='validerPaiementRetrait'){
@@ -1653,6 +1665,12 @@ function openLightbox(url){
 function closeLightbox(){ document.getElementById('lightbox').style.display = 'none'; if(history.state && history.state.modal) history.back(); }
 
 /* ================= NOUVEAU COLIS ================= */
+const INDICATIF_PAYS = { 'Maroc':'212', "Cote d'Ivoire":'225', 'Guinee':'224', 'Burkina Faso':'226', 'Mali':'223' };
+function genererNumeroRecu(){
+  const indicatif = (currentAgent && INDICATIF_PAYS[currentAgent.pays]) ? INDICATIF_PAYS[currentAgent.pays] : '000';
+  const chiffres = String(Math.floor(100000+Math.random()*899999));
+  return indicatif + chiffres;
+}
 async function prepNewColis(){
   const sel = document.getElementById('nc-dest');
   const lockNote = document.getElementById('nc-dest-lock-note');
@@ -1676,7 +1694,7 @@ async function prepNewColis(){
     onDestChange();
   }catch(e){}
   if(!editingRef){
-    document.getElementById('nc-ref').value = 'NB-2026-'+String(Math.floor(1000+Math.random()*8999));
+    document.getElementById('nc-ref').value = genererNumeroRecu();
     if(!newColisLignes.length){ newColisLignes.push({type:'', poids:'', prixKg: selectedDestInfo?selectedDestInfo.prix_kg:0, prixModifie:false}); renderLignesProduits(); }
   }
 }
@@ -2543,7 +2561,10 @@ async function showVoyageColisDetail(v){
 function renderVoyageColisListWithActions(list, v){
   const box = document.getElementById('bilan-detail-body');
   const peutGererVoyage = currentAgent && (currentAgent.role==='Admin' || v.pays_origine===currentAgent.pays);
-  const gestionVoyage = `<div class="btn-row" style="margin-bottom:12px;">
+  const gestionVoyage = `<div class="checklist-item" style="cursor:pointer;margin-bottom:8px;" onclick="toggleGestionVoyage()">
+    <div class="txt"><div class="r">⚙️ Gérer ce voyage</div><div class="d">Modifier, supprimer, générer un PDF</div></div>
+  </div>
+  <div id="gestion-voyage-actions" class="btn-row" style="margin-bottom:12px;display:none;flex-wrap:wrap;">
     ${peutGererVoyage ? `<button class="btn btn-outline" onclick='modifierVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>✏️ Modifier ce voyage</button>
     <button class="btn btn-red" onclick="supprimerVoyageConfirm('${v.numero}', ${v.nb_colis})">🗑️ Supprimer ce voyage</button>` : ''}
     <button class="btn btn-gold" onclick='genererPdfVoyage(${JSON.stringify(v).replace(/'/g,"&#39;")})'>📄 Générer un PDF</button>
@@ -2571,6 +2592,11 @@ function renderVoyageColisListWithActions(list, v){
       </div>
     </div>`).join('');
   box.innerHTML = gestionVoyage + html;
+}
+function toggleGestionVoyage(){
+  const el = document.getElementById('gestion-voyage-actions');
+  if(!el) return;
+  el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
 }
 function toggleColisActions(index){
   const el = document.getElementById('colis-actions-'+index);
@@ -2866,7 +2892,7 @@ async function resoudreCommentaireColis(){
   showConfirmGeneric('Effacer le commentaire et marquer ce problème comme résolu pour ' + ref + ' ?', async () => {
     document.getElementById('commentaire-modal').style.display = 'none';
     try{
-      await api('resoudreProbleme', {reference: ref});
+      await api('resoudreProbleme', {reference: ref, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
       showToast('✅ Problème résolu, commentaire effacé');
       if(cb) await cb();
       else await renderArriveeList();
@@ -3501,52 +3527,68 @@ async function updateMessagesBadge(){
 async function renderConversations(){
   const box = document.getElementById('conversations-list');
   box.innerHTML = skeletonHTML(3);
+  document.getElementById('messages-search').value = '';
   try{
     CONVERSATIONS_CACHE = await api('listConversations', {});
     // Marquer comme lu des l'ouverture de l'ecran (Phase 1 : lecture simple, pas par conversation individuelle)
     api('marquerMessagesLus', {agentId: currentAgent.id}, true).then(()=>updateMessagesBadge());
-
-    if(!CONVERSATIONS_CACHE.length){
-      box.innerHTML = `<div class="empty-state"><div class="em">💬</div><p>Aucun message pour l'instant.</p></div>`;
-      return;
-    }
-    // Regrouper par fil : colis_reference si presente, sinon paire de pays (conversation libre)
-    const groupes = {};
-    CONVERSATIONS_CACHE.forEach(m=>{
-      const cle = m.colis_reference ? ('colis:'+m.colis_reference) : ('libre:'+m.pays_a+'-'+m.pays_b);
-      if(!groupes[cle]) groupes[cle] = [];
-      groupes[cle].push(m);
-    });
-    const fils = Object.values(groupes).map(msgs=>msgs.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
-    fils.sort((a,b)=> new Date(b[0].created_at) - new Date(a[0].created_at));
-
-    box.innerHTML = fils.map(msgs=>{
-      const dernier = msgs[0];
-      const autrePays = dernier.pays_a === currentAgent.pays ? dernier.pays_b : dernier.pays_a;
-      const titre = dernier.colis_reference ? ('📦 ' + dernier.colis_reference) : ('Conversation avec ' + nomAffichagePays(autrePays));
-      const dateStr = new Date(dernier.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
-      return `<div class="checklist-item" style="cursor:pointer;" onclick='ouvrirThread(${JSON.stringify(dernier.colis_reference).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_a).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_b).replace(/'/g,"&#39;")})'>
-        <div class="txt">
-          <div class="r">${titre}</div>
-          <div class="d">${nomAffichagePays(autrePays)} · ${(dernier.contenu||'').substring(0,60)}${(dernier.contenu||'').length>60?'…':''}</div>
-          <div class="d" style="font-size:10.5px;">${dateStr}</div>
-        </div>
-      </div>`;
-    }).join('');
+    renderConversationsListHTML(CONVERSATIONS_CACHE);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">⚠️</div><p>Impossible de charger les messages.</p></div>`;
   }
+}
+function filterConversations(){
+  const q = document.getElementById('messages-search').value.trim().toLowerCase();
+  if(!q){ renderConversationsListHTML(CONVERSATIONS_CACHE); return; }
+  const filtered = CONVERSATIONS_CACHE.filter(m => m.colis_reference && m.colis_reference.toLowerCase().includes(q));
+  renderConversationsListHTML(filtered);
+}
+function renderConversationsListHTML(source){
+  const box = document.getElementById('conversations-list');
+  if(!source.length){
+    box.innerHTML = `<div class="empty-state"><div class="em">💬</div><p>Aucun message trouvé.</p></div>`;
+    return;
+  }
+  // Regrouper par fil : colis_reference si presente, sinon paire de pays (conversation libre)
+  const groupes = {};
+  source.forEach(m=>{
+    const cle = m.colis_reference ? ('colis:'+m.colis_reference) : ('libre:'+m.pays_a+'-'+m.pays_b);
+    if(!groupes[cle]) groupes[cle] = [];
+    groupes[cle].push(m);
+  });
+  const fils = Object.values(groupes).map(msgs=>msgs.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+  fils.sort((a,b)=> new Date(b[0].created_at) - new Date(a[0].created_at));
+
+  box.innerHTML = fils.map(msgs=>{
+    const dernier = msgs[0];
+    const autrePays = dernier.pays_a === currentAgent.pays ? dernier.pays_b : dernier.pays_a;
+    const titre = dernier.colis_reference ? ('📦 ' + dernier.colis_reference) : ('Conversation avec ' + nomAffichagePays(autrePays));
+    const dateStr = new Date(dernier.created_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+    return `<div class="checklist-item" style="cursor:pointer;" onclick='ouvrirThread(${JSON.stringify(dernier.colis_reference).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_a).replace(/'/g,"&#39;")}, ${JSON.stringify(dernier.pays_b).replace(/'/g,"&#39;")})'>
+      <div class="txt">
+        <div class="r">${titre}</div>
+        <div class="d">${nomAffichagePays(autrePays)} · ${(dernier.contenu||'').substring(0,60)}${(dernier.contenu||'').length>60?'…':''}</div>
+        <div class="d" style="font-size:10.5px;">${dateStr}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 async function ouvrirThread(colisReference, paysA, paysB){
   threadActuel = { colisReference: colisReference || null, paysA, paysB };
   const autrePays = paysA === currentAgent.pays ? paysB : paysA;
   document.getElementById('thread-title').textContent = colisReference ? ('📦 ' + colisReference) : ('Conversation avec ' + nomAffichagePays(autrePays));
   document.getElementById('thread-delete-conv-btn').style.display = (currentAgent.role==='Admin') ? 'flex' : 'none';
+  document.getElementById('thread-voir-fiche-btn').style.display = colisReference ? 'block' : 'none';
   document.getElementById('thread-messages').innerHTML = skeletonHTML(2);
   document.getElementById('thread-input').value = '';
   pushModalHistoryState();
   document.getElementById('thread-modal').style.display = 'flex';
   await rafraichirThread();
+}
+function voirFicheDepuisThread(){
+  if(!threadActuel || !threadActuel.colisReference) return;
+  document.getElementById('thread-modal').style.display = 'none';
+  naviguerVersColisDepuisModal(threadActuel.colisReference);
 }
 async function rafraichirThread(){
   if(!threadActuel) return;
