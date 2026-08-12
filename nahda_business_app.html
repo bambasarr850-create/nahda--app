@@ -595,6 +595,7 @@
         <button class="btn btn-outline" onclick="document.getElementById('commentaire-modal').style.display='none'">Annuler</button>
         <button class="btn btn-primary" onclick="validerCommentaireColis()">Envoyer</button>
       </div>
+      <button class="btn" style="width:100%;margin-top:8px;background:none;color:var(--red);font-size:12.5px;" onclick="resoudreCommentaireColis()">✅ Marquer résolu / effacer le commentaire</button>
     </div>
   </div>
 
@@ -916,7 +917,7 @@ async function api(action, payload={}, silencieux=false){
       'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
-      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme',
+      'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme','resoudreProbleme',
       'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
@@ -1112,6 +1113,11 @@ async function apiSupabase(action, p){
           contenu: '⚠️ Problème signalé : ' + (p.commentaire||''), type: 'auto_commentaire'
         }).then(()=>{});
       }
+      data = { reference: p.reference };
+
+    } else if(action==='resoudreProbleme'){
+      const { error } = await sb.from('colis').update({ probleme: false, commentaire_arrivee: '' }).eq('reference', p.reference);
+      if(error) throw new Error(traduireErreur(error.message));
       data = { reference: p.reference };
 
     } else if(action==='validerPaiementRetrait'){
@@ -2558,7 +2564,7 @@ function renderVoyageColisListWithActions(list, v){
       </div>
       <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;flex-wrap:wrap;">
         <button class="btn btn-outline" onclick='naviguerVersColisDepuisModal("${c.reference}")'>🔍 Fiche</button>
-        <button class="btn btn-outline" onclick='ouvrirCommentaireColis("${c.reference}", ${JSON.stringify(c.commentaire_arrivee||'')}, () => { renderVoyageColisListWithActions(list, v); })'>💬 Commentaire</button>
+        <button class="btn btn-outline" onclick='ouvrirCommentaireColisVoyage("${c.reference}", "${v.numero}", ${JSON.stringify(c.commentaire_arrivee||'').replace(/'/g,"&#39;")})'>💬 Commentaire</button>
         ${(peutGerer && Number(c.statut)===1) ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
         <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
         ${(peutGerer && Number(c.statut)!==1) ? `<span style="font-size:11px;color:var(--muted);align-self:center;">🔒 Colis ${Number(c.statut)>=2?'déjà arrivé/retiré':''} — modification impossible (trésorerie déjà impactée)</span>` : ''}
@@ -2572,6 +2578,13 @@ function toggleColisActions(index){
   const visible = el.style.display === 'flex';
   document.querySelectorAll('[id^="colis-actions-"]').forEach(d=>d.style.display='none');
   el.style.display = visible ? 'none' : 'flex';
+}
+function ouvrirCommentaireColisVoyage(reference, numero, commentaireExistant){
+  ouvrirCommentaireColis(reference, commentaireExistant, async () => {
+    BILAN_DETAIL_CACHE = await api('listColisParVoyage', {numero});
+    const v = HISTORIQUE_CACHE.find(x=>x.numero===numero) || {numero, pays_origine: currentAgent.pays};
+    renderVoyageColisListWithActions(BILAN_DETAIL_CACHE, v);
+  });
 }
 function modifierPoidsTranche(reference, numero, poidsActuel){
   showPromptGeneric('Poids envoyé sur CE voyage précis (kg) pour ' + reference, poidsActuel, async (nouveauPoids) => {
@@ -2773,7 +2786,7 @@ function renderArriveeListHTML(list){
       </div>
       <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;">
         <button class="btn btn-outline" onclick="showColisInfoModal('${t.reference}')">🔍 Fiche</button>
-        <button class="btn btn-outline" onclick="ouvrirCommentaireColis('${t.reference}', ${JSON.stringify(t.commentaire_arrivee||'')}, renderArriveeList)">💬 Commentaire</button>
+        <button class="btn btn-outline" onclick='ouvrirCommentaireColis("${t.reference}", ${JSON.stringify(t.commentaire_arrivee||'').replace(/'/g,"&#39;")}, renderArriveeList)'>💬 Commentaire</button>
       </div>
     </div>`).join('');
   box.innerHTML = html;
@@ -2845,6 +2858,20 @@ function ouvrirCommentaireColis(reference, commentaireExistant, onRefresh){
   document.getElementById('commentaire-ref-label').textContent = 'Colis ' + reference;
   document.getElementById('commentaire-texte').value = commentaireExistant || '';
   document.getElementById('commentaire-modal').style.display = 'flex';
+}
+async function resoudreCommentaireColis(){
+  if(!commentaireColisRef) return;
+  const ref = commentaireColisRef;
+  const cb = commentaireRefreshCallback;
+  showConfirmGeneric('Effacer le commentaire et marquer ce problème comme résolu pour ' + ref + ' ?', async () => {
+    document.getElementById('commentaire-modal').style.display = 'none';
+    try{
+      await api('resoudreProbleme', {reference: ref});
+      showToast('✅ Problème résolu, commentaire effacé');
+      if(cb) await cb();
+      else await renderArriveeList();
+    }catch(e){}
+  }, '✅');
 }
 async function validerCommentaireColis(){
   const commentaire = document.getElementById('commentaire-texte').value.trim();
