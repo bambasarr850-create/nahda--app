@@ -1251,10 +1251,10 @@ async function apiSupabase(action, p){
       const { data: exps, error } = await sb.from('expeditions').select('*').eq('voyage', p.numero).eq('statut', 0);
       if(error) throw new Error(traduireErreur(error.message));
       const refs = (exps||[]).map(e=>e.reference);
-      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme').in('reference', refs.length?refs:['']);
+      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme,commentaire_arrivee').in('reference', refs.length?refs:['']);
       data = (exps||[]).map(e => {
         const c = (colis||[]).find(x=>x.reference===e.reference) || {};
-        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false };
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false, commentaire_arrivee: c.commentaire_arrivee||'' };
       });
 
     } else if(action==='bilan' || action==='bilanDetail'){
@@ -2551,13 +2551,14 @@ function renderVoyageColisListWithActions(list, v){
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
         <div class="txt">
-          <div class="r">${c.reference}</div>
+          <div class="r">${c.reference}${c.probleme?' ⚠️':''}</div>
           <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids_troncon_voyage||0)} kg sur ce voyage</div>
         </div>
         <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
       </div>
-      <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;">
+      <div id="colis-actions-${i}" class="btn-row" style="width:100%;display:none;flex-wrap:wrap;">
         <button class="btn btn-outline" onclick='naviguerVersColisDepuisModal("${c.reference}")'>🔍 Fiche</button>
+        <button class="btn btn-outline" onclick='ouvrirCommentaireColis("${c.reference}", ${JSON.stringify(c.commentaire_arrivee||'')}, () => { renderVoyageColisListWithActions(list, v); })'>💬 Commentaire</button>
         ${(peutGerer && Number(c.statut)===1) ? `<button class="btn btn-outline" onclick='modifierPoidsTranche("${c.reference}","${v.numero}",${Number(c.poids_troncon_voyage||0)})'>✏️ Poids</button>
         <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
         ${(peutGerer && Number(c.statut)!==1) ? `<span style="font-size:11px;color:var(--muted);align-self:center;">🔒 Colis ${Number(c.statut)>=2?'déjà arrivé/retiré':''} — modification impossible (trésorerie déjà impactée)</span>` : ''}
@@ -2772,7 +2773,7 @@ function renderArriveeListHTML(list){
       </div>
       <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;">
         <button class="btn btn-outline" onclick="showColisInfoModal('${t.reference}')">🔍 Fiche</button>
-        <button class="btn btn-outline" onclick="ouvrirCommentaireColis('${t.reference}')">💬 Commentaire</button>
+        <button class="btn btn-outline" onclick="ouvrirCommentaireColis('${t.reference}', ${JSON.stringify(t.commentaire_arrivee||'')}, renderArriveeList)">💬 Commentaire</button>
       </div>
     </div>`).join('');
   box.innerHTML = html;
@@ -2837,10 +2838,12 @@ function _genericPromptCancel(){
 }
 
 let commentaireColisRef = null;
-function ouvrirCommentaireColis(reference){
+let commentaireRefreshCallback = null;
+function ouvrirCommentaireColis(reference, commentaireExistant, onRefresh){
   commentaireColisRef = reference;
+  commentaireRefreshCallback = onRefresh || null;
   document.getElementById('commentaire-ref-label').textContent = 'Colis ' + reference;
-  document.getElementById('commentaire-texte').value = '';
+  document.getElementById('commentaire-texte').value = commentaireExistant || '';
   document.getElementById('commentaire-modal').style.display = 'flex';
 }
 async function validerCommentaireColis(){
@@ -2850,7 +2853,8 @@ async function validerCommentaireColis(){
   try{
     await api('signalerProbleme', {reference: commentaireColisRef, commentaire, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
     showToast('⚠️ Problème signalé pour ' + commentaireColisRef);
-    await renderArriveeList();
+    if(commentaireRefreshCallback) await commentaireRefreshCallback();
+    else await renderArriveeList();
   }catch(e){}
 }
 async function confirmerArrivee(){
