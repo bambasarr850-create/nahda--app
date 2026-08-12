@@ -265,7 +265,7 @@
 <div class="phone-wrap">
 <div class="phone" id="phone">
 
-  <div class="statusbar"><span>09:41</span><span>NAHDA · RÉSEAU MA–AFRIQUE</span></div>
+  <div class="statusbar"><span id="statusbar-time">--:--</span><span>NAHDA · RÉSEAU MA–AFRIQUE</span></div>
 
   <!-- ============ LOGIN ============ -->
   <section class="screen active" id="screen-login">
@@ -394,10 +394,16 @@
       <div class="field">
         <label>Photos du colis (plusieurs prises autorisées)</label>
         <div id="nc-photo-gallery" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
-        <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;">
-          📷 PRENDRE UNE PHOTO
-          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
-        </label>
+        <div class="btn-row">
+          <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;flex:1;">
+            📷 PRENDRE UNE PHOTO
+            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
+          </label>
+          <label class="btn btn-outline" style="display:block;text-align:center;cursor:pointer;flex:1;">
+            🖼️ GALERIE
+            <input type="file" accept="image/*" multiple style="display:none;" onchange="onPhoto(event)">
+          </label>
+        </div>
       </div>
 
       <div class="btn-row" style="margin-top:8px;">
@@ -1772,10 +1778,13 @@ function calcTotal(){
   updateResteAPercevoir();
 }
 function onPhoto(e){
-  const f = e.target.files[0]; if(!f) return;
-  const reader = new FileReader();
-  reader.onload = ev=>{ newColisPhotos.push(ev.target.result); renderPhotoGallery(); };
-  reader.readAsDataURL(f);
+  const fichiers = Array.from(e.target.files || []);
+  if(!fichiers.length) return;
+  fichiers.forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{ newColisPhotos.push(ev.target.result); renderPhotoGallery(); };
+    reader.readAsDataURL(f);
+  });
   e.target.value = '';
 }
 function removePhoto(i){ newColisPhotos.splice(i,1); renderPhotoGallery(); }
@@ -3761,6 +3770,13 @@ if(!checkSuiviRouting()){
 }
 updateOfflineBadge();
 if(navigator.onLine) syncOfflineQueue();
+
+function updateStatusbarClock(){
+  const el = document.getElementById('statusbar-time');
+  if(el) el.textContent = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+}
+updateStatusbarClock();
+setInterval(updateStatusbarClock, 30000); // rafraichit toutes les 30s, largement suffisant pour un affichage a la minute pres
 
 
 /* PWA — installation écran d'accueil + cache offline */
