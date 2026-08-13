@@ -671,6 +671,7 @@
             <option value="Maroc">🇲🇦 Casablanca (Maroc)</option>
             <option value="Cote d'Ivoire">🇨🇮 Abidjan (Côte d'Ivoire)</option>
             <option value="Guinee">🇬🇳 Conakry (Guinée)</option>
+            <option value="Senegal">🇸🇳 Dakar (Sénégal)</option>
           </select>
         </div>
         <div class="field">
@@ -3342,7 +3343,8 @@ function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style
 const VILLES_AFFICHE = {
   'Maroc': { ville:'CASABLANCA', flagCode:'MA', adresse:"38 Rue Moussa El Ayoubi, Bourgogne", tels:['+212 629 20 43 75','+212 669 79 05 18'] },
   "Cote d'Ivoire": { ville:'ABIDJAN', flagCode:'CI', adresse:"Abobo Plaque Anador, près de la Mosquée Koweit", tels:['+225 07 88 92 38 44','+225 07 06 80 47 10'] },
-  'Guinee': { ville:'CONAKRY', flagCode:'GN', adresse:"Hamdallaye, Carrefour Dar Essalam", tels:['+224 611 79 18 07','+224 610 02 87 74'] }
+  'Guinee': { ville:'CONAKRY', flagCode:'GN', adresse:"Hamdallaye, Carrefour Dar Essalam", tels:['+224 611 79 18 07','+224 610 02 87 74'] },
+  'Senegal': { ville:'DAKAR', flagCode:'SN', adresse:"Guédiawaye, Hamo 04, en face Supeco", tels:['+221 77 484 96 71','+221 78 544 98 27'] }
 };
 function onAfficheDepartChange(){
   const depart = document.getElementById('aff-depart').value;
@@ -3350,7 +3352,7 @@ function onAfficheDepartChange(){
   sel.innerHTML = '';
   Object.keys(VILLES_AFFICHE).filter(p=>p!==depart).forEach(p=>{
     const opt = document.createElement('option');
-    opt.value = p; opt.textContent = (p==='Maroc'?'🇲🇦':p==="Cote d'Ivoire"?'🇨🇮':'🇬🇳') + ' ' + VILLES_AFFICHE[p].ville;
+    opt.value = p; opt.textContent = flagEmoji(VILLES_AFFICHE[p].flagCode) + ' ' + VILLES_AFFICHE[p].ville;
     sel.appendChild(opt);
   });
 }
@@ -3395,6 +3397,20 @@ function afficheDrawFlag(ctx, pays, x, y, w, h){
     ctx.fillStyle = '#F77F00'; ctx.fillRect(x, y, w/3, h);
     ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x+w/3, y, w/3, h);
     ctx.fillStyle = '#009E60'; ctx.fillRect(x+2*w/3, y, w/3, h);
+  } else if(pays === 'Senegal'){
+    ctx.fillStyle = '#00853F'; ctx.fillRect(x, y, w/3, h);
+    ctx.fillStyle = '#FDEF42'; ctx.fillRect(x+w/3, y, w/3, h);
+    ctx.fillStyle = '#E31B23'; ctx.fillRect(x+2*w/3, y, w/3, h);
+    ctx.fillStyle = '#00853F';
+    const cx = x+w/2, cy = y+h/2, rOuter = h*0.28, rInner = rOuter*0.382;
+    ctx.beginPath();
+    for(let i=0;i<10;i++){
+      const r = i%2===0 ? rOuter : rInner;
+      const a = -Math.PI/2 + i*(Math.PI/5);
+      const px = cx + r*Math.cos(a), py = cy + r*Math.sin(a);
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.fill();
   }
   ctx.restore();
   ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
