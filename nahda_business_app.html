@@ -222,6 +222,22 @@
   @keyframes planeSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 
   .result-card{background:var(--white);border-radius:16px;border:1px solid var(--line);padding:16px;margin-top:6px;}
+  .rc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--sand-2);}
+  .rc-ref{font-family:var(--font-mono);font-weight:800;font-size:20px;color:var(--navy);letter-spacing:.3px;}
+  .rc-ref-label{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+  .rc-route{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:16px;padding:12px;background:var(--sand);border-radius:12px;}
+  .rc-route-city{font-weight:700;font-size:13px;color:var(--navy);text-align:center;}
+  .rc-route-flag{font-size:22px;line-height:1;}
+  .rc-route-arrow{color:var(--gold);font-size:16px;}
+  .rc-section-title{font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 6px;}
+  .rc-section-title:first-of-type{margin-top:0;}
+  .rc-stats{display:flex;gap:10px;margin:6px 0 14px;}
+  .rc-stat{flex:1;background:var(--navy);border-radius:12px;padding:12px 10px;text-align:center;}
+  .rc-stat .lbl{font-size:9px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+  .rc-stat .val{font-family:var(--font-mono);font-weight:800;color:#FFFFFF;font-size:15px;}
+  .rc-stat.gold{background:var(--gold);}
+  .rc-stat.gold .lbl{color:rgba(11,74,64,.65);}
+  .rc-stat.gold .val{color:var(--navy);}
   .result-row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--sand-2);font-size:13px;}
   .result-row .k{flex:none;white-space:nowrap;}
   .result-row .v{text-align:right;}
@@ -231,11 +247,11 @@
 
   .timeline{display:flex;justify-content:space-between;margin:18px 0 6px;position:relative;}
   .timeline::before{content:"";position:absolute;top:9px;left:14px;right:14px;height:2px;background:var(--sand-2);}
-  .tl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1;}
-  .tl-dot{width:20px;height:20px;border-radius:50%;background:var(--sand-2);border:2px solid var(--sand-2);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
-  .tl-dot.done{background:var(--green);border-color:var(--green);}
-  .tl-dot.current{background:var(--gold);border-color:var(--gold);}
-  .tl-label{font-size:9px;color:var(--muted);text-align:center;}
+  .tl-step{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;position:relative;z-index:1;}
+  .tl-dot{width:24px;height:24px;border-radius:50%;background:var(--sand-2);border:2px solid var(--white);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;box-shadow:0 0 0 1px var(--sand-2);}
+  .tl-dot.done{background:var(--green);box-shadow:0 0 0 1px var(--green);}
+  .tl-dot.current{background:var(--gold);box-shadow:0 0 0 3px rgba(200,155,60,.25);}
+  .tl-label{font-size:9px;color:var(--muted);text-align:center;font-weight:600;}
 
   .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:transform .12s;}
   .bilan-card:active{transform:scale(.98);background:var(--sand-2);}
@@ -489,11 +505,15 @@
         <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
       </div>
       <div id="rt-fiche"></div>
+      <div id="rt-dispo-info" style="display:none;background:var(--sand);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;"></div>
       <div class="field">
-        <label>Montant payé à destination</label>
+        <label>Poids à retirer aujourd'hui (kg)</label>
+        <input id="rt-poids-retrait" type="number" placeholder="0" oninput="updateRetraitDevise()">
+      </div>
+      <div class="field">
+        <label>Montant payé aujourd'hui</label>
         <input id="rt-montant" type="number" placeholder="0" oninput="updateRetraitDevise()">
         <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
-        <div id="rt-montant-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:4px;">🔒 Montant fixé automatiquement — seul l'administrateur peut le modifier</div>
       </div>
       <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
       <div class="field">
@@ -509,9 +529,13 @@
         <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00">
         <div style="font-size:11px;color:var(--muted);margin-top:4px;">Pré-rempli avec les infos du client — modifie si une autre personne vient récupérer le colis.</div>
       </div>
+      <div class="field">
+        <label>Commentaire sur cette visite (optionnel)</label>
+        <textarea id="rt-commentaire" rows="2" placeholder="ex : reste 20kg à venir la semaine prochaine..."></textarea>
+      </div>
+      <div id="rt-historique-visites"></div>
       <div class="btn-row">
-        <button class="btn btn-gold" id="rt-valider-btn" onclick="validerPaiementRetrait()">💰 VALIDER PAIEMENT</button>
-        <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 MARQUER RETIRÉ</button>
+        <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 ENREGISTRER LE RETRAIT</button>
       </div>
     </div>
   </section>
@@ -934,7 +958,7 @@ async function api(action, payload={}, silencieux=false){
   if(!silencieux) beginRequest();
   try{
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
-      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire',
+      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire','enregistrerRetraitPartiel','listRetraitsColis',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
       'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme','resoudreProbleme',
@@ -1148,6 +1172,40 @@ async function apiSupabase(action, p){
       }
       data = { reference: p.reference };
 
+    } else if(action==='enregistrerRetraitPartiel'){
+      const { data: c } = await sb.from('colis').select('poids,poids_arrive,poids_retire,statut_paiement_depart,total,montant_avance').eq('reference', p.reference).maybeSingle();
+      if(!c) throw new Error('Colis introuvable');
+      const poidsDisponible = Number(c.poids_arrive||0) - Number(c.poids_retire||0);
+      const poidsCetteFois = Number(p.poids||0);
+      if(poidsCetteFois <= 0) throw new Error('Poids à retirer invalide');
+      if(poidsCetteFois > poidsDisponible + 0.001) throw new Error('Poids demandé supérieur à ce qui est disponible ('+poidsDisponible.toLocaleString('fr-FR')+' kg)');
+
+      const { error: errRpc } = await sb.rpc('enregistrer_retrait', { p_reference: p.reference, p_poids: poidsCetteFois, p_montant: Number(p.montant||0) });
+      if(errRpc) throw new Error(traduireErreur(errRpc.message));
+
+      await sb.from('retraits').insert({
+        reference: p.reference, poids: poidsCetteFois, montant: Number(p.montant||0), compte: p.compte || '',
+        nom_retirant: p.retirantNom || '', telephone_retirant: p.retirantTel || '', commentaire: p.commentaire || '',
+        agent_nom: p.agentNom || '', agent_pays: p.agentPays || ''
+      });
+
+      if(p.commentaire && p.commentaire.trim()){
+        const { data: cInfo } = await sb.from('colis').select('pays_origine,pays_destination').eq('reference', p.reference).maybeSingle();
+        if(cInfo && cInfo.pays_origine && cInfo.pays_destination && (cInfo.pays_origine==='Maroc' || cInfo.pays_destination==='Maroc')){
+          sb.from('messages').insert({
+            colis_reference: p.reference, pays_a: cInfo.pays_origine, pays_b: cInfo.pays_destination,
+            auteur_pays: p.agentPays || '', auteur_nom: p.agentNom || '',
+            contenu: '📦 Retrait partiel (' + poidsCetteFois.toLocaleString('fr-FR') + ' kg) : ' + p.commentaire.trim(), type: 'auto_commentaire'
+          }).then(()=>{});
+        }
+      }
+      data = { reference: p.reference, poidsRetireCetteFois: poidsCetteFois };
+
+    } else if(action==='listRetraitsColis'){
+      const { data: rows, error } = await sb.from('retraits').select('*').eq('reference', p.reference).order('created_at', { ascending: false });
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows || [];
+
     } else if(action==='validerPaiementRetrait'){
       const { data: c } = await sb.from('colis').select('statut_paiement_depart,total,montant_avance').eq('reference', p.reference).maybeSingle();
       if(!c) throw new Error('Colis introuvable');
@@ -1157,7 +1215,7 @@ async function apiSupabase(action, p){
         if(Number(p.montant||0) < attendu - 0.01) throw new Error('Montant insuffisant : '+attendu+' MAD attendus');
       }
       const { data: majPaie, error } = await sb.from('colis').update({ montant_retrait: p.montant, compte_retrait: p.compte }).eq('reference', p.reference).select();
-      if(error || !majPaie || !majPaie.length) throw new Error(error ? error.message : 'Validation refusee (verifie que ce colis est bien destine a ton pays)');
+      if(error || !majPaie || !majPaie.length) throw new Error(error ? traduireErreur(error.message) : 'Validation refusee (verifie que ce colis est bien destine a ton pays)');
       data = { reference: p.reference };
 
     } else if(action==='marquerRetire'){
@@ -1294,8 +1352,14 @@ async function apiSupabase(action, p){
     } else if(action==='bilan' || action==='bilanDetail'){
       const { data: allColis, error } = await sb.from('colis').select('*');
       if(error) throw new Error(traduireErreur(error.message));
+      const { data: allRetraits } = await sb.from('retraits').select('*');
       const colisDest = p.pays ? allColis.filter(c=>c.pays_destination===p.pays) : allColis;
       const colisOrig = p.pays ? allColis.filter(c=>c.pays_origine===p.pays) : allColis;
+      // Chaque visite de retrait avec sa vraie date, rattachee au colis concerne (pour filtrer par pays)
+      const visitesRetrait = (allRetraits||[]).map(r=>{
+        const col = allColis.find(c=>c.reference===r.reference) || {};
+        return { ...r, pays_destination: col.pays_destination, nom_client: r.nom_retirant || col.nom_client };
+      }).filter(r => !p.pays || r.pays_destination===p.pays);
       const dansPeriode = (dateValeur, dateUnique, dateDebut, dateFin) => {
         if(!dateDebut && !dateFin){
           if(!dateUnique) return true;
@@ -1309,7 +1373,7 @@ async function apiSupabase(action, p){
       };
       const filtreActif = !!(p.date || p.dateDebut || p.dateFin);
       const jourCreation = filtreActif ? colisOrig.filter(c=>dansPeriode(c.date_creation, p.date, p.dateDebut, p.dateFin)) : colisOrig;
-      const jourRetrait = filtreActif ? colisDest.filter(c=>dansPeriode(c.date_retrait, p.date, p.dateDebut, p.dateFin)) : colisDest;
+      const jourRetraitVisites = filtreActif ? visitesRetrait.filter(r=>dansPeriode(r.created_at, p.date, p.dateDebut, p.dateFin)) : visitesRetrait;
 
       if(action==='bilan'){
         data = {
@@ -1319,9 +1383,9 @@ async function apiSupabase(action, p){
             if(c.statut_paiement_depart==='Partiel') return s+Number(c.montant_avance||0);
             return s;
           },0),
-          totalEncaisseRetrait: jourRetrait.reduce((s,c)=>s+Number(c.montant_retrait||0),0),
+          totalEncaisseRetrait: jourRetraitVisites.reduce((s,r)=>s+Number(r.montant||0),0),
           nbColisJour: jourCreation.length,
-          nbRetraitsJour: jourRetrait.length,
+          nbRetraitsJour: jourRetraitVisites.length,
           totalColis: colisOrig.length,
           enAttente: colisOrig.filter(c=>Number(c.statut)===0).length,
           enVoyage: colisOrig.filter(c=>Number(c.statut)===1).length,
@@ -1330,12 +1394,22 @@ async function apiSupabase(action, p){
         };
       } else {
         let result;
+        let dejaTraiteEncaisseRetrait = false;
         switch(p.type){
           case 'payeDepart':
             result = jourCreation.filter(c=>c.statut_paiement_depart==='Paye'||c.statut_paiement_depart==='Payé'||(c.statut_paiement_depart==='Partiel'&&Number(c.montant_avance)>0));
             break;
           case 'encaisseRetrait':
-            result = jourRetrait.filter(c=>Number(c.montant_retrait)>0);
+            // Une ligne par visite (pas par colis) : un colis retire en 2 fois donne 2 lignes, chacune a sa vraie date
+            data = jourRetraitVisites
+              .filter(r=>Number(r.montant)>0)
+              .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+              .map(r=>({
+                reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
+                poids: r.poids, prix_kg: null, total: r.montant, montant_retrait: r.montant,
+                statut: 3, statut_paiement_depart: null, date_creation: r.created_at
+              }));
+            dejaTraiteEncaisseRetrait = true;
             break;
           case 'enAttente':
             result = colisOrig.filter(c=>Number(c.statut)===0);
@@ -1353,15 +1427,17 @@ async function apiSupabase(action, p){
           default:
             result = colisOrig;
         }
-        result = [...result].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
-        data = result.map(c=>{
-          const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
-          return {
-            reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
-            poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
-            montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart
-          };
-        });
+        if(!dejaTraiteEncaisseRetrait){
+          result = [...result].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
+          data = result.map(c=>{
+            const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
+            return {
+              reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
+              poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
+              montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart
+            };
+          });
+        }
       }
 
     } else if(action==='updatePrix'){
@@ -2297,23 +2373,47 @@ function renderResultCard(c, showAdminActions, isPublic){
     : `<div class="result-row"><span class="k">Contenu</span><span class="v">${c.contenu||'—'}</span></div>
        <div class="result-row"><span class="k">Poids</span><span class="v">${c.poids} kg</span></div>`;
 
+  const statutPillClass = 'st-'+statut;
+  const flagOrigine = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_origine);
+  const flagDest = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_destination);
+  const routeBlock = (c.pays_origine || c.pays_destination) ? `
+    <div class="rc-route">
+      <div class="rc-route-city">${flagOrigine ? `<div class="rc-route-flag">${flagEmoji(flagOrigine.flag)}</div>` : ''}${c.pays_origine||'—'}</div>
+      <div class="rc-route-arrow">✈</div>
+      <div class="rc-route-city">${flagDest ? `<div class="rc-route-flag">${flagEmoji(flagDest.flag)}</div>` : ''}${c.pays_destination||'—'}${c.agence_destination ? `<br><span style="font-weight:400;font-size:10.5px;color:var(--muted);">${c.agence_destination}</span>` : ''}</div>
+    </div>` : '';
+
   return `<div class="result-card">
+    <div class="rc-header">
+      <div><div class="rc-ref-label">Référence</div><div class="rc-ref">${c.reference}</div></div>
+      <span class="status-pill ${statutPillClass}">${STATUT_LABELS[statut]||''}</span>
+    </div>
     ${photoBlock}
-    <div class="result-row"><span class="k">Référence</span><span class="v">${c.reference}</span></div>
-    <div class="result-row"><span class="k">Client</span><span class="v">${c.nom_client}</span></div>
+    ${routeBlock}
+    <div class="rc-stats">
+      <div class="rc-stat gold"><div class="lbl">Total</div><div class="val">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>${deviseLine?`<div style="font-size:9.5px;color:rgba(11,74,64,.7);margin-top:2px;">${deviseLine.replace(/<[^>]+>/g,'').trim()}</div>`:''}</div>
+      <div class="rc-stat"><div class="lbl">Valeur déclarée</div><div class="val">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')}</div></div>
+    </div>
+
+    <div class="rc-section-title">👤 Client</div>
+    <div class="result-row"><span class="k">Nom</span><span class="v">${c.nom_client}</span></div>
     <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
-    <div class="result-row"><span class="k">Destination</span><span class="v">${c.pays_destination} — ${c.agence_destination}</span></div>
+
+    <div class="rc-section-title">📦 Contenu</div>
+    ${contenuBlock}
     ${statut>=1 && c.voyage ? `<div class="result-row"><span class="k">N° voyage</span><span class="v">${c.voyage}</span></div>` : ''}
     ${statut>=1 && c.voyage_transporteur && !isPublic ? `<div class="result-row"><span class="k">Voyageur</span><span class="v">${c.voyage_transporteur}</span></div>` : ''}
     ${statut>=1 && c.voyage_date_depart ? `<div class="result-row"><span class="k">Date de départ</span><span class="v">${new Date(c.voyage_date_depart).toLocaleDateString('fr-FR')}</span></div>` : ''}
-    ${contenuBlock}
     ${expeditionsBlock}
-    <div class="result-row"><span class="k">Total</span><span class="v">${Number(c.total||0).toLocaleString('fr-FR')} MAD${deviseLine}</span></div>
+
+    <div class="rc-section-title">💳 Paiement</div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
     ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
+
+    ${(c.commentaire_arrivee || c.nom_retirant) && !isPublic ? `<div class="rc-section-title">📋 Suivi</div>` : ''}
     ${c.commentaire_arrivee && !isPublic ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
     ${c.nom_retirant && !isPublic ? `<div class="result-row"><span class="k">Retiré par</span><span class="v">${c.nom_retirant} — ${c.telephone_retirant||''}</span></div>` : ''}
-    <div class="result-row"><span class="k">Valeur déclarée</span><span class="v">${Number(c.valeur_declaree||0).toLocaleString('fr-FR')} MAD</span></div>
+
     <div class="timeline">${steps}</div>
     ${receiptBtn}
     ${adminActions}
@@ -2947,7 +3047,6 @@ async function chargerRetrait(){
   const ref = document.getElementById('rt-ref').value.trim();
   const box = document.getElementById('rt-fiche');
   if(!ref) return;
-  retraitPaiementValide = false;
   box.innerHTML = skeletonHTML(1);
   try{
     if(!DESTINATIONS_CACHE.length) DESTINATIONS_CACHE = await api('listDestinations');
@@ -2956,36 +3055,56 @@ async function chargerRetrait(){
       box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p><b>Retrait réservé à l'agence de destination : ${c.pays_destination}</b></p></div>`;
       retraitCourant = null; updateRetireButtonState(); return;
     }
-    if(Number(c.statut) === 3){
-      box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p style="font-size:15px;font-weight:700;color:var(--green);">Ce colis a déjà été retiré.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Retrait effectué le ${c.date_retrait ? new Date(c.date_retrait).toLocaleDateString('fr-FR') : '—'}.</p></div>`;
+    const poidsArrive = Number(c.poids_arrive||0);
+    const poidsRetire = Number(c.poids_retire||0);
+    const poidsDisponible = Math.max(0, poidsArrive - poidsRetire);
+    if(Number(c.statut) === 3 || (poidsDisponible <= 0.001 && poidsArrive >= Number(c.poids||0) - 0.001)){
+      box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p style="font-size:15px;font-weight:700;color:var(--green);">Ce colis a déjà été entièrement retiré.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Dernier retrait le ${c.date_retrait ? new Date(c.date_retrait).toLocaleDateString('fr-FR') : '—'}.</p></div>`;
       retraitCourant = null; updateRetireButtonState(); return;
     }
-    if(Number(c.statut) !== 2){
-      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p style="font-size:15px;font-weight:700;color:var(--amber);">Ce colis n'est pas encore arrivé.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Statut actuel : ${STATUT_LABELS[Number(c.statut)]}</p></div>`;
+    if(poidsDisponible <= 0.001){
+      box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p style="font-size:15px;font-weight:700;color:var(--amber);">Aucun poids disponible au retrait pour l'instant.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Ce colis n'est pas encore arrivé, ou tout ce qui est arrivé a déjà été retiré.</p></div>`;
       retraitCourant = null; updateRetireButtonState(); return;
     }
     retraitCourant = c;
     box.innerHTML = renderResultCard(c, false);
     document.getElementById('rt-retirant-nom').value = c.nom_client || '';
     document.getElementById('rt-retirant-tel').value = c.telephone || '';
-    // Si le paiement a deja ete valide precedemment (montant_retrait deja enregistre en base),
-    // pas besoin de le redemander meme si l'agent avait quitte la page sans marquer "retire"
-    retraitPaiementValide = Number(c.montant_retrait||0) > 0;
-    const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0));
+    document.getElementById('rt-commentaire').value = '';
+    document.getElementById('rt-poids-retrait').value = poidsDisponible;
+    document.getElementById('rt-poids-retrait').max = poidsDisponible;
+
+    const dispoBox = document.getElementById('rt-dispo-info');
+    dispoBox.style.display = 'block';
+    dispoBox.innerHTML = `📦 <b>${poidsDisponible.toLocaleString('fr-FR')} kg</b> disponibles au retrait sur <b>${Number(c.poids||0).toLocaleString('fr-FR')} kg</b> au total`
+      + (poidsRetire > 0 ? `<br><span style="color:var(--muted);font-size:11.5px;">${poidsRetire.toLocaleString('fr-FR')} kg déjà retirés lors d'une visite précédente</span>` : '');
+
+    const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0) - Number(c.montant_retrait||0));
     retraitCourant.resteAttendu = resteAPercevoir;
     document.getElementById('rt-montant').value = resteAPercevoir;
-    const montantInput = document.getElementById('rt-montant');
-    montantInput.readOnly = (currentAgent.role !== 'Admin');
-    document.getElementById('rt-montant-lock-note').style.display = (currentAgent.role !== 'Admin') ? 'block' : 'none';
-    if(Number(c.montant_avance||0) > 0){
-      showToast('ℹ️ Avance de '+Number(c.montant_avance).toLocaleString('fr-FR')+' MAD déjà versée au départ — reste à percevoir : '+resteAPercevoir.toLocaleString('fr-FR')+' MAD');
-    }
     updateRetireButtonState();
     await updateRetraitDevise();
+    await chargerHistoriqueRetraits(ref);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
     retraitCourant = null; updateRetireButtonState();
   }
+}
+async function chargerHistoriqueRetraits(reference){
+  const box = document.getElementById('rt-historique-visites');
+  try{
+    const visites = await api('listRetraitsColis', {reference});
+    if(!visites.length){ box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="rc-section-title">🕓 Visites précédentes</div>` + visites.map(v=>`
+      <div class="result-row" style="display:block;">
+        <div style="display:flex;justify-content:space-between;">
+          <span class="k">${new Date(v.created_at).toLocaleDateString('fr-FR')}</span>
+          <span class="v">${Number(v.poids).toLocaleString('fr-FR')} kg · ${Number(v.montant).toLocaleString('fr-FR')} MAD</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${v.nom_retirant||''} ${v.telephone_retirant?'· '+v.telephone_retirant:''}</div>
+        ${v.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${v.commentaire} »</div>` : ''}
+      </div>`).join('');
+  }catch(e){ box.innerHTML = ''; }
 }
 async function updateRetraitDevise(){
   const box = document.getElementById('rt-montant-devise');
@@ -3004,21 +3123,16 @@ async function updateRetraitDevise(){
 }
 function updateRetireButtonState(){
   const btn = document.getElementById('rt-retire-btn');
-  const validerBtn = document.getElementById('rt-valider-btn');
   const compteSelect = document.getElementById('rt-compte');
   const OPTION_PAYE_DEPART = 'Payé au pays de départ';
   const existeDeja = Array.from(compteSelect.options).some(o=>o.value===OPTION_PAYE_DEPART);
   if(!retraitCourant){
     btn.disabled = true;
-    validerBtn.disabled = false;
-    document.getElementById('rt-montant').readOnly = false;
-    document.getElementById('rt-montant-lock-note').style.display = 'none';
     if(existeDeja) compteSelect.remove(0);
     return;
   }
+  btn.disabled = false;
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
-  btn.disabled = !(paiementDepartOk || retraitPaiementValide);
-  validerBtn.disabled = paiementDepartOk || retraitPaiementValide; // rien a valider : deja regle (au depot ou au retrait)
   if(paiementDepartOk && !existeDeja){
     const opt = document.createElement('option');
     opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
@@ -3055,27 +3169,29 @@ async function marquerRetire(){
     showToast('⚠️ Le nom et le téléphone de la personne qui retire sont obligatoires');
     return;
   }
-  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
+  const poidsARetirer = parseFloat(document.getElementById('rt-poids-retrait').value) || 0;
+  if(poidsARetirer <= 0){ showToast('⚠️ Poids à retirer invalide'); return; }
   const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
-  const attendu = Number(retraitCourant.resteAttendu || 0);
-  if(!paiementDepartOk && !retraitPaiementValide){
-    showToast('⚠️ Colis non payé au départ — renseigne le montant et valide le paiement avant de marquer le retrait');
-    return;
-  }
-  if(!paiementDepartOk && montant < attendu - 0.01){
-    showToast('⚠️ Montant insuffisant ('+attendu.toLocaleString('fr-FR')+' MAD attendus) — le retrait ne peut pas être marqué avec un paiement partiel');
-    return;
-  }
+  const commentaire = document.getElementById('rt-commentaire').value.trim();
   try{
-    // On s'assure que le paiement est bien enregistre avant de finaliser le retrait
-    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    await api('marquerRetire', {reference: retraitCourant.reference, date: document.getElementById('rt-date').value, retirantNom, retirantTel, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    showToast('📦 Colis '+retraitCourant.reference+' marqué RETIRÉ');
+    const resultat = await api('enregistrerRetraitPartiel', {
+      reference: retraitCourant.reference, poids: poidsARetirer, montant,
+      compte: document.getElementById('rt-compte').value, retirantNom, retirantTel, commentaire,
+      agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom
+    });
+    const poidsTotal = Number(retraitCourant.poids||0);
+    const poidsRetireTotal = Number(retraitCourant.poids_retire||0) + poidsARetirer;
+    if(poidsRetireTotal >= poidsTotal - 0.001){
+      showToast('📦 Colis '+retraitCourant.reference+' entièrement retiré');
+    } else {
+      showToast('📦 '+poidsARetirer.toLocaleString('fr-FR')+' kg retirés — reste '+(poidsTotal-poidsRetireTotal).toLocaleString('fr-FR')+' kg pour une prochaine visite');
+    }
     await updateKpis();
     document.getElementById('rt-fiche').innerHTML='';
     document.getElementById('rt-ref').value='';
+    document.getElementById('rt-historique-visites').innerHTML='';
+    document.getElementById('rt-dispo-info').style.display='none';
     retraitCourant=null;
-    retraitPaiementValide=false;
   }catch(e){}
 }
 
