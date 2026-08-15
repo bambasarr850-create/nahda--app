@@ -506,13 +506,15 @@
       </div>
       <div id="rt-fiche"></div>
       <div id="rt-dispo-info" style="display:none;background:var(--sand);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;"></div>
-      <div class="field">
+      <div id="rt-lignes-selection" style="display:none;"></div>
+      <div id="rt-poids-simple-wrap" class="field">
         <label>Poids à retirer aujourd'hui (kg)</label>
-        <input id="rt-poids-retrait" type="number" placeholder="0" oninput="updateRetraitDevise()">
+        <input id="rt-poids-retrait" type="number" placeholder="0" oninput="updateMontantSelonPoids()">
       </div>
       <div class="field">
-        <label>Montant payé aujourd'hui</label>
-        <input id="rt-montant" type="number" placeholder="0" oninput="updateRetraitDevise()">
+        <label>Montant à payer aujourd'hui</label>
+        <input id="rt-montant" type="number" placeholder="0" readonly style="background:var(--sand);">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Calculé automatiquement selon le poids retiré (prix moyen du colis) — non modifiable.</div>
         <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
       </div>
       <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
@@ -1186,7 +1188,7 @@ async function apiSupabase(action, p){
       await sb.from('retraits').insert({
         reference: p.reference, poids: poidsCetteFois, montant: Number(p.montant||0), compte: p.compte || '',
         nom_retirant: p.retirantNom || '', telephone_retirant: p.retirantTel || '', commentaire: p.commentaire || '',
-        agent_nom: p.agentNom || '', agent_pays: p.agentPays || ''
+        agent_nom: p.agentNom || '', agent_pays: p.agentPays || '', lignes_retirees: p.lignesRetirees || []
       });
 
       if(p.commentaire && p.commentaire.trim()){
@@ -3071,40 +3073,99 @@ async function chargerRetrait(){
     document.getElementById('rt-retirant-nom').value = c.nom_client || '';
     document.getElementById('rt-retirant-tel').value = c.telephone || '';
     document.getElementById('rt-commentaire').value = '';
-    document.getElementById('rt-poids-retrait').value = poidsDisponible;
-    document.getElementById('rt-poids-retrait').max = poidsDisponible;
 
     const dispoBox = document.getElementById('rt-dispo-info');
     dispoBox.style.display = 'block';
     dispoBox.innerHTML = `📦 <b>${poidsDisponible.toLocaleString('fr-FR')} kg</b> disponibles au retrait sur <b>${Number(c.poids||0).toLocaleString('fr-FR')} kg</b> au total`
       + (poidsRetire > 0 ? `<br><span style="color:var(--muted);font-size:11.5px;">${poidsRetire.toLocaleString('fr-FR')} kg déjà retirés lors d'une visite précédente</span>` : '');
 
-    const resteAPercevoir = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0) - Number(c.montant_retrait||0));
-    retraitCourant.resteAttendu = resteAPercevoir;
-    document.getElementById('rt-montant').value = resteAPercevoir;
+    const visitesPassees = await api('listRetraitsColis', {reference: ref}).catch(()=>[]);
+    const lignes = c.lignes_produits_detail || [];
+    const prixDistincts = [...new Set(lignes.map(l=>Number(l.prixKg)))];
+    const utiliserSelectionParLigne = lignes.length > 1 && prixDistincts.length > 1;
+
+    document.getElementById('rt-lignes-selection').style.display = utiliserSelectionParLigne ? 'block' : 'none';
+    document.getElementById('rt-poids-simple-wrap').style.display = utiliserSelectionParLigne ? 'none' : 'block';
+
+    if(utiliserSelectionParLigne){
+      renderLignesRetraitSelection(lignes, visitesPassees);
+    } else {
+      document.getElementById('rt-poids-retrait').value = poidsDisponible;
+      document.getElementById('rt-poids-retrait').max = poidsDisponible;
+      retraitCourant.resteAttendu = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0) - Number(c.montant_retrait||0));
+      updateMontantSelonPoids();
+    }
+
     updateRetireButtonState();
     await updateRetraitDevise();
-    await chargerHistoriqueRetraits(ref);
+    renderHistoriqueRetraitsDepuisListe(visitesPassees);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
     retraitCourant = null; updateRetireButtonState();
   }
 }
-async function chargerHistoriqueRetraits(reference){
+function renderLignesRetraitSelection(lignes, visitesPassees){
+  const box = document.getElementById('rt-lignes-selection');
+  box.innerHTML = `<div class="rc-section-title">📦 Produits à retirer aujourd'hui</div>` + lignes.map((l,i)=>{
+    const dejaRetire = visitesPassees.reduce((s,v)=>{
+      const match = (v.lignes_retirees||[]).find(lr=>lr.index===i);
+      return s + (match ? Number(match.poids||0) : 0);
+    }, 0);
+    const poidsRestant = Math.max(0, Number(l.poids||0) - dejaRetire);
+    if(poidsRestant <= 0.001) return '';
+    return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:6px;">
+      <div style="display:flex;align-items:center;gap:10px;width:100%;">
+        <input type="checkbox" class="rt-ligne-check" data-index="${i}" data-prix="${l.prixKg}" checked onclick="recalculerRetraitParLignes()">
+        <div class="txt"><div class="r">${l.type}</div><div class="d">${poidsRestant.toLocaleString('fr-FR')} kg restants · ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</div></div>
+      </div>
+      <input type="number" class="rt-ligne-poids" data-index="${i}" data-prix="${l.prixKg}" value="${poidsRestant}" max="${poidsRestant}" style="width:100%;" oninput="recalculerRetraitParLignes()">
+    </div>`;
+  }).join('');
+  recalculerRetraitParLignes();
+}
+function recalculerRetraitParLignes(){
+  let poidsTotal = 0, montantTotal = 0;
+  const lignesRetenues = [];
+  document.querySelectorAll('.rt-ligne-check').forEach(chk=>{
+    const index = Number(chk.dataset.index);
+    const input = document.querySelector('.rt-ligne-poids[data-index="'+index+'"]');
+    input.disabled = !chk.checked;
+    if(chk.checked){
+      const poids = parseFloat(input.value) || 0;
+      const prix = Number(chk.dataset.prix);
+      poidsTotal += poids;
+      montantTotal += poids * prix;
+      lignesRetenues.push({index, poids, prixKg: prix, type: input.closest('.checklist-item').querySelector('.r').textContent});
+    }
+  });
+  document.getElementById('rt-poids-retrait').value = poidsTotal;
+  document.getElementById('rt-montant').value = Math.round(montantTotal);
+  retraitLignesSelectionnees = lignesRetenues;
+  updateRetraitDevise();
+}
+let retraitLignesSelectionnees = [];
+function renderHistoriqueRetraitsDepuisListe(visites){
   const box = document.getElementById('rt-historique-visites');
-  try{
-    const visites = await api('listRetraitsColis', {reference});
-    if(!visites.length){ box.innerHTML = ''; return; }
-    box.innerHTML = `<div class="rc-section-title">🕓 Visites précédentes</div>` + visites.map(v=>`
-      <div class="result-row" style="display:block;">
-        <div style="display:flex;justify-content:space-between;">
-          <span class="k">${new Date(v.created_at).toLocaleDateString('fr-FR')}</span>
-          <span class="v">${Number(v.poids).toLocaleString('fr-FR')} kg · ${Number(v.montant).toLocaleString('fr-FR')} MAD</span>
-        </div>
-        <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${v.nom_retirant||''} ${v.telephone_retirant?'· '+v.telephone_retirant:''}</div>
-        ${v.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${v.commentaire} »</div>` : ''}
-      </div>`).join('');
-  }catch(e){ box.innerHTML = ''; }
+  if(!visites.length){ box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="rc-section-title">🕓 Visites précédentes</div>` + visites.map(v=>`
+    <div class="result-row" style="display:block;">
+      <div style="display:flex;justify-content:space-between;">
+        <span class="k">${new Date(v.created_at).toLocaleDateString('fr-FR')}</span>
+        <span class="v">${Number(v.poids).toLocaleString('fr-FR')} kg · ${Number(v.montant).toLocaleString('fr-FR')} MAD</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${v.nom_retirant||''} ${v.telephone_retirant?'· '+v.telephone_retirant:''}</div>
+      ${v.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${v.commentaire} »</div>` : ''}
+    </div>`).join('');
+}
+function updateMontantSelonPoids(){
+  if(!retraitCourant){ return; }
+  const poidsTotal = Number(retraitCourant.poids||0);
+  const totalColis = Number(retraitCourant.total||0);
+  const prixParKgMoyen = poidsTotal > 0 ? totalColis / poidsTotal : 0;
+  const poidsARetirer = parseFloat(document.getElementById('rt-poids-retrait').value) || 0;
+  const montant = Math.round(poidsARetirer * prixParKgMoyen);
+  document.getElementById('rt-montant').value = montant;
+  updateRetraitDevise();
 }
 async function updateRetraitDevise(){
   const box = document.getElementById('rt-montant-devise');
@@ -3175,7 +3236,7 @@ async function marquerRetire(){
   const commentaire = document.getElementById('rt-commentaire').value.trim();
   try{
     const resultat = await api('enregistrerRetraitPartiel', {
-      reference: retraitCourant.reference, poids: poidsARetirer, montant,
+      reference: retraitCourant.reference, poids: poidsARetirer, montant, lignesRetirees: retraitLignesSelectionnees,
       compte: document.getElementById('rt-compte').value, retirantNom, retirantTel, commentaire,
       agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom
     });
@@ -3191,6 +3252,10 @@ async function marquerRetire(){
     document.getElementById('rt-ref').value='';
     document.getElementById('rt-historique-visites').innerHTML='';
     document.getElementById('rt-dispo-info').style.display='none';
+    document.getElementById('rt-lignes-selection').innerHTML='';
+    document.getElementById('rt-lignes-selection').style.display='none';
+    document.getElementById('rt-poids-simple-wrap').style.display='block';
+    retraitLignesSelectionnees = [];
     retraitCourant=null;
   }catch(e){}
 }
