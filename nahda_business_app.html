@@ -1055,6 +1055,17 @@ async function apiSupabase(action, p){
       c.poids_restant = Math.max(0, Number(c.poids||0) - c.poids_expedie);
       const { data: exps } = await sb.from('expeditions').select('*').eq('reference', c.reference);
       c.expeditions_detail = exps || [];
+      const arriveesParLigne = {};
+      const expedieesParLigne = {};
+      (exps||[]).forEach(e=>{
+        (e.lignes_expediees||[]).forEach(le=>{
+          expedieesParLigne[le.index] = (expedieesParLigne[le.index]||0) + Number(le.poids||0);
+          if(Number(e.statut)===1) arriveesParLigne[le.index] = (arriveesParLigne[le.index]||0) + Number(le.poids||0);
+        });
+      });
+      c.lignes_produits_detail = (c.lignes_produits_detail||[]).map((l,i)=>({
+        ...l, poids_arrive_ligne: arriveesParLigne[i]||0, poids_expedie_ligne: expedieesParLigne[i]||0
+      }));
       if(c.voyage){
         const { data: v } = await sb.from('voyages').select('*').eq('numero', c.voyage).maybeSingle();
         if(v){ c.voyage_transporteur = v.transporteur; c.voyage_date_depart = v.date_depart; }
@@ -1124,7 +1135,7 @@ async function apiSupabase(action, p){
       });
       if(errV) throw new Error(traduireErreur(errV.message));
       for(const item of p.colis){
-        await sb.from('expeditions').insert({ reference: item.reference, voyage: p.numero, poids: item.poids, statut: 0 });
+        await sb.from('expeditions').insert({ reference: item.reference, voyage: p.numero, poids: item.poids, statut: 0, lignes_expediees: item.lignesExpediees || [] });
         const { error: errRpc } = await sb.rpc('expedier_tranche', { p_reference: item.reference, p_poids: Number(item.poids||0), p_voyage: p.numero });
         if(errRpc) throw new Error(traduireErreur(errRpc.message));
       }
@@ -2812,6 +2823,33 @@ function renderDepartSelectionHTML(){
   let html = `<div class="checklist-total">📦 ${departSelection.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total sur ce voyage</div>`;
   html += departSelection.map((c,i)=>{
     const complet = c.poidsEnvoye >= c.poids_restant - 0.001;
+    if(c.lignes){
+      // Colis multi-produits a prix differents : selection precise par ligne
+      const lignesHtml = c.lignes.map((l,li)=>{
+        const dejaExpedie = Number(l.poids_expedie_ligne||0);
+        const restantLigne = Math.max(0, Number(l.poids||0) - dejaExpedie);
+        if(restantLigne <= 0.001) return '';
+        const selectionExistante = c.lignesExpediees.find(r=>r.index===li);
+        const estCochee = c.lignesExpediees.length===0 || selectionExistante;
+        const valeurPoids = selectionExistante ? selectionExistante.poids : restantLigne;
+        return `<div style="border-top:1px dashed var(--sand-2);padding-top:6px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" class="vd-ligne-check-${i}" data-index="${li}" ${estCochee?'checked':''} onclick="updateDepartLignes(${i})">
+            <span style="font-size:12px;font-weight:600;">${l.type} — ${restantLigne.toLocaleString('fr-FR')} kg restants (${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg)</span>
+          </div>
+          <input type="number" class="vd-ligne-poids-${i}" data-index="${li}" data-prix="${l.prixKg}" value="${valeurPoids}" max="${restantLigne}" ${estCochee?'':'disabled'} style="width:100%;margin-top:4px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:12px;" oninput="updateDepartLignes(${i})">
+        </div>`;
+      }).join('');
+      return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;">
+        <div class="txt" style="width:100%;">
+          <div class="r">${c.reference}</div>
+          <div class="d">${c.nom_client} · ${c.pays_destination} — sélectionne les produits envoyés sur ce voyage</div>
+          ${lignesHtml}
+          <span class="status-pill ${complet?'st-2':'st-1'}" style="margin-top:8px;display:inline-block;">${complet ? '✓ Envoi complet' : '◐ Envoi en tranche'}</span>
+        </div>
+        <button onclick="retirerColisDepart('${c.reference}')" style="align-self:flex-end;border:none;background:none;color:var(--red);font-size:18px;font-weight:700;cursor:pointer;">×</button>
+      </div>`;
+    }
     return `
     <div class="checklist-item" style="align-items:flex-start;">
       <div class="txt">
@@ -2827,6 +2865,24 @@ function renderDepartSelectionHTML(){
     </div>`;
   }).join('');
   box.innerHTML = html;
+  departSelection.forEach((c,i)=>{ if(c.lignes) updateDepartLignes(i); });
+}
+function updateDepartLignes(i){
+  const c = departSelection[i];
+  let poidsTotal = 0;
+  const retenues = [];
+  document.querySelectorAll('.vd-ligne-check-'+i).forEach(chk=>{
+    const li = Number(chk.dataset.index);
+    const input = document.querySelector('.vd-ligne-poids-'+i+'[data-index="'+li+'"]');
+    input.disabled = !chk.checked;
+    if(chk.checked){
+      const poids = parseFloat(input.value) || 0;
+      poidsTotal += poids;
+      retenues.push({ index: li, poids, prixKg: Number(input.dataset.prix), type: c.lignes[li].type });
+    }
+  });
+  c.poidsEnvoye = poidsTotal;
+  c.lignesExpediees = retenues;
 }
 function updatePoidsEnvoye(i, value){
   const c = departSelection[i];
@@ -2849,9 +2905,12 @@ async function ajouterColisDepart(){
     if(Number(c.statut) >= 2 || poidsRestant <= 0){ showToast('⚠️ Colis non disponible pour un départ (déjà entièrement expédié ou statut : '+STATUT_LABELS[Number(c.statut)]+')'); return; }
     if(c.pays_destination !== destinationChoisie){ showToast('⚠️ Ce colis est destiné à '+c.pays_destination+', pas à '+destinationChoisie); return; }
     if(departSelection.find(x=>x.reference===c.reference)){ showToast('⚠️ Déjà ajouté'); return; }
+    const lignes = c.lignes_produits_detail || [];
+    const prixDistincts = [...new Set(lignes.map(l=>Number(l.prixKg)))];
     departSelection.push({
       reference:c.reference, nom_client:c.nom_client, pays_destination:c.pays_destination, agence_destination:c.agence_destination,
-      poids: Number(c.poids||0), poids_expedie: Number(c.poids_expedie||0), poids_restant: poidsRestant, poidsEnvoye: poidsRestant
+      poids: Number(c.poids||0), poids_expedie: Number(c.poids_expedie||0), poids_restant: poidsRestant, poidsEnvoye: poidsRestant,
+      lignes: (lignes.length>1 && prixDistincts.length>1) ? lignes : null, lignesExpediees: []
     });
     renderDepartSelectionHTML();
     input.value='';
@@ -2876,7 +2935,7 @@ async function lancerVoyage(){
     await api('lancerVoyage', {
       numero, paysDestination: destinationChoisie, agenceDestination: destInfo.agence || departSelection[0].agence_destination,
       dateDepart: date, transporteur, agentPays: currentAgent ? currentAgent.pays : '',
-      colis: departSelection.map(c=>({reference:c.reference, poids:c.poidsEnvoye}))
+      colis: departSelection.map(c=>({reference:c.reference, poids:c.poidsEnvoye, lignesExpediees: c.lignesExpediees||[]}))
     });
     showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
     document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
@@ -3111,14 +3170,21 @@ function renderLignesRetraitSelection(lignes, visitesPassees){
       const match = (v.lignes_retirees||[]).find(lr=>lr.index===i);
       return s + (match ? Number(match.poids||0) : 0);
     }, 0);
-    const poidsRestant = Math.max(0, Number(l.poids||0) - dejaRetire);
-    if(poidsRestant <= 0.001) return '';
+    const poidsArriveLigne = Number(l.poids_arrive_ligne||0);
+    const poidsDisponibleLigne = Math.max(0, poidsArriveLigne - dejaRetire);
+    if(poidsArriveLigne <= 0.001){
+      return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:4px;opacity:0.6;">
+        <div class="txt"><div class="r">${l.type}</div><div class="d">${Number(l.poids||0).toLocaleString('fr-FR')} kg au total · ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</div></div>
+        <span class="status-pill st-1">⏳ Pas encore arrivé — indisponible au retrait</span>
+      </div>`;
+    }
+    if(poidsDisponibleLigne <= 0.001) return '';
     return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:6px;">
       <div style="display:flex;align-items:center;gap:10px;width:100%;">
         <input type="checkbox" class="rt-ligne-check" data-index="${i}" data-prix="${l.prixKg}" checked onclick="recalculerRetraitParLignes()">
-        <div class="txt"><div class="r">${l.type}</div><div class="d">${poidsRestant.toLocaleString('fr-FR')} kg restants · ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</div></div>
+        <div class="txt"><div class="r">${l.type} <span class="status-pill st-2" style="margin-left:4px;">✓ Arrivé</span></div><div class="d">${poidsDisponibleLigne.toLocaleString('fr-FR')} kg disponibles · ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</div></div>
       </div>
-      <input type="number" class="rt-ligne-poids" data-index="${i}" data-prix="${l.prixKg}" value="${poidsRestant}" max="${poidsRestant}" style="width:100%;" oninput="recalculerRetraitParLignes()">
+      <input type="number" class="rt-ligne-poids" data-index="${i}" data-prix="${l.prixKg}" value="${poidsDisponibleLigne}" max="${poidsDisponibleLigne}" style="width:100%;" oninput="recalculerRetraitParLignes()">
     </div>`;
   }).join('');
   recalculerRetraitParLignes();
