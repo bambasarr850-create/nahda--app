@@ -1247,15 +1247,17 @@ async function apiSupabase(action, p){
       });
 
     } else if(action==='listColisParVoyage'){
-      const { data: exps } = await sb.from('expeditions').select('reference,poids').eq('voyage', p.numero);
+      const { data: exps } = await sb.from('expeditions').select('reference,poids,lignes_expediees').eq('voyage', p.numero);
       const refs = [...new Set((exps||[]).map(e=>e.reference))];
       if(!refs.length){ data = []; }
       else {
         const { data: rows, error } = await sb.from('colis').select('*').in('reference', refs);
         if(error) throw new Error(traduireErreur(error.message));
         data = (rows||[]).map(c => {
-          const poidsTroncon = (exps||[]).filter(e=>e.reference===c.reference).reduce((s,e)=>s+Number(e.poids||0),0);
-          return { ...c, poids_troncon_voyage: poidsTroncon };
+          const expsColis = (exps||[]).filter(e=>e.reference===c.reference);
+          const poidsTroncon = expsColis.reduce((s,e)=>s+Number(e.poids||0),0);
+          const lignesTroncon = expsColis.flatMap(e=>e.lignes_expediees||[]);
+          return { ...c, poids_troncon_voyage: poidsTroncon, lignes_troncon_voyage: lignesTroncon };
         });
       }
 
@@ -1359,7 +1361,7 @@ async function apiSupabase(action, p){
       const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme,commentaire_arrivee').in('reference', refs.length?refs:['']);
       data = (exps||[]).map(e => {
         const c = (colis||[]).find(x=>x.reference===e.reference) || {};
-        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false, commentaire_arrivee: c.commentaire_arrivee||'' };
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false, commentaire_arrivee: c.commentaire_arrivee||'', lignes_expediees: e.lignes_expediees||[] };
       });
 
     } else if(action==='bilan' || action==='bilanDetail'){
@@ -2707,12 +2709,17 @@ function renderVoyageColisListWithActions(list, v){
   const totalPoids = list.reduce((s,c)=>s+Number(c.poids_troncon_voyage||0),0);
   const totalMontant = list.reduce((s,c)=>s+Number(c.montant_retrait||c.total||0),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> · <b>${totalMontant.toLocaleString('fr-FR')} MAD</b> au total</div>`;
-  html += list.map((c,i)=>`
+  html += list.map((c,i)=>{
+    const lignesTxt = (c.lignes_troncon_voyage||[]).length
+      ? `<div class="d" style="margin-top:2px;">${c.lignes_troncon_voyage.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>`
+      : '';
+    return `
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
         <div class="txt">
           <div class="r">${c.reference}${c.probleme?' ⚠️':''}</div>
           <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids_troncon_voyage||0)} kg sur ce voyage</div>
+          ${lignesTxt}
         </div>
         <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${Number(c.total||0).toLocaleString('fr-FR')} MAD</div>
       </div>
@@ -2723,7 +2730,8 @@ function renderVoyageColisListWithActions(list, v){
         <button class="btn btn-red" onclick='retirerColisDuVoyageConfirm("${c.reference}","${v.numero}")'>🗑️ Retirer</button>` : ''}
         ${(peutGerer && Number(c.statut)!==1) ? `<span style="font-size:11px;color:var(--muted);align-self:center;">🔒 Colis ${Number(c.statut)>=2?'déjà arrivé/retiré':''} — modification impossible (trésorerie déjà impactée)</span>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   box.innerHTML = gestionVoyage + html;
 }
 function toggleGestionVoyage(){
@@ -2837,7 +2845,7 @@ function renderDepartSelectionHTML(){
             <input type="checkbox" class="vd-ligne-check-${i}" data-index="${li}" ${estCochee?'checked':''} onclick="updateDepartLignes(${i})">
             <span style="font-size:12px;font-weight:600;">${l.type} — ${restantLigne.toLocaleString('fr-FR')} kg restants (${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg)</span>
           </div>
-          <input type="number" class="vd-ligne-poids-${i}" data-index="${li}" data-prix="${l.prixKg}" value="${valeurPoids}" max="${restantLigne}" ${estCochee?'':'disabled'} style="width:100%;margin-top:4px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:12px;" oninput="updateDepartLignes(${i})">
+          <input type="number" class="vd-ligne-poids-${i}" data-index="${li}" data-prix="${l.prixKg}" value="${valeurPoids}" max="${restantLigne}" ${estCochee?'':'disabled'} style="width:100%;margin-top:4px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:12px;" oninput="clampInput(this, ${restantLigne}); updateDepartLignes(${i})">
         </div>`;
       }).join('');
       return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;">
@@ -2985,17 +2993,26 @@ function renderArriveeListHTML(list){
   if(!list.length){ box.innerHTML = `<div class="empty-state"><div class="em">🛬</div><p>Aucun colis en transit sur ce voyage.</p></div>`; return; }
   const totalPoids = list.reduce((s,t)=>s+(parseFloat(t.poids_envoye)||0),0);
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> au total en transit</div>`;
-  html += list.map((t,i)=>`
+  html += list.map((t,i)=>{
+    const lignesTxt = (t.lignes_expediees||[]).length
+      ? `<div class="d" style="margin-top:3px;">${t.lignes_expediees.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>`
+      : '';
+    return `
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;align-items:center;width:100%;gap:10px;">
         <input type="checkbox" class="arr-check" value="${t.reference}" onclick="event.stopPropagation()">
-        <div class="txt" style="cursor:pointer;flex:1;" onclick="toggleArriveeActions(${i})"><div class="r">${t.reference}${t.probleme?' ⚠️':''}</div><div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div></div>
+        <div class="txt" style="cursor:pointer;flex:1;" onclick="toggleArriveeActions(${i})">
+          <div class="r">${t.reference}${t.probleme?' ⚠️':''}</div>
+          <div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div>
+          ${lignesTxt}
+        </div>
       </div>
       <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;">
         <button class="btn btn-outline" onclick="showColisInfoModal('${t.reference}')">🔍 Fiche</button>
         <button class="btn btn-outline" onclick='ouvrirCommentaireColis("${t.reference}", ${JSON.stringify(t.commentaire_arrivee||'').replace(/'/g,"&#39;")}, renderArriveeList)'>💬 Commentaire</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   box.innerHTML = html;
 }
 function toggleArriveeActions(index){
@@ -3151,6 +3168,8 @@ async function chargerRetrait(){
     } else {
       document.getElementById('rt-poids-retrait').value = poidsDisponible;
       document.getElementById('rt-poids-retrait').max = poidsDisponible;
+      retraitCourant.poidsDisponibleMax = poidsDisponible;
+      document.getElementById('rt-poids-retrait').max = poidsDisponible;
       retraitCourant.resteAttendu = Math.max(0, Number(c.total||0) - Number(c.montant_avance||0) - Number(c.montant_retrait||0));
       updateMontantSelonPoids();
     }
@@ -3184,7 +3203,7 @@ function renderLignesRetraitSelection(lignes, visitesPassees){
         <input type="checkbox" class="rt-ligne-check" data-index="${i}" data-prix="${l.prixKg}" checked onclick="recalculerRetraitParLignes()">
         <div class="txt"><div class="r">${l.type} <span class="status-pill st-2" style="margin-left:4px;">✓ Arrivé</span></div><div class="d">${poidsDisponibleLigne.toLocaleString('fr-FR')} kg disponibles · ${Number(l.prixKg).toLocaleString('fr-FR')} MAD/kg</div></div>
       </div>
-      <input type="number" class="rt-ligne-poids" data-index="${i}" data-prix="${l.prixKg}" value="${poidsDisponibleLigne}" max="${poidsDisponibleLigne}" style="width:100%;" oninput="recalculerRetraitParLignes()">
+      <input type="number" class="rt-ligne-poids" data-index="${i}" data-prix="${l.prixKg}" value="${poidsDisponibleLigne}" max="${poidsDisponibleLigne}" style="width:100%;" oninput="clampInput(this, ${poidsDisponibleLigne}); recalculerRetraitParLignes()">
     </div>`;
   }).join('');
   recalculerRetraitParLignes();
@@ -3223,8 +3242,14 @@ function renderHistoriqueRetraitsDepuisListe(visites){
       ${v.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${v.commentaire} »</div>` : ''}
     </div>`).join('');
 }
+function clampInput(input, maxVal){
+  const v = parseFloat(input.value);
+  if(!isNaN(v) && v > maxVal) input.value = maxVal;
+  if(!isNaN(v) && v < 0) input.value = 0;
+}
 function updateMontantSelonPoids(){
   if(!retraitCourant){ return; }
+  clampInput(document.getElementById('rt-poids-retrait'), retraitCourant.poidsDisponibleMax||0);
   const poidsTotal = Number(retraitCourant.poids||0);
   const totalColis = Number(retraitCourant.total||0);
   const prixParKgMoyen = poidsTotal > 0 ? totalColis / poidsTotal : 0;
