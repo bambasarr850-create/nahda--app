@@ -352,12 +352,12 @@
       </div>
 
       <div class="grid-menu">
-        <div class="menu-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
+        <div class="menu-btn" id="menu-newcolis-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
         <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
-        <div class="menu-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
-        <div class="menu-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-btn" id="menu-voyage-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
+        <div class="menu-btn" id="menu-retrait-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
         <div class="menu-btn" onclick="goto('screen-messages')"><div class="ic" style="background:#DCE8F0;">💬</div><span>Messages</span></div>
-        <div class="menu-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
+        <div class="menu-btn" id="menu-bilan-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
         <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
         <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
       </div>
@@ -689,6 +689,10 @@
       </div>
 
       <div class="settings-item" onclick="showHistoriqueModifications()"><div><div class="t">📜 Historique des modifications</div><div class="d">Qui a modifié ou supprimé quoi, et quand</div></div><span>›</span></div>
+      <div class="settings-item" onclick="togglePanel('p-permissions')"><div><div class="t">🔐 Permissions par compte</div><div class="d">Restreindre un compte à certaines tâches (caissier, réceptionniste...)</div></div><span>›</span></div>
+      <div class="settings-panel" id="p-permissions">
+        <div id="permissions-list"></div>
+      </div>
       <div class="settings-item" onclick="togglePanel('p-affiche')"><div><div class="t">🖼️ Générer une affiche</div><div class="d">Image promotionnelle de départ, prête à partager</div></div><span>›</span></div>
       <div class="settings-panel" id="p-affiche">
         <div class="field">
@@ -964,7 +968,7 @@ async function api(action, payload={}, silencieux=false){
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
       'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme','resoudreProbleme',
-      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic'];
+      'bilan','bilanDetail','updatePrix','addDestination','changePassword','listHistorique','searchColisPublic','listAgentsPermissions','updatePermissionsAgent'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
       return await Promise.race([apiSupabase(action, payload), delaiMax]);
@@ -1019,7 +1023,8 @@ async function apiSupabase(action, p){
       }
       const { data: profil, error: profErr } = await sb.from('agents').select('*').eq('id', authData.user.id).single();
       if(profErr || !profil) throw new Error(profErr ? traduireErreur(profErr.message) : 'Profil agent introuvable');
-      data = { id: profil.identifiant, nom: profil.nom, pays: profil.pays, agence: profil.agence, role: profil.role };
+      data = { id: profil.identifiant, nom: profil.nom, pays: profil.pays, agence: profil.agence, role: profil.role,
+        peutGererColis: profil.peut_gerer_colis !== false, peutGererVoyages: profil.peut_gerer_voyages !== false, peutGererRetraits: profil.peut_gerer_retraits !== false };
 
     } else if(action==='saveColis'){
       const lignes = p.lignesProduits || [];
@@ -1483,6 +1488,20 @@ async function apiSupabase(action, p){
       if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Réservé à l'administrateur" : traduireErreur(error.message));
       data = rows;
 
+    } else if(action==='listAgentsPermissions'){
+      if(p.agentRole !== 'Admin') throw new Error("Réservé à l'administrateur");
+      const { data: rows, error } = await sb.from('agents').select('identifiant,nom,pays,agence,role,peut_gerer_colis,peut_gerer_voyages,peut_gerer_retraits').order('pays');
+      if(error) throw new Error(traduireErreur(error.message));
+      data = rows;
+
+    } else if(action==='updatePermissionsAgent'){
+      if(p.agentRole !== 'Admin') throw new Error("Réservé à l'administrateur");
+      const { error } = await sb.from('agents').update({
+        peut_gerer_colis: p.peutGererColis, peut_gerer_voyages: p.peutGererVoyages, peut_gerer_retraits: p.peutGererRetraits
+      }).eq('identifiant', p.identifiant);
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { identifiant: p.identifiant };
+
     }
     return data;
   }catch(err){
@@ -1621,6 +1640,10 @@ function showToast(msg){
 
 async function applyAgentToDashboard(agent){
   document.getElementById('menu-settings-btn').style.display = (agent.role==='Admin') ? '' : 'none';
+  document.getElementById('menu-newcolis-btn').style.display = (agent.role==='Admin' || agent.peutGererColis!==false) ? '' : 'none';
+  document.getElementById('menu-voyage-btn').style.display = (agent.role==='Admin' || agent.peutGererVoyages!==false) ? '' : 'none';
+  document.getElementById('menu-retrait-btn').style.display = (agent.role==='Admin' || agent.peutGererRetraits!==false) ? '' : 'none';
+  document.getElementById('menu-bilan-btn').style.display = (agent.role==='Admin' || agent.peutGererRetraits!==false) ? '' : 'none';
   document.getElementById('dash-agent-loc').textContent = '📍 '+agent.agence+(agent.pays?', '+agent.pays:'');
   document.getElementById('dash-agent-role').textContent = (agent.role||'Agent').toUpperCase();
   updateMessagesBadge();
@@ -3999,6 +4022,40 @@ function togglePanel(id){
   document.querySelectorAll('.settings-panel').forEach(p=>{ if(p.id!==id) p.classList.remove('open'); });
   document.getElementById(id).classList.toggle('open');
   if(id==='p-affiche') onAfficheDepartChange();
+  if(id==='p-permissions') renderPermissionsList();
+}
+async function renderPermissionsList(){
+  const box = document.getElementById('permissions-list');
+  box.innerHTML = skeletonHTML(3);
+  try{
+    const agents = await api('listAgentsPermissions', {agentRole: currentAgent.role});
+    box.innerHTML = agents.map(a=>{
+      if(a.role==='Admin') return '';
+      return `<div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
+        <div class="txt"><div class="r">${a.nom} (${a.identifiant})</div><div class="d">${a.pays} — ${a.agence}</div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;width:100%;">
+          <input type="checkbox" class="perm-colis" data-id="${a.identifiant}" ${a.peut_gerer_colis!==false?'checked':''} onchange="sauvegarderPermissions('${a.identifiant}')"> Créer/modifier des colis
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;width:100%;">
+          <input type="checkbox" class="perm-voyages" data-id="${a.identifiant}" ${a.peut_gerer_voyages!==false?'checked':''} onchange="sauvegarderPermissions('${a.identifiant}')"> Gérer les voyages (départ/arrivée)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;width:100%;">
+          <input type="checkbox" class="perm-retraits" data-id="${a.identifiant}" ${a.peut_gerer_retraits!==false?'checked':''} onchange="sauvegarderPermissions('${a.identifiant}')"> Valider retraits + voir Trésorerie
+        </label>
+      </div>`;
+    }).join('') || `<div class="empty-state"><div class="em">👤</div><p>Aucun agent à configurer.</p></div>`;
+  }catch(e){
+    box.innerHTML = `<div class="empty-state"><div class="em">⚠️</div><p>Impossible de charger les permissions.</p></div>`;
+  }
+}
+async function sauvegarderPermissions(identifiant){
+  const peutGererColis = document.querySelector('.perm-colis[data-id="'+identifiant+'"]').checked;
+  const peutGererVoyages = document.querySelector('.perm-voyages[data-id="'+identifiant+'"]').checked;
+  const peutGererRetraits = document.querySelector('.perm-retraits[data-id="'+identifiant+'"]').checked;
+  try{
+    await api('updatePermissionsAgent', {identifiant, peutGererColis, peutGererVoyages, peutGererRetraits, agentRole: currentAgent.role});
+    showToast('✅ Permissions mises à jour pour ' + identifiant);
+  }catch(e){}
 }
 async function prepSettings(){
   try{
