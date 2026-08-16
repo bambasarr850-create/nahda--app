@@ -1070,6 +1070,8 @@ async function apiSupabase(action, p){
         const { data: v } = await sb.from('voyages').select('*').eq('numero', c.voyage).maybeSingle();
         if(v){ c.voyage_transporteur = v.transporteur; c.voyage_date_depart = v.date_depart; }
       }
+      const { data: retraitsDetail } = await sb.from('retraits').select('*').eq('reference', c.reference).order('created_at', { ascending: false });
+      c.retraits_detail = retraitsDetail || [];
       data = c;
 
     } else if(action==='searchColisParTelephone'){
@@ -2428,6 +2430,20 @@ function renderResultCard(c, showAdminActions, isPublic){
     ${(c.commentaire_arrivee || c.nom_retirant) && !isPublic ? `<div class="rc-section-title">📋 Suivi</div>` : ''}
     ${c.commentaire_arrivee && !isPublic ? `<div class="result-row"><span class="k">Commentaire arrivée</span><span class="v">${c.commentaire_arrivee}</span></div>` : ''}
     ${c.nom_retirant && !isPublic ? `<div class="result-row"><span class="k">Retiré par</span><span class="v">${c.nom_retirant} — ${c.telephone_retirant||''}</span></div>` : ''}
+
+    ${c.retraits_detail && c.retraits_detail.length && !isPublic ? `
+    <div class="rc-section-title">🕓 Historique des retraits</div>
+    ${c.retraits_detail.map(r=>`
+      <div class="result-row" style="display:block;">
+        <div style="display:flex;justify-content:space-between;">
+          <span class="k">${new Date(r.created_at).toLocaleDateString('fr-FR')}</span>
+          <span class="v">${Number(r.poids).toLocaleString('fr-FR')} kg · ${Number(r.montant).toLocaleString('fr-FR')} MAD</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${r.nom_retirant||''} ${r.telephone_retirant?'· '+r.telephone_retirant:''}${r.compte?' · '+r.compte:''}</div>
+        ${r.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${r.commentaire} »</div>` : ''}
+        ${(r.lignes_retirees||[]).length ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">${r.lignes_retirees.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>` : ''}
+      </div>`).join('')}
+    ` : ''}
 
     <div class="timeline">${steps}</div>
     ${receiptBtn}
