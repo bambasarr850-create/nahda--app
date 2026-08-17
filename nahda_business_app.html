@@ -1046,7 +1046,7 @@ async function apiSupabase(action, p){
         photo_url: p.photoUrls || '', statut: 0, commentaire_paiement: p.commentairePaiement || '',
         nom_depositaire: p.nomDepositaire || '', telephone_depositaire: p.telephoneDepositaire || '',
         pays_origine: p.paysOrigine || p.agentPays || '', montant_avance: p.montantAvance || 0,
-        lignes_produits: lignes
+        lignes_produits: lignes, date_creation: p.dateCreation || new Date().toISOString()
       });
       if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
       data = { reference: p.reference, photoUrl: p.photoUrls || '' };
