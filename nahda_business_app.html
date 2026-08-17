@@ -1206,13 +1206,15 @@ async function apiSupabase(action, p){
       if(poidsCetteFois <= 0) throw new Error('Poids à retirer invalide');
       if(poidsCetteFois > poidsDisponible + 0.001) throw new Error('Poids demandé supérieur à ce qui est disponible ('+poidsDisponible.toLocaleString('fr-FR')+' kg)');
 
-      const { error: errRpc } = await sb.rpc('enregistrer_retrait', { p_reference: p.reference, p_poids: poidsCetteFois, p_montant: Number(p.montant||0) });
+      const dateChoisie = p.date ? new Date(p.date + 'T12:00:00').toISOString() : null;
+      const { error: errRpc } = await sb.rpc('enregistrer_retrait', { p_reference: p.reference, p_poids: poidsCetteFois, p_montant: Number(p.montant||0), p_date: dateChoisie });
       if(errRpc) throw new Error(traduireErreur(errRpc.message));
 
       await sb.from('retraits').insert({
         reference: p.reference, poids: poidsCetteFois, montant: Number(p.montant||0), compte: p.compte || '',
         nom_retirant: p.retirantNom || '', telephone_retirant: p.retirantTel || '', commentaire: p.commentaire || '',
-        agent_nom: p.agentNom || '', agent_pays: p.agentPays || '', lignes_retirees: p.lignesRetirees || []
+        agent_nom: p.agentNom || '', agent_pays: p.agentPays || '', lignes_retirees: p.lignesRetirees || [],
+        created_at: dateChoisie || new Date().toISOString()
       });
 
       if(p.commentaire && p.commentaire.trim()){
@@ -2262,6 +2264,8 @@ async function generateReceiptPDF(c){
 
     // Bloc total (encadre, en bas de colonne gauche)
     const boxH = hasDevise ? 19 : 14;
+    const yMaxAvantPiedDePage = (H - 18) - boxH - 4; // ne jamais chevaucher le pied de page, quelle que soit la longueur du contenu au-dessus
+    if (y > yMaxAvantPiedDePage) y = yMaxAvantPiedDePage;
     doc.setFillColor(navy);
     doc.roundedRect(leftX, y + 2, 118, boxH, 2, 2, 'F');
     doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(11);
@@ -2300,6 +2304,10 @@ async function generateReceiptPDF(c){
     doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
     doc.text('Scannez pour suivre votre colis', rightX + 31, 106, { align: 'center' });
     doc.text('en temps reel', rightX + 31, 110, { align: 'center' });
+
+    // ---- Lien du site web en texte simple (pas de QR redondant) ----
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(8);
+    doc.text('www.nahdabusiness.com', rightX + 31, 120, { align: 'center' });
 
     // ---- Pied de page ----
     doc.setDrawColor(sand); doc.setLineWidth(0.4);
@@ -3194,6 +3202,7 @@ async function chargerRetrait(){
     document.getElementById('rt-retirant-nom').value = c.nom_client || '';
     document.getElementById('rt-retirant-tel').value = c.telephone || '';
     document.getElementById('rt-commentaire').value = '';
+    document.getElementById('rt-date').value = new Date().toISOString().slice(0,10);
 
     const dispoBox = document.getElementById('rt-dispo-info');
     dispoBox.style.display = 'block';
@@ -3374,6 +3383,7 @@ async function marquerRetire(){
     const resultat = await api('enregistrerRetraitPartiel', {
       reference: retraitCourant.reference, poids: poidsARetirer, montant, lignesRetirees: retraitLignesSelectionnees,
       compte: document.getElementById('rt-compte').value, retirantNom, retirantTel, commentaire,
+      date: document.getElementById('rt-date').value,
       agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom
     });
     const poidsTotal = Number(retraitCourant.poids||0);
