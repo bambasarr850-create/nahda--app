@@ -375,6 +375,7 @@
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1 id="nc-title">Nouveau Colis</h1></div>
     <div class="scroll">
       <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
+      <div class="field"><label>Date de dépôt</label><input id="nc-date-depot" type="date"></div>
       <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
       <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
       <div class="field"><label>Nom du déposant (personne qui remet le colis)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
@@ -1835,6 +1836,7 @@ async function prepNewColis(){
   }catch(e){}
   if(!editingRef){
     document.getElementById('nc-ref').value = genererNumeroRecu();
+    document.getElementById('nc-date-depot').value = new Date().toISOString().slice(0,10);
     if(!newColisLignes.length){ newColisLignes.push({type:'', poids:'', prixKg: selectedDestInfo?selectedDestInfo.prix_kg:0, prixModifie:false}); renderLignesProduits(); }
   }
 }
@@ -1938,6 +1940,7 @@ function resetNewColis(){
   document.getElementById('nc-montant-avance').value = '';
   document.getElementById('nc-depositaire-nom').value = '';
   document.getElementById('nc-depositaire-tel').value = '';
+  document.getElementById('nc-date-depot').value = new Date().toISOString().slice(0,10);
 }
 function setNewColisFieldsDisabled(disabled){
   document.querySelectorAll('#screen-newcolis input, #screen-newcolis select, #screen-newcolis textarea').forEach(el=>{ el.disabled = disabled; });
@@ -1961,6 +1964,11 @@ async function saveColis(){
   const statutPaiementDepart = document.getElementById('nc-statutpaie').value;
   const commentairePaiement = document.getElementById('nc-commentaire-paiement').value.trim();
 
+  const dateDepotChoisie = document.getElementById('nc-date-depot').value;
+  const dateCreationFinale = dateDepotChoisie
+    ? new Date(dateDepotChoisie + 'T' + new Date().toTimeString().slice(0,8)).toISOString()
+    : new Date().toISOString();
+
   const payloadBase = {
     reference: ref, nomClient: nom, telephone: document.getElementById('nc-tel').value.trim(),
     nomDepositaire: document.getElementById('nc-depositaire-nom').value.trim(),
@@ -1971,7 +1979,7 @@ async function saveColis(){
     commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : '',
     agentId: currentAgent ? currentAgent.id : '', agentNom: currentAgent ? currentAgent.nom : '',
-    dateCreation: new Date().toISOString(), paysOrigine: currentAgent ? currentAgent.pays : ''
+    dateCreation: dateCreationFinale, paysOrigine: currentAgent ? currentAgent.pays : ''
   };
 
   if(!navigator.onLine && !editingRef){
