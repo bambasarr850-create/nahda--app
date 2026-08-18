@@ -488,13 +488,12 @@
           <select id="va-select" onchange="renderArriveeList()"></select>
         </div>
         <div id="va-voyageur-info" class="agent-card" style="display:none;padding:12px 16px;margin-bottom:14px;"></div>
-        <h2 class="section-title">Colis à confirmer — sélectionner</h2>
+        <h2 class="section-title">Colis en transit — tape un colis pour agir</h2>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="arrivee-search" placeholder="🔎 Filtrer / rechercher un numéro de reçu..." oninput="filterArriveeList()" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
           <button class="btn btn-gold" style="width:48px;flex:none;padding:0;" onclick="scanForField('arrivee-search', function(){ toggleArriveeByScan(); })">📷</button>
         </div>
         <div id="arrivee-list"></div>
-        <button class="btn btn-green" onclick="confirmerArrivee()">✅ CONFIRMER ARRIVÉE</button>
       </div>
 
       <div id="voyage-historique-panel" style="display:none;">
@@ -513,6 +512,7 @@
       </div>
       <div id="rt-fiche"></div>
       <div id="rt-dispo-info" style="display:none;background:var(--sand);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;"></div>
+      <div id="rt-champs-retrait" style="display:none;">
       <div id="rt-lignes-selection" style="display:none;"></div>
       <div id="rt-poids-simple-wrap" class="field">
         <label>Poids à retirer aujourd'hui (kg)</label>
@@ -543,8 +543,13 @@
         <textarea id="rt-commentaire" rows="2" placeholder="ex : reste 20kg à venir la semaine prochaine..."></textarea>
       </div>
       <div id="rt-historique-visites"></div>
+      <label id="rt-confirm-paiement-wrap" style="display:flex;align-items:flex-start;gap:10px;background:var(--sand);border-radius:12px;padding:12px 14px;margin:12px 0;font-size:13px;cursor:pointer;">
+        <input type="checkbox" id="rt-confirm-paiement" onchange="updateRetireButtonState()" style="margin-top:2px;">
+        <span>J'ai bien reçu <b id="rt-confirm-montant">0 MAD</b> de la part du client avant de valider ce retrait.</span>
+      </label>
       <div class="btn-row">
         <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 ENREGISTRER LE RETRAIT</button>
+      </div>
       </div>
     </div>
   </section>
@@ -971,7 +976,7 @@ async function api(action, payload={}, silencieux=false){
   if(!silencieux) beginRequest();
   try{
     const migrees = ['login','saveColis','searchColis','searchColisParTelephone','listDestinations','listColis','updateColis','deleteColis',
-      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire','enregistrerRetraitPartiel','listRetraitsColis',
+      'lancerVoyage','confirmerArrivee','validerPaiementRetrait','marquerRetire','enregistrerRetraitPartiel','listRetraitsColis','nextNumeroVoyage',
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
       'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme','resoudreProbleme',
@@ -1142,6 +1147,14 @@ async function apiSupabase(action, p){
       }).then(()=>{});
       data = { deleted: p.reference };
 
+    } else if(action==='nextNumeroVoyage'){
+      const debutMois = new Date(); debutMois.setDate(1); debutMois.setHours(0,0,0,0);
+      const { data: rows, error } = await sb.from('voyages').select('numero')
+        .eq('pays_origine', p.paysOrigine).eq('pays_destination', p.paysDestination)
+        .gte('created_at', debutMois.toISOString());
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { compteur: (rows||[]).length + 1 };
+
     } else if(action==='lancerVoyage'){
       const { error: errV } = await sb.from('voyages').insert({
         numero: p.numero, pays_destination: p.paysDestination, agence_destination: p.agenceDestination,
@@ -1156,19 +1169,13 @@ async function apiSupabase(action, p){
       data = { numero: p.numero, nbColis: p.colis.length };
 
     } else if(action==='confirmerArrivee'){
+      const echecs = [];
       for(const ref of p.references){
-        const { data: exp } = await sb.from('expeditions').select('*').eq('reference', ref).eq('voyage', p.numero).eq('statut', 0).maybeSingle();
-        if(!exp) continue;
-        await sb.from('expeditions').update({ statut: 1, date_arrivee: new Date().toISOString() }).eq('id', exp.id);
-        const { data: c } = await sb.from('colis').select('poids,poids_arrive').eq('reference', ref).maybeSingle();
-        if(!c) continue;
-        const nouveauPoidsArrive = Number(c.poids_arrive||0) + Number(exp.poids||0);
-        const champs = { poids_arrive: nouveauPoidsArrive };
-        if(nouveauPoidsArrive >= Number(c.poids||0) - 0.001) champs.statut = 2;
-        const { data: majArr, error: errArr } = await sb.from('colis').update(champs).eq('reference', ref).select();
-        if(errArr || !majArr || !majArr.length) throw new Error('Impossible de confirmer l\'arrivee du colis '+ref+' (droits insuffisants)');
+        const { error: errRpc } = await sb.rpc('confirmer_arrivee_troncon', { p_reference: ref, p_voyage: p.numero });
+        if(errRpc) echecs.push(ref + ' (' + traduireErreur(errRpc.message) + ')');
       }
       await sb.from('voyages').update({ statut: 'Arrive' }).eq('numero', p.numero);
+      if(echecs.length) throw new Error('Certains colis n\'ont PAS pu être confirmés : ' + echecs.join(', '));
       data = { numero: p.numero, nbColis: p.references.length };
 
     } else if(action==='signalerProbleme'){
@@ -1374,10 +1381,10 @@ async function apiSupabase(action, p){
       const { data: exps, error } = await sb.from('expeditions').select('*').eq('voyage', p.numero).eq('statut', 0);
       if(error) throw new Error(traduireErreur(error.message));
       const refs = (exps||[]).map(e=>e.reference);
-      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme,commentaire_arrivee').in('reference', refs.length?refs:['']);
+      const { data: colis } = await sb.from('colis').select('reference,nom_client,pays_destination,probleme,commentaire_arrivee,poids,poids_arrive').in('reference', refs.length?refs:['']);
       data = (exps||[]).map(e => {
         const c = (colis||[]).find(x=>x.reference===e.reference) || {};
-        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false, commentaire_arrivee: c.commentaire_arrivee||'', lignes_expediees: e.lignes_expediees||[] };
+        return { reference: e.reference, poids_envoye: Number(e.poids||0), nom_client: c.nom_client, pays_destination: c.pays_destination, probleme: c.probleme||false, commentaire_arrivee: c.commentaire_arrivee||'', lignes_expediees: e.lignes_expediees||[], poids_total_colis: Number(c.poids||0), poids_deja_arrive: Number(c.poids_arrive||0) };
       });
 
     } else if(action==='bilan' || action==='bilanDetail'){
@@ -1566,7 +1573,7 @@ function goto(id, fromPopstate){
   if(id==='screen-voyage') prepVoyage();
   if(id==='screen-bilan') renderBilan();
   if(id==='screen-settings') prepSettings();
-  if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; }
+  if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; document.getElementById('rt-champs-retrait').style.display='none'; document.getElementById('rt-dispo-info').style.display='none'; }
   if(id==='screen-messages') renderConversations();
 }
 let lastDashboardBackPress = 0;
@@ -2214,6 +2221,7 @@ async function generateReceiptPDF(c){
     row('Client', c.nomClient, true);
     row('Telephone', c.telephone);
     if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
+    if (c.paysOrigine) row('Depart', c.paysOrigine);
     row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
     const largeurContenu = 108; // mm disponibles avant la colonne QR (leftX+4 a ~124mm)
@@ -2448,7 +2456,10 @@ function renderResultCard(c, showAdminActions, isPublic){
   return `<div class="result-card">
     <div class="rc-header">
       <div><div class="rc-ref-label">Référence</div><div class="rc-ref">${c.reference}</div></div>
-      <span class="status-pill ${statutPillClass}">${STATUT_LABELS[statut]||''}</span>
+      <div style="text-align:right;">
+        <span class="status-pill ${statutPillClass}">${STATUT_LABELS[statut]||''}</span>
+        ${(Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001) ? '<div class="status-pill st-1" style="margin-top:4px;">◐ En tranche</div>' : ''}
+      </div>
     </div>
     ${photoBlock}
     ${routeBlock}
@@ -2774,11 +2785,12 @@ function renderVoyageColisListWithActions(list, v){
     const lignesTxt = (c.lignes_troncon_voyage||[]).length
       ? `<div class="d" style="margin-top:2px;">${c.lignes_troncon_voyage.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>`
       : '';
+    const enTranche = Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001;
     return `
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
         <div class="txt">
-          <div class="r">${c.reference}${c.probleme?' ⚠️':''}</div>
+          <div class="r">${c.reference}${c.probleme?' ⚠️':''}${enTranche?' <span class="status-pill st-1">◐ En tranche</span>':''}</div>
           <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${Number(c.poids_troncon_voyage||0)} kg sur ce voyage</div>
           ${lignesTxt}
         </div>
@@ -2877,13 +2889,32 @@ async function renderDepartList(){
     lockNote.style.display = 'none';
   }
   renderDepartSelectionHTML();
+  if(sel.value) onVdDestinationChange();
 }
-function onVdDestinationChange(){
+const CODE_PAYS = { 'Maroc':'MA', "Cote d'Ivoire":'CI', 'Guinee':'GN', 'Senegal':'SN', 'Burkina Faso':'BF', 'Mali':'ML' };
+let derniereDestinationCalculee = null;
+async function onVdDestinationChange(){
   if(departSelection.length){
     departSelection = [];
     renderDepartSelectionHTML();
     showToast('ℹ️ Sélection de colis réinitialisée (changement de destination)');
   }
+  const paysOrigine = currentAgent ? currentAgent.pays : '';
+  const paysDestination = document.getElementById('vd-destination').value;
+  if(!paysOrigine || !paysDestination) return;
+  const champNumero = document.getElementById('vd-numero');
+  // Ne recalculer que si la destination a vraiment change, ou si le champ est encore vide —
+  // jamais ecraser un numero deja saisi/edite manuellement par l'agent
+  if(paysDestination === derniereDestinationCalculee && champNumero.value.trim()) return;
+  try{
+    const r = await api('nextNumeroVoyage', {paysOrigine, paysDestination}, true);
+    const codeOrigine = CODE_PAYS[paysOrigine] || paysOrigine.substring(0,2).toUpperCase();
+    const codeDest = CODE_PAYS[paysDestination] || paysDestination.substring(0,2).toUpperCase();
+    const now = new Date();
+    const moisAnnee = String(now.getMonth()+1).padStart(2,'0') + String(now.getFullYear()).slice(-2);
+    champNumero.value = codeOrigine + '-' + codeDest + '-' + String(r.compteur).padStart(2,'0') + '-' + moisAnnee;
+    derniereDestinationCalculee = paysDestination;
+  }catch(e){}
 }
 function renderDepartSelectionHTML(){
   const box = document.getElementById('depart-list');
@@ -3009,7 +3040,9 @@ async function lancerVoyage(){
     showToast('🚀 Voyage '+numero+' lancé — '+departSelection.length+' colis');
     document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
     departSelection = [];
+    derniereDestinationCalculee = null;
     await updateKpis(); renderDepartSelectionHTML();
+    onVdDestinationChange();
   }catch(e){}
 }
 let VOYAGES_CACHE = [];
@@ -3058,19 +3091,20 @@ function renderArriveeListHTML(list){
     const lignesTxt = (t.lignes_expediees||[]).length
       ? `<div class="d" style="margin-top:3px;">${t.lignes_expediees.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>`
       : '';
+    const enTranche = (t.poids_deja_arrive + t.poids_envoye) < t.poids_total_colis - 0.001;
     return `
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;align-items:center;width:100%;gap:10px;">
-        <input type="checkbox" class="arr-check" value="${t.reference}" onclick="event.stopPropagation()">
         <div class="txt" style="cursor:pointer;flex:1;" onclick="toggleArriveeActions(${i})">
-          <div class="r">${t.reference}${t.probleme?' ⚠️':''}</div>
+          <div class="r">${t.reference}${t.probleme?' ⚠️':''}${enTranche?' <span class="status-pill st-1">◐ En tranche</span>':''}</div>
           <div class="d">${t.nom_client||''} · ${t.pays_destination||''} · tronçon : ${t.poids_envoye} kg</div>
           ${lignesTxt}
         </div>
       </div>
-      <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;">
+      <div id="arrivee-actions-${i}" class="btn-row" style="width:100%;display:none;flex-wrap:wrap;">
         <button class="btn btn-outline" onclick="showColisInfoModal('${t.reference}')">🔍 Fiche</button>
         <button class="btn btn-outline" onclick='ouvrirCommentaireColis("${t.reference}", ${JSON.stringify(t.commentaire_arrivee||'').replace(/'/g,"&#39;")}, renderArriveeList)'>💬 Commentaire</button>
+        <button class="btn btn-green" onclick="confirmerArriveeUnique('${t.reference}')">✅ Confirmer l'arrivée</button>
       </div>
     </div>`;
   }).join('');
@@ -3093,9 +3127,18 @@ function filterArriveeList(){
 }
 function toggleArriveeByScan(){
   const ref = document.getElementById('arrivee-search').value.trim();
-  const cb = document.querySelector('.arr-check[value="'+ref.replace(/"/g,'')+'"]');
-  if(cb){ cb.checked = true; cb.scrollIntoView({behavior:'smooth', block:'center'}); showToast('✅ '+ref+' sélectionné'); }
+  const item = ARRIVEE_TRONCONS_CACHE.find(t=>t.reference===ref);
+  if(item) confirmerArriveeUnique(ref);
   else showToast('⚠️ Ce colis n\'a pas de tronçon en transit sur ce voyage');
+}
+async function confirmerArriveeUnique(reference){
+  const num = document.getElementById('va-select').value;
+  try{
+    await api('confirmerArrivee', {numero:num, references:[reference], agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
+    showToast('✅ Arrivée confirmée pour '+reference);
+    await updateKpis();
+    await renderArriveeList();
+  }catch(e){}
 }
 let _confirmCallback = null;
 function showConfirmGeneric(message, onConfirm, icone){
@@ -3169,16 +3212,6 @@ async function validerCommentaireColis(){
     else await renderArriveeList();
   }catch(e){}
 }
-async function confirmerArrivee(){
-  const num = document.getElementById('va-select').value;
-  const refs = Array.from(document.querySelectorAll('.arr-check:checked')).map(i=>i.value);
-  if(!refs.length){ showToast('⚠️ Aucun colis sélectionné'); return; }
-  try{
-    await api('confirmerArrivee', {numero:num, references:refs, agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom});
-    showToast('✅ Arrivée confirmée pour '+refs.length+' tronçon(s)');
-    await updateKpis(); await renderArriveeSelect();
-  }catch(e){}
-}
 
 /* ================= RETRAIT ================= */
 let retraitCourant=null;
@@ -3192,25 +3225,27 @@ async function chargerRetrait(){
     const c = await api('searchColis', {reference: ref});
     if(currentAgent && currentAgent.role!=='Admin' && currentAgent.pays!==c.pays_destination){
       box.innerHTML = `<div class="empty-state"><div class="em">🚫</div><p><b>Retrait réservé à l'agence de destination : ${c.pays_destination}</b></p></div>`;
-      retraitCourant = null; updateRetireButtonState(); return;
+      retraitCourant = null; document.getElementById('rt-champs-retrait').style.display='none'; updateRetireButtonState(); return;
     }
     const poidsArrive = Number(c.poids_arrive||0);
     const poidsRetire = Number(c.poids_retire||0);
     const poidsDisponible = Math.max(0, poidsArrive - poidsRetire);
     if(Number(c.statut) === 3 || (poidsDisponible <= 0.001 && poidsArrive >= Number(c.poids||0) - 0.001)){
       box.innerHTML = `<div class="empty-state"><div class="em">✅</div><p style="font-size:15px;font-weight:700;color:var(--green);">Ce colis a déjà été entièrement retiré.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Dernier retrait le ${c.date_retrait ? new Date(c.date_retrait).toLocaleDateString('fr-FR') : '—'}.</p></div>`;
-      retraitCourant = null; updateRetireButtonState(); return;
+      retraitCourant = null; document.getElementById('rt-champs-retrait').style.display='none'; updateRetireButtonState(); return;
     }
     if(poidsDisponible <= 0.001){
       box.innerHTML = `<div class="empty-state"><div class="em">⏳</div><p style="font-size:15px;font-weight:700;color:var(--amber);">Aucun poids disponible au retrait pour l'instant.</p><p style="font-size:12.5px;color:var(--muted);margin-top:4px;">Ce colis n'est pas encore arrivé, ou tout ce qui est arrivé a déjà été retiré.</p></div>`;
-      retraitCourant = null; updateRetireButtonState(); return;
+      retraitCourant = null; document.getElementById('rt-champs-retrait').style.display='none'; updateRetireButtonState(); return;
     }
     retraitCourant = c;
+    document.getElementById('rt-champs-retrait').style.display = 'block';
     box.innerHTML = renderResultCard(c, false);
     document.getElementById('rt-retirant-nom').value = c.nom_client || '';
     document.getElementById('rt-retirant-tel').value = c.telephone || '';
     document.getElementById('rt-commentaire').value = '';
     document.getElementById('rt-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('rt-confirm-paiement').checked = false;
 
     const dispoBox = document.getElementById('rt-dispo-info');
     dispoBox.style.display = 'block';
@@ -3241,7 +3276,7 @@ async function chargerRetrait(){
     renderHistoriqueRetraitsDepuisListe(visitesPassees);
   }catch(e){
     box.innerHTML = `<div class="empty-state"><div class="em">📭</div><p>Colis introuvable.</p></div>`;
-    retraitCourant = null; updateRetireButtonState();
+    retraitCourant = null; document.getElementById('rt-champs-retrait').style.display='none'; updateRetireButtonState();
   }
 }
 function renderLignesRetraitSelection(lignes, visitesPassees){
@@ -3287,6 +3322,8 @@ function recalculerRetraitParLignes(){
   });
   document.getElementById('rt-poids-retrait').value = poidsTotal;
   document.getElementById('rt-montant').value = Math.round(montantTotal);
+  const labelMontant = document.getElementById('rt-confirm-montant');
+  if(labelMontant) labelMontant.textContent = Math.round(montantTotal).toLocaleString('fr-FR') + ' MAD';
   retraitLignesSelectionnees = lignesRetenues;
   updateRetraitDevise();
 }
@@ -3318,6 +3355,8 @@ function updateMontantSelonPoids(){
   const poidsARetirer = parseFloat(document.getElementById('rt-poids-retrait').value) || 0;
   const montant = Math.round(poidsARetirer * prixParKgMoyen);
   document.getElementById('rt-montant').value = montant;
+  const labelMontant = document.getElementById('rt-confirm-montant');
+  if(labelMontant) labelMontant.textContent = montant.toLocaleString('fr-FR') + ' MAD';
   updateRetraitDevise();
 }
 async function updateRetraitDevise(){
@@ -3345,7 +3384,7 @@ function updateRetireButtonState(){
     if(existeDeja) compteSelect.remove(0);
     return;
   }
-  btn.disabled = false;
+  btn.disabled = !document.getElementById('rt-confirm-paiement').checked;
   const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
   if(paiementDepartOk && !existeDeja){
     const opt = document.createElement('option');
@@ -3377,6 +3416,10 @@ async function validerPaiementRetrait(){
 }
 async function marquerRetire(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
+  if(!document.getElementById('rt-confirm-paiement').checked){
+    showToast('⚠️ Coche la confirmation de paiement avant de valider le retrait');
+    return;
+  }
   const retirantNom = document.getElementById('rt-retirant-nom').value.trim();
   const retirantTel = document.getElementById('rt-retirant-tel').value.trim();
   if(!retirantNom || !retirantTel){
@@ -3410,6 +3453,8 @@ async function marquerRetire(){
     document.getElementById('rt-lignes-selection').style.display='none';
     document.getElementById('rt-poids-simple-wrap').style.display='block';
     retraitLignesSelectionnees = [];
+    document.getElementById('rt-confirm-paiement').checked = false;
+    document.getElementById('rt-champs-retrait').style.display = 'none';
     retraitCourant=null;
   }catch(e){}
 }
