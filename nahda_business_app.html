@@ -464,14 +464,14 @@
       </div>
 
       <div id="voyage-depart-panel">
-        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : VOL-2026-021"></div>
         <div class="field">
           <label>Destination du voyageur</label>
           <select id="vd-destination" onchange="onVdDestinationChange()"><option value="">Sélectionner...</option></select>
           <div id="vd-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
         </div>
         <div class="field"><label>Date de départ</label><input id="vd-date" type="date"></div>
-        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur"></div>
+        <div class="field"><label>Transporteur (personne qui part avec le voyage)</label><input id="vd-transporteur" placeholder="Nom du voyageur" oninput="regenererNumeroVoyage()"></div>
+        <div class="field"><label>Numéro de voyage</label><input id="vd-numero" placeholder="ex : Casablanca-Abidjan Mara V 3"></div>
         <h2 class="section-title">Ajouter un colis par numéro de reçu</h2>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="depart-search" placeholder="Numéro de reçu..." onkeydown="if(event.key==='Enter'){event.preventDefault();ajouterColisDepart();}" style="flex:1;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;background:var(--white);">
@@ -2891,8 +2891,11 @@ async function renderDepartList(){
   renderDepartSelectionHTML();
   if(sel.value) onVdDestinationChange();
 }
-const CODE_PAYS = { 'Maroc':'MA', "Cote d'Ivoire":'CI', 'Guinee':'GN', 'Senegal':'SN', 'Burkina Faso':'BF', 'Mali':'ML' };
 let derniereDestinationCalculee = null;
+let numeroVoyageCompteurActuel = null;
+function extraireVille(agenceStr){
+  return (agenceStr || '').split('(')[0].trim();
+}
 async function onVdDestinationChange(){
   if(departSelection.length){
     departSelection = [];
@@ -2908,13 +2911,23 @@ async function onVdDestinationChange(){
   if(paysDestination === derniereDestinationCalculee && champNumero.value.trim()) return;
   try{
     const r = await api('nextNumeroVoyage', {paysOrigine, paysDestination}, true);
-    const codeOrigine = CODE_PAYS[paysOrigine] || paysOrigine.substring(0,2).toUpperCase();
-    const codeDest = CODE_PAYS[paysDestination] || paysDestination.substring(0,2).toUpperCase();
-    const now = new Date();
-    const moisAnnee = String(now.getMonth()+1).padStart(2,'0') + String(now.getFullYear()).slice(-2);
-    champNumero.value = codeOrigine + '-' + codeDest + '-' + String(r.compteur).padStart(2,'0') + '-' + moisAnnee;
+    numeroVoyageCompteurActuel = r.compteur;
     derniereDestinationCalculee = paysDestination;
+    regenererNumeroVoyage();
   }catch(e){}
+}
+function regenererNumeroVoyage(){
+  if(numeroVoyageCompteurActuel === null) return;
+  const paysDestination = document.getElementById('vd-destination').value;
+  if(!paysDestination) return;
+  const villeOrigine = currentAgent ? extraireVille(currentAgent.agence) : '';
+  const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===paysDestination) || {};
+  const villeDestination = extraireVille(destInfo.agence);
+  const transporteur = document.getElementById('vd-transporteur').value.trim();
+  let numeroTexte = villeOrigine + '-' + villeDestination;
+  if(transporteur) numeroTexte += ' ' + transporteur;
+  numeroTexte += ' V ' + numeroVoyageCompteurActuel;
+  document.getElementById('vd-numero').value = numeroTexte;
 }
 function renderDepartSelectionHTML(){
   const box = document.getElementById('depart-list');
@@ -3041,6 +3054,7 @@ async function lancerVoyage(){
     document.getElementById('vd-numero').value=''; document.getElementById('vd-transporteur').value='';
     departSelection = [];
     derniereDestinationCalculee = null;
+    numeroVoyageCompteurActuel = null;
     await updateKpis(); renderDepartSelectionHTML();
     onVdDestinationChange();
   }catch(e){}
