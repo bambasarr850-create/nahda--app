@@ -109,6 +109,22 @@
   body.desktop-mode #screen-dashboard .menu-btn .ic{width:46px;height:46px;font-size:21px;border-radius:13px;}
   body.desktop-mode #screen-dashboard .menu-btn span{font-size:14px;}
   body.desktop-mode #screen-dashboard #menu-logout-tile{display:none;}
+  .dash-widgets{display:none;}
+  body.desktop-mode #screen-dashboard .dash-widgets{
+    display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;max-width:1300px;margin:22px auto 0;
+  }
+  body.desktop-mode #screen-dashboard .dash-widgets .panel{
+    background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px;
+  }
+  body.desktop-mode #screen-dashboard .dash-widgets h2{
+    font-family:var(--font-display);font-weight:700;font-size:13.5px;color:var(--navy);margin-bottom:14px;
+  }
+  body.desktop-mode #screen-dashboard .dash-widgets .drow{
+    display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--sand-2);font-size:12px;gap:8px;
+  }
+  body.desktop-mode #screen-dashboard .dash-widgets .drow:last-child{border:none;}
+  body.desktop-mode #screen-dashboard .dash-widgets .drow .ref{font-family:var(--font-mono);font-weight:700;color:var(--navy);}
+  body.desktop-mode #screen-dashboard .dash-widgets .dpill{font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;}
   body.desktop-mode #screen-dashboard > .topbar{padding:18px 32px;box-shadow:0 4px 16px rgba(0,0,0,.12);}
   body.desktop-mode #screen-dashboard > .topbar .logomark{width:40px;height:40px;border-radius:11px;}
 
@@ -142,6 +158,7 @@
 
   /* Retrait — bureau uniquement : deux colonnes, carte d'action distincte */
   body.desktop-mode #screen-retrait .scroll{max-width:1200px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-newcolis .scroll{max-width:1200px;margin:0 auto;width:100%;}
   body.desktop-mode .retrait-layout{display:flex;gap:26px;align-items:flex-start;}
   body.desktop-mode .retrait-col-left{flex:0 0 430px;position:sticky;top:0;}
   body.desktop-mode .retrait-col-right{flex:1;min-width:0;}
@@ -487,6 +504,21 @@
         <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
         <div class="menu-btn wide" id="menu-logout-tile" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
       </div>
+
+      <div class="dash-widgets">
+        <div class="panel">
+          <h2>📋 Derniers colis enregistrés</h2>
+          <div id="dash-derniers-colis"></div>
+        </div>
+        <div class="panel">
+          <h2>⚠️ Colis à traiter</h2>
+          <div id="dash-a-traiter"></div>
+        </div>
+        <div class="panel">
+          <h2>✈️ Voyages en cours</h2>
+          <div id="dash-voyages-cours"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -494,64 +526,81 @@
   <section class="screen" id="screen-newcolis">
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1 id="nc-title">Nouveau Colis</h1></div>
     <div class="scroll">
-      <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
-      <div class="field"><label>Date de dépôt</label><input id="nc-date-depot" type="date"></div>
-      <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
-      <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
-      <div class="field"><label>Nom du déposant (personne qui remet le colis)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
-      <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00"></div>
-      <div class="field">
-        <label>Destination</label>
-        <select id="nc-dest" onchange="onDestChange()"></select>
-        <div id="nc-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
-      </div>
-
-      <div class="field">
-        <label>Contenu du colis (produits hétérogènes)</label>
-        <div id="nc-lignes-produits"></div>
-        <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLigneProduit()">+ Ajouter un type de produit</button>
-        <datalist id="nc-types-produit">
-          <option value="Vêtements"><option value="Électronique"><option value="Chaussures">
-          <option value="Alimentaire"><option value="Cosmétiques"><option value="Pièces auto">
-        </datalist>
-      </div>
-
-      <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
-      <div id="nc-total-devise" style="text-align:right;margin-top:-10px;margin-bottom:14px;font-size:11.5px;color:var(--muted);font-family:var(--font-mono);"></div>
-
-      <div class="field">
-        <label>Statut paiement départ</label>
-        <select id="nc-statutpaie" onchange="onStatutPaieChange()">
-          <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
-        </select>
-      </div>
-      <div class="field" id="nc-commentaire-wrap" style="display:none;">
-        <label>Montant versé en avance (MAD) — encaissé au pays de départ</label>
-        <input id="nc-montant-avance" type="number" placeholder="0" oninput="updateResteAPercevoir()">
-        <div id="nc-reste-info" style="font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
-        <label style="margin-top:10px;">Commentaire (paiement partiel)</label>
-        <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : reste à régler à l'arrivée"></textarea>
-      </div>
-      <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
-
-      <div class="field">
-        <label>Photos du colis (plusieurs prises autorisées)</label>
-        <div id="nc-photo-gallery" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
-        <div class="btn-row">
-          <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;flex:1;">
-            📷 PRENDRE UNE PHOTO
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
-          </label>
-          <label class="btn btn-outline" style="display:block;text-align:center;cursor:pointer;flex:1;">
-            🖼️ GALERIE
-            <input type="file" accept="image/*" multiple style="display:none;" onchange="onPhoto(event)">
-          </label>
+      <div class="retrait-layout">
+        <div class="retrait-col-left">
+          <div class="retrait-action-card">
+            <div class="retrait-action-title">👤 Client &amp; destination</div>
+            <div class="field"><label>Numéro de reçu</label><input id="nc-ref" placeholder="ex : NB-2026-0451"></div>
+            <div class="field"><label>Date de dépôt</label><input id="nc-date-depot" type="date"></div>
+            <div class="retrait-field-pair">
+              <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
+              <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
+            </div>
+            <div class="retrait-field-pair">
+              <div class="field"><label>Nom du déposant (si différent)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
+              <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00"></div>
+            </div>
+            <div class="field">
+              <label>Destination</label>
+              <select id="nc-dest" onchange="onDestChange()"></select>
+              <div id="nc-dest-lock-note" style="display:none;font-size:11px;color:var(--gold);margin-top:6px;">🔒 Destination fixée automatiquement — cette agence ne peut expédier que vers le Maroc</div>
+            </div>
+          </div>
         </div>
-      </div>
+        <div class="retrait-col-right">
+          <div class="retrait-action-card">
+            <div class="retrait-action-title">📦 Contenu &amp; paiement</div>
+            <div class="field">
+              <label>Contenu du colis (produits hétérogènes)</label>
+              <div id="nc-lignes-produits"></div>
+              <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLigneProduit()">+ Ajouter un type de produit</button>
+              <datalist id="nc-types-produit">
+                <option value="Vêtements"><option value="Électronique"><option value="Chaussures">
+                <option value="Alimentaire"><option value="Cosmétiques"><option value="Pièces auto">
+              </datalist>
+            </div>
 
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn btn-outline" onclick="resetNewColis(); goto('screen-dashboard')">❌ ANNULER</button>
-        <button class="btn btn-primary" id="nc-save-btn" onclick="saveColis()">💾 ENREGISTRER</button>
+            <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
+            <div id="nc-total-devise" style="text-align:right;margin-top:-10px;margin-bottom:14px;font-size:11.5px;color:var(--muted);font-family:var(--font-mono);"></div>
+
+            <div class="retrait-field-pair">
+              <div class="field">
+                <label>Statut paiement départ</label>
+                <select id="nc-statutpaie" onchange="onStatutPaieChange()">
+                  <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
+                </select>
+              </div>
+              <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
+            </div>
+            <div class="field" id="nc-commentaire-wrap" style="display:none;">
+              <label>Montant versé en avance (MAD) — encaissé au pays de départ</label>
+              <input id="nc-montant-avance" type="number" placeholder="0" oninput="updateResteAPercevoir()">
+              <div id="nc-reste-info" style="font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+              <label style="margin-top:10px;">Commentaire (paiement partiel)</label>
+              <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : reste à régler à l'arrivée"></textarea>
+            </div>
+
+            <div class="field">
+              <label>Photos du colis (plusieurs prises autorisées)</label>
+              <div id="nc-photo-gallery" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+              <div class="btn-row">
+                <label class="btn btn-gold" style="display:block;text-align:center;cursor:pointer;flex:1;">
+                  📷 PRENDRE UNE PHOTO
+                  <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="onPhoto(event)">
+                </label>
+                <label class="btn btn-outline" style="display:block;text-align:center;cursor:pointer;flex:1;">
+                  🖼️ GALERIE
+                  <input type="file" accept="image/*" multiple style="display:none;" onchange="onPhoto(event)">
+                </label>
+              </div>
+            </div>
+
+            <div class="btn-row" style="margin-top:8px;">
+              <button class="btn btn-outline" onclick="resetNewColis(); goto('screen-dashboard')">❌ ANNULER</button>
+              <button class="btn btn-primary" id="nc-save-btn" onclick="saveColis()">💾 ENREGISTRER</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -942,6 +991,9 @@ try{
       document.body.classList.toggle('desktop-mode', modeBureau);
       const btn = document.getElementById('device-mode-toggle');
       if(btn) btn.textContent = modeBureau ? '📱 Mode téléphone' : '💻 Mode bureau';
+      if(modeBureau && typeof currentAgent !== 'undefined' && currentAgent && document.getElementById('screen-dashboard') && document.getElementById('screen-dashboard').classList.contains('active') && typeof updateKpis === 'function'){
+        updateKpis();
+      }
     }catch(e){}
   };
   window.toggleDeviceMode = function(){
@@ -1149,7 +1201,7 @@ async function api(action, payload={}, silencieux=false){
       'listVoyages','listVoyagesEnTransit','listExpeditionsVoyage','listColisParVoyage','updateVoyage','deleteVoyage',
       'modifierPoidsTranche','retirerColisDuVoyage',
       'listConversations','listMessages','envoyerMessage','compterMessagesNonLus','marquerMessagesLus','supprimerMessage','supprimerConversation','signalerProbleme','resoudreProbleme',
-      'bilan','bilanDetail','updatePrix','addDestination','listHistorique','searchColisPublic','listAgentsPermissions','updatePermissionsAgent'];
+      'bilan','bilanDetail','updatePrix','addDestination','listHistorique','searchColisPublic','listAgentsPermissions','updatePermissionsAgent','countProblemes'];
     if(migrees.includes(action)){
       const delaiMax = new Promise((_, reject) => setTimeout(() => reject(new Error('DELAI_DEPASSE')), 15000));
       return await Promise.race([apiSupabase(action, payload), delaiMax]);
@@ -1534,6 +1586,11 @@ async function apiSupabase(action, p){
       if(error) throw new Error(/row-level security|42501/i.test(error.message||'') ? "Suppression de conversation réservée à l'administrateur (ou à ta propre agence pour tes propres messages)" : traduireErreur(error.message));
       data = { supprime: true };
 
+    } else if(action==='countProblemes'){
+      const { data: rows, error } = await sb.from('colis').select('reference').eq('probleme', true);
+      if(error) throw new Error(traduireErreur(error.message));
+      data = { total: (rows||[]).length };
+
     } else if(action==='listVoyagesEnTransit'){
       let q = sb.from('expeditions').select('voyage').eq('statut', 0);
       const { data: exps, error } = await q;
@@ -1906,6 +1963,47 @@ async function updateKpis(){
     document.getElementById('kpi-voyage').textContent = b.enVoyage;
     document.getElementById('kpi-arrives').textContent = b.arrives;
     document.getElementById('kpi-retires').textContent = b.retires;
+    if(document.body.classList.contains('desktop-mode')) updateDashWidgets(b, filtre);
+  }catch(e){}
+}
+async function updateDashWidgets(bilanDeja, filtre){
+  try{
+    const b = bilanDeja || await api('bilan', filtre || {}, true);
+
+    // Derniers colis enregistrés
+    const derniers = await api('bilanDetail', {...(filtre||{}), type:'totalColis'}, true);
+    const boxDerniers = document.getElementById('dash-derniers-colis');
+    if(boxDerniers){
+      const top = derniers.slice(0,5);
+      boxDerniers.innerHTML = top.length ? top.map(c=>{
+        const label = STATUT_LABELS[Number(c.statut)] || '';
+        const cls = 'st-'+c.statut;
+        return `<div class="drow"><span><span class="ref">${c.reference}</span> · ${(c.nom_client||'').split(' ')[0]}</span><span class="status-pill dpill ${cls}">${label}</span></div>`;
+      }).join('') : `<div class="drow" style="color:var(--muted);">Aucun colis pour l'instant</div>`;
+    }
+
+    // Colis a traiter
+    const [probs, msgs] = await Promise.all([
+      api('countProblemes', filtre || {}, true).catch(()=>({total:0})),
+      api('compterMessagesNonLus', {agentId: currentAgent.id, agentPays: currentAgent.pays}, true).catch(()=>({nonLus:0}))
+    ]);
+    const boxTraiter = document.getElementById('dash-a-traiter');
+    if(boxTraiter){
+      boxTraiter.innerHTML = `
+        <div class="drow"><span>Arrivés, non retirés</span><span class="dpill" style="background:#FCEBD0;color:var(--amber);">${b.arrives||0} colis</span></div>
+        <div class="drow"><span>Problème signalé</span><span class="dpill" style="background:#F4DADA;color:var(--red);">${probs.total||0} colis</span></div>
+        <div class="drow"><span>Messages non lus</span><span class="dpill" style="background:#DCE8F0;color:#4A6FA5;">${msgs.nonLus||0}</span></div>`;
+    }
+
+    // Voyages en cours
+    const voyages = await api('listVoyages', filtre || {}, true).catch(()=>[]);
+    const boxVoyages = document.getElementById('dash-voyages-cours');
+    if(boxVoyages){
+      const enCours = (voyages||[]).filter(v=>v.statut==='En cours').slice(0,5);
+      boxVoyages.innerHTML = enCours.length ? enCours.map(v=>
+        `<div class="drow"><span>${v.numero}</span><span class="dpill" style="background:#E5E9F2;color:#4A6FA5;">${v.nb_colis||0} colis</span></div>`
+      ).join('') : `<div class="drow" style="color:var(--muted);">Aucun voyage en cours</div>`;
+    }
   }catch(e){}
 }
 
