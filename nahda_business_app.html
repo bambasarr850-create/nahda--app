@@ -48,13 +48,69 @@
 
   /* ================= MODE BUREAU (additif — n'affecte jamais le mode telephone en dessous du seuil) ================= */
   body.desktop-mode .phone-wrap{padding:0;align-items:stretch;min-height:100vh;}
-  body.desktop-mode .phone{width:100%;max-width:100%;min-height:100vh;border-radius:0;box-shadow:none;margin:0;}
+  body.desktop-mode .phone{
+    width:100%;max-width:100%;min-height:100vh;border-radius:0;box-shadow:none;margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 8% -8%, rgba(200,155,60,.07), transparent 60%),
+      radial-gradient(ellipse 900px 600px at 105% 8%, rgba(11,74,64,.05), transparent 55%),
+      linear-gradient(180deg, #F4EEDC 0%, var(--sand) 260px, var(--sand) 100%);
+  }
+  body.desktop-mode .phone::before{
+    content:"";position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%230B4A40'%3E%3Cpath d='M21 16v-2l-8-5V4.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-5.5l8 2.5z'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23C89B3C'%3E%3Cpath d='M21 16v-2l-8-5V4.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-5.5l8 2.5z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat,no-repeat;
+    background-position:92% 2%,-6% 96%;
+    background-size:260px,190px;
+    opacity:.03;
+  }
+  body.desktop-mode #screen-dashboard{position:relative;z-index:1;}
   body.desktop-mode .statusbar{display:none;}
   body.desktop-mode #screen-dashboard .grid-menu{grid-template-columns:repeat(4, 1fr);max-width:820px;margin:0 auto;gap:16px;}
   body.desktop-mode #screen-dashboard .menu-btn.wide{grid-column:span 4;}
   body.desktop-mode #screen-dashboard .scroll{max-width:900px;margin:0 auto;width:100%;}
   body.desktop-mode #screen-dashboard .kpi-strip{max-width:900px;margin:0 auto 16px;}
-  body.desktop-mode #screen-dashboard .agent-card{max-width:900px;margin:0 auto 18px;}
+  body.desktop-mode #screen-dashboard .agent-card{
+    max-width:900px;margin:0 auto 22px;padding:26px 30px;border-radius:20px;
+    background:linear-gradient(120deg, var(--navy) 0%, #0e5a4c 100%);
+    box-shadow:0 10px 30px rgba(11,74,64,.18);
+  }
+  body.desktop-mode #screen-dashboard .agent-card::after{width:170px;height:170px;right:-50px;top:-50px;}
+  body.desktop-mode #screen-dashboard .agent-card .name{font-size:23px;}
+  body.desktop-mode #screen-dashboard .agent-card .name::before{content:"Bonjour, ";font-weight:400;opacity:.75;}
+  body.desktop-mode #screen-dashboard .agent-card .loc{font-size:12.5px;margin-top:6px;}
+  body.desktop-mode #screen-dashboard .agent-card .badge{margin-top:14px;font-size:10.5px;padding:4px 12px;}
+
+  body.desktop-mode #screen-dashboard .kpi-strip{gap:14px;}
+  body.desktop-mode #screen-dashboard .kpi{
+    padding:16px 14px;border-radius:16px;border:1px solid var(--line);
+    box-shadow:0 3px 12px rgba(11,74,64,.04);transition:transform .15s ease, box-shadow .15s ease;
+    border-top:3px solid var(--kpi-accent, var(--navy));
+  }
+  body.desktop-mode #screen-dashboard .kpi:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(11,74,64,.1);}
+  body.desktop-mode #screen-dashboard .kpi .n{font-size:22px;}
+  body.desktop-mode #screen-dashboard .kpi.kpi-c1{--kpi-accent:#4A6FA5;}
+  body.desktop-mode #screen-dashboard .kpi.kpi-c2{--kpi-accent:var(--amber);}
+  body.desktop-mode #screen-dashboard .kpi.kpi-c3{--kpi-accent:var(--gold);}
+  body.desktop-mode #screen-dashboard .kpi.kpi-c4{--kpi-accent:#3E9C7A;}
+  body.desktop-mode #screen-dashboard .kpi.kpi-c5{--kpi-accent:var(--green);}
+
+  body.desktop-mode #screen-dashboard .menu-section-label{
+    display:block;grid-column:1/-1;font-family:var(--font-display);font-weight:700;font-size:11.5px;
+    letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:20px 0 2px;
+  }
+  body.desktop-mode #screen-dashboard .menu-section-label:first-child{margin-top:4px;}
+  body.desktop-mode #screen-dashboard .menu-btn{
+    padding:22px 18px;border-radius:18px;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    box-shadow:0 3px 12px rgba(11,74,64,.04);
+  }
+  body.desktop-mode #screen-dashboard .menu-btn:hover{transform:translateY(-4px);box-shadow:0 12px 26px rgba(11,74,64,.12);border-color:var(--gold);}
+  body.desktop-mode #screen-dashboard .menu-btn .ic{width:46px;height:46px;font-size:21px;border-radius:13px;}
+  body.desktop-mode #screen-dashboard .menu-btn span{font-size:14px;}
+  body.desktop-mode #screen-dashboard #menu-logout-tile{display:none;}
+  body.desktop-mode #screen-dashboard > .topbar{padding:18px 32px;box-shadow:0 4px 16px rgba(0,0,0,.12);}
+  body.desktop-mode #screen-dashboard > .topbar .logomark{width:40px;height:40px;border-radius:11px;}
 
   body.desktop-mode #screen-messages .messages-layout{display:flex;gap:20px;max-width:1100px;margin:0 auto;align-items:flex-start;}
   body.desktop-mode #screen-messages .conv-col{flex:0 0 360px;}
@@ -76,6 +132,31 @@
   body.desktop-mode #screen-settings .scroll{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-content:start;}
   body.desktop-mode #screen-settings .settings-item{margin-bottom:0;}
   body.desktop-mode #screen-settings .settings-panel{grid-column:1/-1;margin:0;}
+
+  /* Retrait — mobile : conteneurs neutres, aucun changement visuel par rapport a avant */
+  .retrait-layout{display:block;}
+  .retrait-col-left, .retrait-col-right{display:block;}
+  .retrait-action-card{background:none;border:none;padding:0;}
+  .retrait-action-title{display:none;}
+  .retrait-field-pair{display:block;}
+
+  /* Retrait — bureau uniquement : deux colonnes, carte d'action distincte */
+  body.desktop-mode #screen-retrait .scroll{max-width:1200px;margin:0 auto;width:100%;}
+  body.desktop-mode .retrait-layout{display:flex;gap:26px;align-items:flex-start;}
+  body.desktop-mode .retrait-col-left{flex:0 0 430px;position:sticky;top:0;}
+  body.desktop-mode .retrait-col-right{flex:1;min-width:0;}
+  body.desktop-mode .retrait-action-card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 4px 18px rgba(11,74,64,.05);}
+  body.desktop-mode .retrait-action-title{display:block;font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15.5px;margin-bottom:16px;padding-bottom:12px;border-bottom:1.5px solid var(--sand-2);}
+  body.desktop-mode .retrait-field-pair{display:flex;gap:16px;}
+  body.desktop-mode .retrait-field-pair .field{flex:1;min-width:0;}
+  body.desktop-mode #rt-historique-visites{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:18px 22px;margin-top:18px;}
+  body.desktop-mode #rt-historique-visites:empty{display:none;}
+
+  /* Recherche colis — bureau : centrer la fiche, largeur type document */
+  body.desktop-mode #screen-search .scroll{max-width:640px;margin:0 auto;width:100%;}
+
+  /* Fiche colis (result-card) — polish general, applicable partout */
+  body.desktop-mode .result-card{box-shadow:0 4px 18px rgba(11,74,64,.05);}
   body.desktop-mode #screen-voyage #historique-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start;}
   body.desktop-mode #bilan-detail-modal > div{max-width:700px;}
   #device-mode-toggle{display:none;position:fixed;bottom:18px;right:18px;z-index:150;background:var(--navy);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3);}
@@ -95,6 +176,7 @@
   .scroll{overflow-y:auto;flex:1;padding:18px 18px 90px;}
   .scroll::-webkit-scrollbar{width:0;}
   .grid-menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .menu-section-label{display:none;}
 
   /* ---------- Topbar ---------- */
   .topbar{background:var(--navy);color:var(--sand);padding:16px 18px;display:flex;align-items:center;gap:12px;flex:none;}
@@ -386,22 +468,24 @@
       </div>
 
       <div class="kpi-strip">
-        <div class="kpi" onclick="showDashboardDetail('totalColis','Tous les colis')"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
-        <div class="kpi" onclick="showDashboardDetail('enAttente','Colis en attente')"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
-        <div class="kpi" onclick="showDashboardDetail('enVoyage','Colis en voyage')"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
-        <div class="kpi" onclick="showDashboardDetail('arrives','Arrivés (non retirés)')"><div class="n" id="kpi-arrives">0</div><div class="l">Arrivés</div></div>
-        <div class="kpi" onclick="showDashboardDetail('retires','Colis retirés')"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
+        <div class="kpi kpi-c1" onclick="showDashboardDetail('totalColis','Tous les colis')"><div class="n" id="kpi-total">0</div><div class="l">Colis</div></div>
+        <div class="kpi kpi-c2" onclick="showDashboardDetail('enAttente','Colis en attente')"><div class="n" id="kpi-attente">0</div><div class="l">En attente</div></div>
+        <div class="kpi kpi-c3" onclick="showDashboardDetail('enVoyage','Colis en voyage')"><div class="n" id="kpi-voyage">0</div><div class="l">En voyage</div></div>
+        <div class="kpi kpi-c4" onclick="showDashboardDetail('arrives','Arrivés (non retirés)')"><div class="n" id="kpi-arrives">0</div><div class="l">Arrivés</div></div>
+        <div class="kpi kpi-c5" onclick="showDashboardDetail('retires','Colis retirés')"><div class="n" id="kpi-retires">0</div><div class="l">Retirés</div></div>
       </div>
 
       <div class="grid-menu">
+        <div class="menu-section-label">Opérations quotidiennes</div>
         <div class="menu-btn" id="menu-newcolis-btn" onclick="goto('screen-newcolis')"><div class="ic" style="background:#DDEFE5;">📦</div><span>Nouveau Colis</span></div>
         <div class="menu-btn" onclick="goto('screen-search')"><div class="ic" style="background:#E5E9F2;">🔎</div><span>Recherche Colis</span></div>
         <div class="menu-btn" id="menu-voyage-btn" onclick="goto('screen-voyage')"><div class="ic" style="background:#FCEBD0;">✈️</div><span>Voyage</span></div>
         <div class="menu-btn" id="menu-retrait-btn" onclick="goto('screen-retrait')"><div class="ic" style="background:#F4DADA;">📦</div><span>Retrait</span></div>
+        <div class="menu-section-label">Gestion</div>
         <div class="menu-btn" onclick="goto('screen-messages')"><div class="ic" style="background:#DCE8F0;">💬</div><span>Messages</span></div>
         <div class="menu-btn" id="menu-bilan-btn" onclick="goto('screen-bilan')"><div class="ic" style="background:#E9E1F4;">📊</div><span>Bilan Trésorerie</span></div>
         <div class="menu-btn" id="menu-settings-btn" onclick="goto('screen-settings')"><div class="ic" style="background:#EDEDED;">⚙️</div><span>Paramètres</span></div>
-        <div class="menu-btn wide" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
+        <div class="menu-btn wide" id="menu-logout-tile" onclick="doLogout()"><div class="ic" style="background:#F4DADA;">🔓</div><span>Déconnexion</span></div>
       </div>
     </div>
   </section>
@@ -543,49 +627,62 @@
   <section class="screen" id="screen-retrait">
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Retrait</h1></div>
     <div class="scroll">
-      <div class="field"><label>Numéro de reçu</label>
-        <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
-      </div>
-      <div id="rt-fiche"></div>
-      <div id="rt-dispo-info" style="display:none;background:var(--sand);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;"></div>
-      <div id="rt-champs-retrait" style="display:none;">
-      <div id="rt-lignes-selection" style="display:none;"></div>
-      <div id="rt-poids-simple-wrap" class="field">
-        <label>Poids à retirer aujourd'hui (kg)</label>
-        <input id="rt-poids-retrait" type="number" placeholder="0" oninput="updateMontantSelonPoids()">
-      </div>
-      <div class="field">
-        <label>Montant à payer aujourd'hui</label>
-        <input id="rt-montant" type="number" placeholder="0" readonly style="background:var(--sand);">
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Calculé automatiquement selon le poids retiré (prix moyen du colis) — non modifiable.</div>
-        <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
-      </div>
-      <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
-      <div class="field">
-        <label>Compte de retrait</label>
-        <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
-      </div>
-      <div class="field">
-        <label>Nom de la personne qui retire le colis *</label>
-        <input id="rt-retirant-nom" placeholder="Nom complet">
-      </div>
-      <div class="field">
-        <label>Téléphone de la personne qui retire *</label>
-        <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00">
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Pré-rempli avec les infos du client — modifie si une autre personne vient récupérer le colis.</div>
-      </div>
-      <div class="field">
-        <label>Commentaire sur cette visite (optionnel)</label>
-        <textarea id="rt-commentaire" rows="2" placeholder="ex : reste 20kg à venir la semaine prochaine..."></textarea>
-      </div>
-      <div id="rt-historique-visites"></div>
-      <label id="rt-confirm-paiement-wrap" style="display:flex;align-items:flex-start;gap:10px;background:var(--sand);border-radius:12px;padding:12px 14px;margin:12px 0;font-size:13px;cursor:pointer;">
-        <input type="checkbox" id="rt-confirm-paiement" onchange="updateRetireButtonState()" style="margin-top:2px;">
-        <span>J'ai bien reçu <b id="rt-confirm-montant">0 MAD</b> de la part du client avant de valider ce retrait.</span>
-      </label>
-      <div class="btn-row">
-        <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 ENREGISTRER LE RETRAIT</button>
-      </div>
+      <div class="retrait-layout">
+        <div class="retrait-col-left">
+          <div class="field"><label>Numéro de reçu</label>
+            <div class="add-row"><input id="rt-ref" placeholder="ex : NB-2026-0451"><button onclick="chargerRetrait()">🔍</button><button onclick="scanForField('rt-ref', chargerRetrait)">📷</button></div>
+          </div>
+          <div id="rt-fiche"></div>
+          <div id="rt-dispo-info" style="display:none;background:var(--sand);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;"></div>
+        </div>
+        <div class="retrait-col-right">
+          <div id="rt-champs-retrait" style="display:none;">
+            <div class="retrait-action-card">
+              <div class="retrait-action-title">📦 Détails du retrait</div>
+              <div id="rt-lignes-selection" style="display:none;"></div>
+              <div id="rt-poids-simple-wrap" class="field">
+                <label>Poids à retirer aujourd'hui (kg)</label>
+                <input id="rt-poids-retrait" type="number" placeholder="0" oninput="updateMontantSelonPoids()">
+              </div>
+              <div class="field">
+                <label>Montant à payer aujourd'hui</label>
+                <input id="rt-montant" type="number" placeholder="0" readonly style="background:var(--sand);">
+                <div style="font-size:11px;color:var(--muted);margin-top:4px;">Calculé automatiquement selon le poids retiré (prix moyen du colis) — non modifiable.</div>
+                <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
+              </div>
+              <div class="retrait-field-pair">
+                <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
+                <div class="field">
+                  <label>Compte de retrait</label>
+                  <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
+                </div>
+              </div>
+              <div class="retrait-field-pair">
+                <div class="field">
+                  <label>Nom de la personne qui retire le colis *</label>
+                  <input id="rt-retirant-nom" placeholder="Nom complet">
+                </div>
+                <div class="field">
+                  <label>Téléphone de la personne qui retire *</label>
+                  <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00">
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;">Pré-rempli avec les infos du client — modifie si une autre personne vient récupérer le colis.</div>
+              <div class="field">
+                <label>Commentaire sur cette visite (optionnel)</label>
+                <textarea id="rt-commentaire" rows="2" placeholder="ex : reste 20kg à venir la semaine prochaine..."></textarea>
+              </div>
+              <label id="rt-confirm-paiement-wrap" style="display:flex;align-items:flex-start;gap:10px;background:var(--sand);border-radius:12px;padding:12px 14px;margin:12px 0;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="rt-confirm-paiement" onchange="updateRetireButtonState()" style="margin-top:2px;">
+                <span>J'ai bien reçu <b id="rt-confirm-montant">0 MAD</b> de la part du client avant de valider ce retrait.</span>
+              </label>
+              <div class="btn-row">
+                <button class="btn btn-green" id="rt-retire-btn" onclick="marquerRetire()">📦 ENREGISTRER LE RETRAIT</button>
+              </div>
+            </div>
+            <div id="rt-historique-visites"></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -2503,8 +2600,10 @@ function renderResultCard(c, showAdminActions, isPublic){
     return `<div class="tl-step"><div class="tl-dot ${cls}">${ic}</div><div class="tl-label">${l}</div></div>`;
   }).join('');
   const photoUrls = String(c.photo_url||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const enModeBureau = document.body.classList.contains('desktop-mode');
+  const taillePhoto = enModeBureau ? 118 : 90;
   const photoBlock = photoUrls.length
-    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:90px;height:90px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer;" onclick="openLightbox('${toEmbeddableUrl(u)}')" onerror="this.style.display='none'">`).join('')}</div>`
+    ? `<div style="display:flex;gap:10px;flex-wrap:${enModeBureau?'wrap':'nowrap'};overflow-x:${enModeBureau?'visible':'auto'};margin-bottom:14px;">${photoUrls.map(u=>`<img src="${toEmbeddableUrl(u)}" alt="Photo colis" style="width:${taillePhoto}px;height:${taillePhoto}px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer;box-shadow:0 2px 10px rgba(11,74,64,.1);" onclick="openLightbox('${toEmbeddableUrl(u)}')" onerror="this.style.display='none'">`).join('')}</div>`
     : `<div class="empty-state" style="padding:16px;"><div class="em">🖼️</div><p>Aucune photo enregistrée pour ce colis.</p></div>`;
 
   const destInfo = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_destination);
