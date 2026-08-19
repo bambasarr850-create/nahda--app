@@ -61,6 +61,19 @@
   body.desktop-mode #screen-messages .thread-col{flex:1;min-height:65vh;max-height:65vh;background:var(--white);border-radius:16px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;}
   body.desktop-mode #thread-modal.inline-desktop{position:static;background:none;display:flex;inset:auto;z-index:auto;height:100%;}
   body.desktop-mode #thread-modal.inline-desktop > div{width:100%;height:100%;max-height:none;border-radius:0;margin:0;}
+
+  body.desktop-mode #screen-bilan .scroll{max-width:1000px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-bilan #bilan-scroll{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:stretch;}
+  body.desktop-mode #screen-bilan #bilan-scroll .section-title{grid-column:1/-1;margin-top:6px;}
+  body.desktop-mode #screen-bilan #bilan-scroll .banner-demo{grid-column:1/-1;}
+  body.desktop-mode #screen-bilan #bilan-scroll .bilan-card{margin-bottom:0;flex-direction:column-reverse;align-items:flex-start;gap:10px;}
+  body.desktop-mode #screen-bilan .date-nav, body.desktop-mode #screen-bilan #bilan-periode-wrap, body.desktop-mode #screen-bilan .btn-row{max-width:600px;margin-left:auto;margin-right:auto;}
+
+  body.desktop-mode #screen-voyage .tabbar{max-width:640px;margin:0 auto 16px;}
+  body.desktop-mode #screen-voyage #voyage-depart-panel, body.desktop-mode #screen-voyage #voyage-arrivee-panel{max-width:900px;margin:0 auto;}
+  body.desktop-mode #screen-voyage #voyage-historique-panel{max-width:1000px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-voyage #historique-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start;}
+  body.desktop-mode #bilan-detail-modal > div{max-width:700px;}
   #device-mode-toggle{display:none;position:fixed;bottom:18px;right:18px;z-index:150;background:var(--navy);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3);}
   @media (min-width:1000px){ #device-mode-toggle{display:block;} }
 
