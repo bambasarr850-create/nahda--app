@@ -55,6 +55,12 @@
   body.desktop-mode #screen-dashboard .scroll{max-width:900px;margin:0 auto;width:100%;}
   body.desktop-mode #screen-dashboard .kpi-strip{max-width:900px;margin:0 auto 16px;}
   body.desktop-mode #screen-dashboard .agent-card{max-width:900px;margin:0 auto 18px;}
+
+  body.desktop-mode #screen-messages .messages-layout{display:flex;gap:20px;max-width:1100px;margin:0 auto;align-items:flex-start;}
+  body.desktop-mode #screen-messages .conv-col{flex:0 0 360px;}
+  body.desktop-mode #screen-messages .thread-col{flex:1;min-height:65vh;max-height:65vh;background:var(--white);border-radius:16px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;}
+  body.desktop-mode #thread-modal.inline-desktop{position:static;background:none;display:flex;inset:auto;z-index:auto;height:100%;}
+  body.desktop-mode #thread-modal.inline-desktop > div{width:100%;height:100%;max-height:none;border-radius:0;margin:0;}
   #device-mode-toggle{display:none;position:fixed;bottom:18px;right:18px;z-index:150;background:var(--navy);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3);}
   @media (min-width:1000px){ #device-mode-toggle{display:block;} }
 
@@ -603,9 +609,19 @@
       <h1>Messages</h1>
     </div>
     <div class="scroll">
-      <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="ouvrirNouvelleConversationLibre()">✉️ Nouvelle conversation</button>
-      <input type="text" id="messages-search" placeholder="🔎 Rechercher par numéro de reçu..." oninput="filterConversations()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
-      <div id="conversations-list"></div>
+      <div class="messages-layout">
+        <div class="conv-col">
+          <button class="btn btn-outline" style="width:100%;margin-bottom:12px;" onclick="ouvrirNouvelleConversationLibre()">✉️ Nouvelle conversation</button>
+          <input type="text" id="messages-search" placeholder="🔎 Rechercher par numéro de reçu..." oninput="filterConversations()" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);margin-bottom:12px;font-size:13.5px;background:var(--white);">
+          <div id="conversations-list"></div>
+        </div>
+        <div class="thread-col" id="messages-thread-slot">
+          <div id="messages-thread-placeholder" style="display:none;height:100%;align-items:center;justify-content:center;flex-direction:column;color:var(--muted);gap:10px;">
+            <div style="font-size:34px;">💬</div>
+            <div style="font-size:13px;">Sélectionne une conversation à gauche</div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1608,7 +1624,14 @@ function goto(id, fromPopstate){
   if(id==='screen-bilan') renderBilan();
   if(id==='screen-settings') prepSettings();
   if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; document.getElementById('rt-champs-retrait').style.display='none'; document.getElementById('rt-dispo-info').style.display='none'; }
-  if(id==='screen-messages') renderConversations();
+  if(id==='screen-messages'){
+    if(document.body.classList.contains('desktop-mode') && !threadActuel){
+      document.getElementById('thread-modal').style.display = 'none';
+      const placeholder = document.getElementById('messages-thread-placeholder');
+      if(placeholder) placeholder.style.display = 'flex';
+    }
+    renderConversations();
+  }
 }
 let lastDashboardBackPress = 0;
 function pushModalHistoryState(){
@@ -1635,7 +1658,9 @@ function naviguerVersRetraitDepuisModal(reference){
   chargerRetrait();
 }
 function fermerModalesOuvertes(){
-  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','thread-modal','logout-confirm-modal','commentaire-modal','generic-confirm-modal','generic-prompt-modal','choix-agence-modal'];
+  const enModeBureau = document.body.classList.contains('desktop-mode');
+  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','logout-confirm-modal','commentaire-modal','generic-confirm-modal','generic-prompt-modal','choix-agence-modal'];
+  if(!enModeBureau) modales.push('thread-modal');
   let uneEtaitOuverte = false;
   modales.forEach(id=>{
     const el = document.getElementById(id);
@@ -4076,8 +4101,28 @@ async function ouvrirThread(colisReference, paysA, paysB){
   document.getElementById('thread-voir-fiche-btn').style.display = colisReference ? 'block' : 'none';
   document.getElementById('thread-messages').innerHTML = skeletonHTML(2);
   document.getElementById('thread-input').value = '';
-  pushModalHistoryState();
-  document.getElementById('thread-modal').style.display = 'flex';
+  const modal = document.getElementById('thread-modal');
+  if(document.body.classList.contains('desktop-mode')){
+    const slot = document.getElementById('messages-thread-slot');
+    const placeholder = document.getElementById('messages-thread-placeholder');
+    if(placeholder) placeholder.style.display = 'none';
+    if(slot && modal.parentElement !== slot) slot.appendChild(modal);
+    modal.classList.add('inline-desktop');
+    modal.style.position = 'static';
+    modal.style.background = 'none';
+    modal.style.inset = 'auto';
+    modal.style.zIndex = 'auto';
+    modal.style.flex = '1';
+    modal.style.height = 'auto';
+    modal.style.alignItems = 'stretch';
+    modal.style.justifyContent = 'stretch';
+    modal.style.display = 'flex';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = 'auto'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; }
+  } else {
+    pushModalHistoryState();
+    modal.style.display = 'flex';
+  }
   await rafraichirThread();
 }
 function voirFicheDepuisThread(){
@@ -4141,8 +4186,20 @@ function supprimerConversationConfirm(){
   }, '🗑️');
 }
 function closeThreadModal(){
-  document.getElementById('thread-modal').style.display = 'none';
+  const modal = document.getElementById('thread-modal');
   threadActuel = null;
+  if(document.body.classList.contains('desktop-mode')){
+    modal.style.display = 'none';
+    modal.classList.remove('inline-desktop');
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; }
+    const placeholder = document.getElementById('messages-thread-placeholder');
+    if(placeholder) placeholder.style.display = 'flex';
+    renderConversations();
+    return;
+  }
+  modal.style.display = 'none';
   if(history.state && history.state.modal) history.back();
   renderConversations();
 }
