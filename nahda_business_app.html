@@ -128,24 +128,27 @@
   body.desktop-mode #screen-dashboard > .topbar{padding:18px 32px;box-shadow:0 4px 16px rgba(0,0,0,.12);}
   body.desktop-mode #screen-dashboard > .topbar .logomark{width:40px;height:40px;border-radius:11px;}
 
-  body.desktop-mode #screen-messages .messages-layout{display:flex;gap:20px;max-width:1100px;margin:0 auto;align-items:flex-start;}
-  body.desktop-mode #screen-messages .conv-col{flex:0 0 360px;}
+  body.desktop-mode #screen-messages .messages-layout{display:flex;gap:20px;max-width:1600px;margin:0 auto;align-items:flex-start;}
+  body.desktop-mode #screen-messages .conv-col{flex:0 0 400px;}
   body.desktop-mode #screen-messages .thread-col{flex:1;min-height:65vh;max-height:65vh;background:var(--white);border-radius:16px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;}
   body.desktop-mode #thread-modal.inline-desktop{position:static;background:none;display:flex;inset:auto;z-index:auto;height:100%;}
   body.desktop-mode #thread-modal.inline-desktop > div{width:100%;height:100%;max-height:none;border-radius:0;margin:0;}
 
-  body.desktop-mode #screen-bilan .scroll{max-width:1000px;margin:0 auto;width:100%;}
-  body.desktop-mode #screen-bilan #bilan-scroll{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:stretch;}
+  body.desktop-mode #screen-bilan .scroll{max-width:1600px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-bilan #bilan-scroll{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:stretch;}
   body.desktop-mode #screen-bilan #bilan-scroll .section-title{grid-column:1/-1;margin-top:6px;}
   body.desktop-mode #screen-bilan #bilan-scroll .banner-demo{grid-column:1/-1;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-card{margin-bottom:0;flex-direction:column-reverse;align-items:flex-start;gap:10px;}
-  body.desktop-mode #screen-bilan .date-nav, body.desktop-mode #screen-bilan #bilan-periode-wrap, body.desktop-mode #screen-bilan .btn-row{max-width:600px;margin-left:auto;margin-right:auto;}
+  body.desktop-mode #screen-bilan .date-nav, body.desktop-mode #screen-bilan #bilan-periode-wrap, body.desktop-mode #screen-bilan .btn-row{max-width:820px;margin-left:auto;margin-right:auto;}
 
-  body.desktop-mode #screen-voyage .tabbar{max-width:640px;margin:0 auto 16px;}
-  body.desktop-mode #screen-voyage #voyage-depart-panel, body.desktop-mode #screen-voyage #voyage-arrivee-panel{max-width:900px;margin:0 auto;}
-  body.desktop-mode #screen-voyage #voyage-historique-panel{max-width:1000px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-voyage .tabbar{max-width:820px;margin:0 auto 16px;}
+  body.desktop-mode #screen-voyage #voyage-depart-panel, body.desktop-mode #screen-voyage #voyage-arrivee-panel{max-width:1000px;margin:0 auto;}
+  body.desktop-mode #screen-voyage #voyage-historique-panel{max-width:1600px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-voyage #historique-list{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start;}
+  body.desktop-mode #screen-voyage #depart-list, body.desktop-mode #screen-voyage #arrivee-list{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+  body.desktop-mode #screen-voyage #depart-list .checklist-total, body.desktop-mode #screen-voyage #arrivee-list .checklist-total{grid-column:1/-1;}
 
-  body.desktop-mode #screen-settings .scroll{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-content:start;}
+  body.desktop-mode #screen-settings .scroll{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;align-content:start;}
   body.desktop-mode #screen-settings .settings-item{margin-bottom:0;}
   body.desktop-mode #screen-settings .settings-panel{grid-column:1/-1;margin:0;}
 
@@ -157,10 +160,10 @@
   .retrait-field-pair{display:block;}
 
   /* Retrait — bureau uniquement : deux colonnes, carte d'action distincte */
-  body.desktop-mode #screen-retrait .scroll{max-width:1200px;margin:0 auto;width:100%;}
-  body.desktop-mode #screen-newcolis .scroll{max-width:1200px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-retrait .scroll{max-width:1600px;margin:0 auto;width:100%;}
+  body.desktop-mode #screen-newcolis .scroll{max-width:1600px;margin:0 auto;width:100%;}
   body.desktop-mode .retrait-layout{display:flex;gap:26px;align-items:flex-start;}
-  body.desktop-mode .retrait-col-left{flex:0 0 430px;position:sticky;top:0;}
+  body.desktop-mode .retrait-col-left{flex:0 0 460px;position:sticky;top:0;}
   body.desktop-mode .retrait-col-right{flex:1;min-width:0;}
   body.desktop-mode .retrait-action-card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 4px 18px rgba(11,74,64,.05);}
   body.desktop-mode .retrait-action-title{display:block;font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:15.5px;margin-bottom:16px;padding-bottom:12px;border-bottom:1.5px solid var(--sand-2);}
@@ -169,13 +172,12 @@
   body.desktop-mode #rt-historique-visites{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:18px 22px;margin-top:18px;}
   body.desktop-mode #rt-historique-visites:empty{display:none;}
 
-  /* Recherche colis — bureau : centrer la fiche, largeur type document */
-  body.desktop-mode #screen-search .scroll{max-width:640px;margin:0 auto;width:100%;}
+  /* Recherche colis — bureau : centrer la fiche, largeur type document (un peu plus large pour 1920px) */
+  body.desktop-mode #screen-search .scroll{max-width:860px;margin:0 auto;width:100%;}
 
   /* Fiche colis (result-card) — polish general, applicable partout */
   body.desktop-mode .result-card{box-shadow:0 4px 18px rgba(11,74,64,.05);}
-  body.desktop-mode #screen-voyage #historique-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start;}
-  body.desktop-mode #bilan-detail-modal > div{max-width:700px;}
+  body.desktop-mode #bilan-detail-modal > div{max-width:800px;}
   #device-mode-toggle{display:none;position:fixed;bottom:18px;right:18px;z-index:150;background:var(--navy);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3);}
   @media (min-width:1000px){ #device-mode-toggle{display:block;} }
 
