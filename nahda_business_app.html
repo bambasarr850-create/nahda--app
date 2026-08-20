@@ -2618,9 +2618,8 @@ async function generateReceiptPDF(c){
     if (lignesRecu.length) {
       y += 1;
       const limiteY = 104; // au-dela, on resume plutot que de deborder sur le bloc total
-      const nbLignesAffichables = Math.max(1, Math.floor((limiteY - y - 6) / 5.2));
-      const tronque = lignesRecu.length > nbLignesAffichables;
-      const lignesAffichees = tronque ? lignesRecu.slice(0, nbLignesAffichables) : lignesRecu;
+      const hauteurLigneTexte = 3.4; // hauteur d'une sous-ligne de texte replie
+      const paddingVertical = 1.8;
 
       // En-tete du tableau
       doc.setFillColor(navy);
@@ -2633,23 +2632,30 @@ async function generateReceiptPDF(c){
       y += 6;
 
       doc.setDrawColor(sand); doc.setLineWidth(0.3);
-      lignesAffichees.forEach((l, i) => {
-        const rowH = 5.2;
-        if (i % 2 === 1) { doc.setFillColor('#F7F3EA'); doc.rect(tabX, y, tabW, rowH, 'F'); }
+      let nbAffiches = 0;
+      for (const l of lignesRecu) {
+        doc.setFontSize(8);
+        const lignesTexte = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4);
+        const rowH = Math.max(5.2, lignesTexte.length * hauteurLigneTexte + paddingVertical * 2);
+        if (y + rowH > limiteY) break; // ne rentre plus : on resume au lieu de deborder sur le bloc total
+        if (nbAffiches % 2 === 1) { doc.setFillColor('#F7F3EA'); doc.rect(tabX, y, tabW, rowH, 'F'); }
         const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
         doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8);
-        const nomArticle = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4)[0];
-        doc.text(nomArticle, tabX + 2, y + 3.6);
-        doc.text(String(l.poids) + ' kg', tabX + colArticleW + colPoidsW - 2, y + 3.6, { align: 'right' });
-        doc.text(formatPdfNum(l.prixKg), tabX + colArticleW + colPoidsW + colPrixW - 2, y + 3.6, { align: 'right' });
+        lignesTexte.forEach((sousLigne, li) => {
+          doc.text(sousLigne, tabX + 2, y + paddingVertical + 1.8 + li * hauteurLigneTexte);
+        });
+        const yTexteMilieu = y + rowH/2 + 1.2;
+        doc.text(String(l.poids) + ' kg', tabX + colArticleW + colPoidsW - 2, yTexteMilieu, { align: 'right' });
+        doc.text(formatPdfNum(l.prixKg), tabX + colArticleW + colPoidsW + colPrixW - 2, yTexteMilieu, { align: 'right' });
         doc.setFont(undefined,'bold');
-        doc.text(formatPdfNum(sousTotal) + ' MAD', tabX + tabW - 2, y + 3.6, { align: 'right' });
+        doc.text(formatPdfNum(sousTotal) + ' MAD', tabX + tabW - 2, yTexteMilieu, { align: 'right' });
         y += rowH;
         doc.line(tabX, y, tabX + tabW, y);
-      });
-      if (tronque) {
+        nbAffiches++;
+      }
+      if (nbAffiches < lignesRecu.length) {
         doc.setTextColor(muted); doc.setFont(undefined,'italic'); doc.setFontSize(7);
-        doc.text('(+ ' + (lignesRecu.length - nbLignesAffichables) + ' autre(s) article(s) — liste complète dans l\'application)', tabX + 2, y + 4);
+        doc.text('(+ ' + (lignesRecu.length - nbAffiches) + ' autre(s) article(s) — liste complète dans l\'application)', tabX + 2, y + 4);
         y += 5.5;
       }
       y += 4;
