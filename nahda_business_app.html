@@ -537,11 +537,11 @@
             <div class="field"><label>Date de dépôt</label><input id="nc-date-depot" type="date"></div>
             <div class="retrait-field-pair">
               <div class="field"><label>Nom client</label><input id="nc-nom" placeholder="Nom complet"></div>
-              <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00"></div>
+              <div class="field"><label>Téléphone</label><input id="nc-tel" placeholder="+212 6 00 00 00 00" oninput="verifierChampTelephone('nc-tel','nc-tel-err',true)"><div id="nc-tel-err" style="font-size:11px;color:var(--red);margin-top:4px;"></div></div>
             </div>
             <div class="retrait-field-pair">
               <div class="field"><label>Nom du déposant (si différent)</label><input id="nc-depositaire-nom" placeholder="Si différent du client"></div>
-              <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00"></div>
+              <div class="field"><label>Téléphone du déposant</label><input id="nc-depositaire-tel" placeholder="+212 6 00 00 00 00" oninput="verifierChampTelephone('nc-depositaire-tel','nc-depositaire-tel-err',false)"><div id="nc-depositaire-tel-err" style="font-size:11px;color:var(--red);margin-top:4px;"></div></div>
             </div>
             <div class="field">
               <label>Destination</label>
@@ -717,7 +717,8 @@
                 </div>
                 <div class="field">
                   <label>Téléphone de la personne qui retire *</label>
-                  <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00">
+                  <input id="rt-retirant-tel" placeholder="+212 6 00 00 00 00" oninput="verifierChampTelephone('rt-retirant-tel','rt-retirant-tel-err',true)">
+                  <div id="rt-retirant-tel-err" style="font-size:11px;color:var(--red);margin-top:4px;"></div>
                 </div>
               </div>
               <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;">Pré-rempli avec les infos du client — modifie si une autre personne vient récupérer le colis.</div>
@@ -2098,7 +2099,47 @@ function openLightbox(url){
 function closeLightbox(){ document.getElementById('lightbox').style.display = 'none'; if(history.state && history.state.modal) history.back(); }
 
 /* ================= NOUVEAU COLIS ================= */
-const INDICATIF_PAYS = { 'Maroc':'212', "Cote d'Ivoire":'225', 'Guinee':'224', 'Burkina Faso':'226', 'Mali':'223' };
+const INDICATIF_PAYS = { 'Maroc':'212', "Cote d'Ivoire":'225', 'Guinee':'224', 'Burkina Faso':'226', 'Mali':'223', 'Senegal':'221' };
+// Nombre de chiffres attendus APRES l'indicatif pays, pour un numero de mobile standard
+const LONGUEUR_TEL_PAYS = { '212':9, '225':10, '224':9, '226':8, '223':8, '221':9 };
+function validerTelephone(valeur){
+  const brut = (valeur||'').replace(/[^\d+]/g,'');
+  const chiffres = brut.replace(/\D/g,'');
+  if(!chiffres) return { valide:false, message:'Numéro requis' };
+  // Detecte l'indicatif pays si present en debut de numero
+  for(const [pays, code] of Object.entries(INDICATIF_PAYS)){
+    if(chiffres.startsWith(code)){
+      const reste = chiffres.slice(code.length);
+      const attendu = LONGUEUR_TEL_PAYS[code];
+      if(reste.length !== attendu){
+        return { valide:false, message: reste.length < attendu
+          ? `Il manque ${attendu - reste.length} chiffre(s) pour un numéro ${pays}`
+          : `${reste.length - attendu} chiffre(s) en trop pour un numéro ${pays}` };
+      }
+      return { valide:true, message:'' };
+    }
+  }
+  // Aucun indicatif reconnu : verification generale (8 a 12 chiffres, plage realiste)
+  if(chiffres.length < 8 || chiffres.length > 12){
+    return { valide:false, message:'Numéro incomplet ou trop long (indicatif pays recommandé, ex: +212)' };
+  }
+  return { valide:true, message:'' };
+}
+function verifierChampTelephone(inputId, errId, requis){
+  const input = document.getElementById(inputId);
+  const errBox = document.getElementById(errId);
+  if(!input || !errBox) return true;
+  const val = input.value.trim();
+  if(!val){
+    input.style.borderColor = '';
+    errBox.textContent = '';
+    return !requis; // vide : ok seulement si le champ n'est pas obligatoire
+  }
+  const r = validerTelephone(val);
+  input.style.borderColor = r.valide ? 'var(--green)' : 'var(--red)';
+  errBox.textContent = r.valide ? '' : '⚠️ ' + r.message;
+  return r.valide;
+}
 function genererNumeroRecu(){
   const indicatif = (currentAgent && INDICATIF_PAYS[currentAgent.pays]) ? INDICATIF_PAYS[currentAgent.pays] : '000';
   const chiffres = String(Math.floor(100000+Math.random()*899999));
@@ -2297,6 +2338,9 @@ async function saveColis(){
   const ref = document.getElementById('nc-ref').value.trim();
   const nom = document.getElementById('nc-nom').value.trim();
   if(!ref || !nom){ showToast('⚠️ Numéro de reçu et nom client requis'); return; }
+  const telClientOk = verifierChampTelephone('nc-tel','nc-tel-err',true);
+  const telDepositaireOk = verifierChampTelephone('nc-depositaire-tel','nc-depositaire-tel-err',false);
+  if(!telClientOk || !telDepositaireOk){ showToast('⚠️ Vérifie le(s) numéro(s) de téléphone (nombre de chiffres incorrect)'); return; }
   const lignesValides = newColisLignes.filter(l => l.type.trim() && parseFloat(l.poids)>0);
   if(!lignesValides.length){ showToast('⚠️ Ajoute au moins un produit avec un type et un poids'); return; }
   saveBtn.disabled = true;
@@ -3803,6 +3847,10 @@ async function marquerRetire(){
   const retirantTel = document.getElementById('rt-retirant-tel').value.trim();
   if(!retirantNom || !retirantTel){
     showToast('⚠️ Le nom et le téléphone de la personne qui retire sont obligatoires');
+    return;
+  }
+  if(!verifierChampTelephone('rt-retirant-tel','rt-retirant-tel-err',true)){
+    showToast('⚠️ Vérifie le numéro de téléphone (nombre de chiffres incorrect)');
     return;
   }
   const poidsARetirer = parseFloat(document.getElementById('rt-poids-retrait').value) || 0;
