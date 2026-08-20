@@ -162,6 +162,7 @@
   /* Retrait — bureau uniquement : deux colonnes, carte d'action distincte */
   body.desktop-mode #screen-retrait .scroll{max-width:1600px;margin:0 auto;width:100%;}
   body.desktop-mode #screen-newcolis .scroll{max-width:1600px;margin:0 auto;width:100%;}
+  body.desktop-mode #nc-photo-phone-btn{display:block !important;}
   body.desktop-mode .retrait-layout{display:flex;gap:26px;align-items:flex-start;}
   body.desktop-mode .retrait-col-left{flex:0 0 460px;position:sticky;top:0;}
   body.desktop-mode .retrait-col-right{flex:1;min-width:0;}
@@ -595,6 +596,7 @@
                   <input type="file" accept="image/*" multiple style="display:none;" onchange="onPhoto(event)">
                 </label>
               </div>
+              <button type="button" id="nc-photo-phone-btn" class="btn btn-outline" style="display:none;width:100%;margin-top:8px;" onclick="ouvrirCapturePhoneModal()">📱 Photo via téléphone</button>
             </div>
 
             <div class="btn-row" style="margin-top:8px;">
@@ -799,6 +801,16 @@
         <button class="btn btn-outline" onclick="document.getElementById('logout-confirm-modal').style.display='none'">Annuler</button>
         <button class="btn btn-red" onclick="confirmerLogout()">Se déconnecter</button>
       </div>
+    </div>
+  </div>
+
+  <div id="photo-capture-modal" onclick="if(event.target===this)fermerCapturePhoneModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:130;align-items:center;justify-content:center;">
+    <div style="background:var(--sand);width:90%;max-width:360px;border-radius:20px;padding:26px;text-align:center;">
+      <div style="font-family:var(--font-display);font-weight:700;color:var(--navy);font-size:16px;margin-bottom:6px;">📱 Photo via téléphone</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">Scanne ce code avec l'appareil photo de ton téléphone, prends la photo — elle apparaîtra ici automatiquement.</div>
+      <div id="photo-capture-qr" style="background:#fff;border-radius:14px;padding:16px;display:inline-block;margin-bottom:16px;"></div>
+      <div id="photo-capture-status" style="font-size:12.5px;color:var(--gold);font-weight:700;margin-bottom:14px;">⏳ En attente de la photo...</div>
+      <button class="btn btn-outline" style="width:100%;" onclick="fermerCapturePhoneModal()">Annuler</button>
     </div>
   </div>
 
@@ -2193,6 +2205,57 @@ function calcTotal(){
   }
   updateResteAPercevoir();
 }
+/* ================= PHOTO VIA TÉLÉPHONE (bureau) ================= */
+let photoSessionToken = null;
+let photoSessionInterval = null;
+async function ouvrirCapturePhoneModal(){
+  if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
+  photoSessionToken = 'ps-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  try{
+    const { error } = await sb.from('photo_sessions').insert({ token: photoSessionToken });
+    if(error) throw error;
+  }catch(e){
+    showToast('⚠️ Impossible de créer la session photo — vérifie ta connexion');
+    return;
+  }
+
+  const url = APP_BASE_URL + '?photo-session=' + photoSessionToken;
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  const taille = 190, compte = qr.getModuleCount(), cellule = taille / compte;
+  let svg = `<svg width="${taille}" height="${taille}" viewBox="0 0 ${taille} ${taille}">`;
+  for(let r=0;r<compte;r++) for(let c=0;c<compte;c++) if(qr.isDark(r,c)) svg += `<rect x="${c*cellule}" y="${r*cellule}" width="${cellule+0.5}" height="${cellule+0.5}" fill="#0B4A40"/>`;
+  svg += `</svg>`;
+  document.getElementById('photo-capture-qr').innerHTML = svg;
+  document.getElementById('photo-capture-status').textContent = '⏳ En attente de la photo...';
+  document.getElementById('photo-capture-status').style.color = 'var(--gold)';
+  document.getElementById('photo-capture-modal').style.display = 'flex';
+
+  if(photoSessionInterval) clearInterval(photoSessionInterval);
+  photoSessionInterval = setInterval(surveillerSessionPhoto, 2000);
+}
+async function surveillerSessionPhoto(){
+  if(!photoSessionToken) return;
+  try{
+    const { data, error } = await sb.from('photo_sessions').select('photo_data').eq('token', photoSessionToken).maybeSingle();
+    if(error || !data || !data.photo_data) return;
+    clearInterval(photoSessionInterval);
+    photoSessionInterval = null;
+    newColisPhotos.push(data.photo_data);
+    renderPhotoGallery();
+    document.getElementById('photo-capture-status').textContent = '✅ Photo reçue et ajoutée !';
+    document.getElementById('photo-capture-status').style.color = 'var(--green)';
+    sb.from('photo_sessions').delete().eq('token', photoSessionToken).then(()=>{});
+    setTimeout(()=>{ fermerCapturePhoneModal(); showToast('✅ Photo ajoutée depuis le téléphone'); }, 900);
+  }catch(e){}
+}
+function fermerCapturePhoneModal(){
+  document.getElementById('photo-capture-modal').style.display = 'none';
+  if(photoSessionInterval){ clearInterval(photoSessionInterval); photoSessionInterval = null; }
+  photoSessionToken = null;
+}
+
 function onPhoto(e){
   const fichiers = Array.from(e.target.files || []);
   if(!fichiers.length) return;
@@ -4551,10 +4614,54 @@ function checkSuiviRouting(){
   }
   return false;
 }
+function checkPhotoSessionRouting(){
+  const params = new URLSearchParams(location.search);
+  const token = params.get('photo-session');
+  if(token){
+    renderPhotoCapturePage(token);
+    return true;
+  }
+  return false;
+}
+function renderPhotoCapturePage(token){
+  document.body.innerHTML = `
+    <div style="min-height:100vh;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body);text-align:center;">
+      <div style="width:64px;height:64px;background:var(--gold);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:18px;">📷</div>
+      <h1 style="font-family:var(--font-display);color:#fff;font-size:19px;margin-bottom:8px;">Photo pour Nahda Business</h1>
+      <p id="pcap-status" style="color:rgba(255,255,255,.75);font-size:13.5px;margin-bottom:28px;max-width:320px;">Prends une photo du colis — elle apparaîtra automatiquement sur l'ordinateur.</p>
+      <label id="pcap-btn" style="background:var(--gold);color:var(--navy);font-family:var(--font-display);font-weight:700;font-size:15px;padding:16px 32px;border-radius:14px;cursor:pointer;">
+        📷 Prendre la photo
+        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="envoyerPhotoCapturee(event, '${token}')">
+      </label>
+      <div id="pcap-preview" style="margin-top:24px;"></div>
+    </div>`;
+}
+async function envoyerPhotoCapturee(e, token){
+  const f = e.target.files[0]; if(!f) return;
+  document.getElementById('pcap-status').textContent = 'Envoi en cours...';
+  document.getElementById('pcap-btn').style.opacity = '0.5';
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const dataUrl = ev.target.result;
+    document.getElementById('pcap-preview').innerHTML = `<img src="${dataUrl}" style="width:140px;height:140px;object-fit:cover;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);">`;
+    try{
+      const { error } = await sb.from('photo_sessions').update({ photo_data: dataUrl }).eq('token', token);
+      if(error) throw error;
+      document.getElementById('pcap-status').textContent = '✅ Photo envoyée ! Tu peux fermer cette page.';
+      document.getElementById('pcap-btn').style.display = 'none';
+    }catch(err){
+      document.getElementById('pcap-status').textContent = '⚠️ Erreur d\'envoi — vérifie ta connexion et réessaie.';
+      document.getElementById('pcap-btn').style.opacity = '1';
+    }
+  };
+  reader.readAsDataURL(f);
+}
 document.addEventListener('visibilitychange', () => { if(!document.hidden) checkSuiviRouting(); });
 window.addEventListener('pageshow', checkSuiviRouting);
-if(!checkSuiviRouting()){
-  restoreSession();
+if(!checkPhotoSessionRouting()){
+  if(!checkSuiviRouting()){
+    restoreSession();
+  }
 }
 updateOfflineBadge();
 if(navigator.onLine) syncOfflineQueue();
