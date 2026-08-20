@@ -2210,6 +2210,7 @@ let photoSessionToken = null;
 let photoSessionInterval = null;
 async function ouvrirCapturePhoneModal(){
   if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
+  photoSessionEnCoursDeTraitement = false;
   photoSessionToken = 'ps-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
   try{
     const { error } = await sb.from('photo_sessions').insert({ token: photoSessionToken });
@@ -2235,18 +2236,20 @@ async function ouvrirCapturePhoneModal(){
   if(photoSessionInterval) clearInterval(photoSessionInterval);
   photoSessionInterval = setInterval(surveillerSessionPhoto, 2000);
 }
+let photoSessionEnCoursDeTraitement = false;
 async function surveillerSessionPhoto(){
-  if(!photoSessionToken) return;
+  if(!photoSessionToken || photoSessionEnCoursDeTraitement) return;
   try{
     const { data, error } = await sb.from('photo_sessions').select('photo_data').eq('token', photoSessionToken).maybeSingle();
     if(error || !data || !data.photo_data) return;
+    if(photoSessionEnCoursDeTraitement) return; // securite supplementaire si deux appels sont arrives en meme temps
+    photoSessionEnCoursDeTraitement = true;
     clearInterval(photoSessionInterval);
     photoSessionInterval = null;
     newColisPhotos.push(data.photo_data);
     renderPhotoGallery();
     document.getElementById('photo-capture-status').textContent = '✅ Photo reçue et ajoutée !';
     document.getElementById('photo-capture-status').style.color = 'var(--green)';
-    sb.from('photo_sessions').delete().eq('token', photoSessionToken).then(()=>{});
     setTimeout(()=>{ fermerCapturePhoneModal(); showToast('✅ Photo ajoutée depuis le téléphone'); }, 900);
   }catch(e){}
 }
@@ -4623,28 +4626,55 @@ function checkPhotoSessionRouting(){
   }
   return false;
 }
-function renderPhotoCapturePage(token){
+async function renderPhotoCapturePage(token){
   document.body.innerHTML = `
     <div style="min-height:100vh;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body);text-align:center;">
       <div style="width:64px;height:64px;background:var(--gold);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:18px;">📷</div>
       <h1 style="font-family:var(--font-display);color:#fff;font-size:19px;margin-bottom:8px;">Photo pour Nahda Business</h1>
-      <p id="pcap-status" style="color:rgba(255,255,255,.75);font-size:13.5px;margin-bottom:28px;max-width:320px;">Prends une photo du colis — elle apparaîtra automatiquement sur l'ordinateur.</p>
+      <p id="pcap-status" style="color:rgba(255,255,255,.75);font-size:13.5px;margin-bottom:28px;max-width:320px;">Vérification...</p>
+      <div id="pcap-zone"></div>
+      <div id="pcap-preview" style="margin-top:24px;"></div>
+    </div>`;
+
+  // Verifie l'etat REEL de la session (pas juste la memoire locale) : essentiel si la page est rechargee,
+  // pour ne jamais permettre un second envoi apres coup.
+  try{
+    const { data } = await sb.from('photo_sessions').select('photo_data').eq('token', token).maybeSingle();
+    if(!data){
+      document.getElementById('pcap-status').textContent = '⚠️ Ce lien a expiré ou n\'existe plus.';
+      return;
+    }
+    if(data.photo_data){
+      document.getElementById('pcap-status').textContent = '✅ Photo déjà envoyée pour cette session. Tu peux fermer cette page.';
+      document.getElementById('pcap-preview').innerHTML = `<img src="${data.photo_data}" style="width:140px;height:140px;object-fit:cover;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);">`;
+      return;
+    }
+    document.getElementById('pcap-status').textContent = 'Prends une photo du colis — elle apparaîtra automatiquement sur l\'ordinateur.';
+    document.getElementById('pcap-zone').innerHTML = `
       <label id="pcap-btn" style="background:var(--gold);color:var(--navy);font-family:var(--font-display);font-weight:700;font-size:15px;padding:16px 32px;border-radius:14px;cursor:pointer;">
         📷 Prendre la photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="envoyerPhotoCapturee(event, '${token}')">
-      </label>
-      <div id="pcap-preview" style="margin-top:24px;"></div>
-    </div>`;
+      </label>`;
+  }catch(e){
+    document.getElementById('pcap-status').textContent = '⚠️ Impossible de vérifier la session — vérifie ta connexion.';
+  }
 }
 async function envoyerPhotoCapturee(e, token){
   const f = e.target.files[0]; if(!f) return;
   document.getElementById('pcap-status').textContent = 'Envoi en cours...';
   document.getElementById('pcap-btn').style.opacity = '0.5';
+  document.getElementById('pcap-btn').style.pointerEvents = 'none';
   const reader = new FileReader();
   reader.onload = async (ev) => {
     const dataUrl = ev.target.result;
     document.getElementById('pcap-preview').innerHTML = `<img src="${dataUrl}" style="width:140px;height:140px;object-fit:cover;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);">`;
     try{
+      // On ne met a jour que si la session n'a pas deja une photo (protection cote serveur contre le double envoi)
+      const { data: verif } = await sb.from('photo_sessions').select('photo_data').eq('token', token).maybeSingle();
+      if(verif && verif.photo_data){
+        document.getElementById('pcap-status').textContent = '✅ Une photo a déjà été envoyée pour cette session.';
+        return;
+      }
       const { error } = await sb.from('photo_sessions').update({ photo_data: dataUrl }).eq('token', token);
       if(error) throw error;
       document.getElementById('pcap-status').textContent = '✅ Photo envoyée ! Tu peux fermer cette page.';
@@ -4652,6 +4682,7 @@ async function envoyerPhotoCapturee(e, token){
     }catch(err){
       document.getElementById('pcap-status').textContent = '⚠️ Erreur d\'envoi — vérifie ta connexion et réessaie.';
       document.getElementById('pcap-btn').style.opacity = '1';
+      document.getElementById('pcap-btn').style.pointerEvents = 'auto';
     }
   };
   reader.readAsDataURL(f);
