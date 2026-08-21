@@ -1287,7 +1287,8 @@ async function apiSupabase(action, p){
         photo_url: p.photoUrls || '', statut: 0, commentaire_paiement: p.commentairePaiement || '',
         nom_depositaire: p.nomDepositaire || '', telephone_depositaire: p.telephoneDepositaire || '',
         pays_origine: p.paysOrigine || p.agentPays || '', montant_avance: p.montantAvance || 0,
-        lignes_produits: lignes, date_creation: p.dateCreation || new Date().toISOString()
+        lignes_produits: lignes, date_creation: p.dateCreation || new Date().toISOString(),
+        agence_origine: p.agenceOrigine || ''
       });
       if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
       data = { reference: p.reference, photoUrl: p.photoUrls || '' };
@@ -2369,7 +2370,8 @@ async function saveColis(){
     commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : '',
     agentId: currentAgent ? currentAgent.id : '', agentNom: currentAgent ? currentAgent.nom : '',
-    dateCreation: dateCreationFinale, paysOrigine: currentAgent ? currentAgent.pays : ''
+    dateCreation: dateCreationFinale, paysOrigine: currentAgent ? currentAgent.pays : '',
+    agenceOrigine: currentAgent ? currentAgent.agence : ''
   };
 
   if(!navigator.onLine && !editingRef){
@@ -2595,11 +2597,12 @@ async function generateReceiptPDF(c){
     doc.text('N° ' + c.reference, W - mX, 14.2, { align:'right' });
     doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.8);
     doc.text('Depose le ' + dateDepotRecu, W - mX, 18, { align:'right' });
-    const CAPITALE_PAYS = { 'Maroc':'Rabat', "Cote d'Ivoire":'Yamoussoukro', 'Guinee':'Conakry', 'Burkina Faso':'Ouagadougou', 'Mali':'Bamako', 'Senegal':'Dakar' };
-    const capitaleOrigine = CAPITALE_PAYS[c.paysOrigine] || c.paysOrigine || 'Rabat';
-    const capitaleDestination = CAPITALE_PAYS[c.paysDestination] || c.paysDestination || '';
+    // Vraie ville d'origine (agence reelle du compte qui a cree le colis) et vraie ville de destination
+    // (agence reelle enregistree) — jamais devinees, uniquement ce qui est reellement connu.
+    const villeOrigine = c.agenceOrigine ? c.agenceOrigine.split('(')[0].trim() : (c.paysOrigine || '');
+    const villeDestination = c.agenceDestination ? c.agenceDestination.split('(')[0].trim() : (c.paysDestination || '');
     doc.setFont(undefined,'bold'); doc.setTextColor(navy); doc.setFontSize(6.8);
-    doc.text(capitaleOrigine + '  >  ' + capitaleDestination, W - mX, 22, { align:'right' });
+    doc.text(villeOrigine + '  >  ' + villeDestination, W - mX, 22, { align:'right' });
 
     doc.setFillColor(gold); doc.rect(0, headH, W, 0.8, 'F');
 
@@ -2948,7 +2951,7 @@ function colisToReceiptPayload(c){
     contenu: c.contenu || '', poids: c.poids,
     total: c.total, statutPaiementDepart: c.statut_paiement_depart, montantAvance: c.montant_avance,
     commentairePaiement: c.commentaire_paiement, valeurDeclaree: c.valeur_declaree,
-    statut: c.statut, dateCreation: c.date_creation, paysOrigine: c.pays_origine
+    statut: c.statut, dateCreation: c.date_creation, paysOrigine: c.pays_origine, agenceOrigine: c.agence_origine
   };
 }
 
