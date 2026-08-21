@@ -2892,7 +2892,7 @@ function renderResultCard(c, showAdminActions, isPublic){
       <div><div class="rc-ref-label">Référence</div><div class="rc-ref">${c.reference}</div></div>
       <div style="text-align:right;">
         <span class="status-pill ${statutPillClass}">${STATUT_LABELS[statut]||''}</span>
-        ${(Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001) ? '<div class="status-pill st-1" style="margin-top:4px;">◐ En tranche</div>' : ''}
+        ${(Number(c.poids_expedie||0) > 0.001 && Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001) ? '<div class="status-pill st-1" style="margin-top:4px;">◐ En tranche</div>' : ''}
       </div>
     </div>
     ${photoBlock}
@@ -3222,7 +3222,7 @@ function renderVoyageColisListWithActions(list, v){
     const lignesTxt = (c.lignes_troncon_voyage||[]).length
       ? `<div class="d" style="margin-top:2px;">${c.lignes_troncon_voyage.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>`
       : '';
-    const enTranche = Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001;
+    const enTranche = Number(c.poids_expedie||0) > 0.001 && Number(c.poids_expedie||0) < Number(c.poids||0) - 0.001;
     return `
     <div class="checklist-item" style="align-items:flex-start;flex-direction:column;gap:8px;">
       <div style="display:flex;justify-content:space-between;width:100%;cursor:pointer;" onclick="toggleColisActions(${i})">
