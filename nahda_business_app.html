@@ -2562,193 +2562,189 @@ async function generateReceiptPDF(c){
   if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
   try{
     const trackingUrl = APP_BASE_URL + '?suivi=' + encodeURIComponent(c.reference);
-    // Génération vectorielle synchrone du QR (pas de canvas, pas de timing async -> pas de corruption possible)
     const qr = qrcode(0, 'H');
     qr.addData(trackingUrl);
     qr.make();
     const qrCount = qr.getModuleCount();
 
     const { jsPDF } = window.jspdf;
-    // A5 paysage : 210 x 148 mm
-    const doc = new jsPDF({ unit:'mm', format:'a5', orientation:'landscape' });
-    const W = 210, H = 148;
-    const navy = '#0B4A40', navy2 = '#0E6B5C', gold = '#C89B3C', ink = '#1B1B1B', muted = '#6B6255', sand = '#F1EAD9';
+    // A5 portrait : 148 x 210 mm
+    const doc = new jsPDF({ unit:'mm', format:'a5', orientation:'portrait' });
+    const W = 148, H = 210;
+    const navy = '#0B4A40', gold = '#C89B3C', sand = '#F1EAD9', sand2 = '#E7DCC2', ink = '#1B1B1B', muted = '#6B6255';
+    const mX = 9; // marge laterale generale
 
-    // ---- Bandeau supérieur ----
-    doc.setFillColor(navy);
-    doc.rect(0, 0, W, 26, 'F');
-    doc.setFillColor(gold);
-    doc.rect(0, 26, W, 1.2, 'F');
-    if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', 8, 4, 18, 18);
-    doc.setTextColor('#FFFFFF');
-    doc.setFont(undefined, 'bold'); doc.setFontSize(15);
-    doc.text('NAHDA BUSINESS', 30, 12);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8);
-    doc.text('Fret aerien - Maroc / Afrique Centrale et Ouest', 30, 18);
-    doc.setFont(undefined, 'bold'); doc.setFontSize(11);
-    doc.text('RECU N° ' + c.reference, W - 8, 15, { align: 'right' });
+    // ============ EN-TETE (blanc) ============
+    const headH = 27;
+    doc.setFillColor('#FFFFFF'); doc.rect(0, 0, W, headH, 'F');
+    doc.setFillColor(navy); doc.roundedRect(mX, 5, 14, 14, 2.5, 2.5, 'F');
+    if (APP_LOGO_B64) doc.addImage(APP_LOGO_B64, 'PNG', mX+1.2, 6.2, 11.6, 11.6);
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+    doc.text('NAHDA BUSINESS', mX + 17, 10.5);
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.8);
+    doc.text('Fret aerien - Maroc / Afrique Centrale et Ouest', mX + 17, 14.5);
+    doc.setFontSize(5.8);
+    const adresseTelLignes = doc.splitTextToSize(COMPANY_CONTACT.adresse + ' — ' + COMPANY_CONTACT.telephone.split('/')[0].trim(), 73);
+    adresseTelLignes.forEach((ligne, i) => doc.text(ligne, mX + 17, 18 + i * 3.2));
+
+    doc.setFillColor(gold); doc.roundedRect(W - mX - 38, 5.5, 38, 5, 1, 1, 'F');
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(6.8);
+    doc.text('RECU DE DEPOT', W - mX - 19, 8.9, { align:'center' });
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(10);
     const dateDepotRecu = c.dateCreation ? new Date(c.dateCreation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
-    doc.setTextColor('#FFFFFF'); doc.setFont(undefined, 'normal'); doc.setFontSize(9.5);
-    doc.text('Depose le ' + dateDepotRecu, W - 8, 22, { align: 'right' });
+    doc.text('N° ' + c.reference, W - mX, 14.2, { align:'right' });
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.8);
+    doc.text('Depose le ' + dateDepotRecu, W - mX, 18, { align:'right' });
+    const CAPITALE_PAYS = { 'Maroc':'Rabat', "Cote d'Ivoire":'Yamoussoukro', 'Guinee':'Conakry', 'Burkina Faso':'Ouagadougou', 'Mali':'Bamako', 'Senegal':'Dakar' };
+    const capitaleOrigine = CAPITALE_PAYS[c.paysOrigine] || c.paysOrigine || 'Rabat';
+    const capitaleDestination = CAPITALE_PAYS[c.paysDestination] || c.paysDestination || '';
+    doc.setFont(undefined,'bold'); doc.setTextColor(navy); doc.setFontSize(6.8);
+    doc.text(capitaleOrigine + '  >  ' + capitaleDestination, W - mX, 22, { align:'right' });
 
-    // ---- Mise en page : colonne gauche elargie, QR reduit a droite ----
-    const leftX = 8, labelW = 34;
-    const largeurColGauche = 142; // colonne gauche elargie (etait 118)
-    const separateurX = 154;
-    const rightX = 158; // colonne QR retrecie
+    doc.setFillColor(gold); doc.rect(0, headH, W, 0.8, 'F');
 
-    let y = 35;
-    const row = (label, value, bold) => {
-      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
-      doc.text(label, leftX, y);
-      doc.setTextColor(ink); doc.setFont(undefined, bold ? 'bold' : 'normal'); doc.setFontSize(9.5);
-      doc.text(String(value || '-'), leftX + labelW, y);
-      y += 6.5;
+    // ============ BLOCS CLIENT / DEPOSITAIRE ============
+    let y = headH + 5;
+    const boxW = (W - mX*2 - 4) / 2, boxH = 15.5;
+    const drawInfoBox = (x, titre, ligne1Label, ligne1Val, ligne2Label, ligne2Val) => {
+      doc.setFillColor(sand); doc.roundedRect(x, y, boxW, boxH, 1.5, 1.5, 'F');
+      doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6.3);
+      doc.text(titre.toUpperCase(), x + 3, y + 4.5);
+      doc.setFontSize(7.2);
+      doc.setTextColor(muted); doc.setFont(undefined,'normal');
+      doc.text(ligne1Label, x + 3, y + 9);
+      doc.text(ligne2Label, x + 3, y + 13);
+      doc.setTextColor(ink); doc.setFont(undefined,'bold');
+      doc.text(String(ligne1Val||'-'), x + boxW - 3, y + 9, { align:'right' });
+      doc.text(String(ligne2Val||'-'), x + boxW - 3, y + 13, { align:'right' });
     };
-    row('Client', c.nomClient, true);
-    row('Telephone', c.telephone);
-    if (c.nomDepositaire) row('Depose par', c.nomDepositaire + (c.telephoneDepositaire ? ' - ' + c.telephoneDepositaire : ''));
-    if (c.paysOrigine) row('Depart', c.paysOrigine);
-    row('Destination', c.paysDestination + (c.agenceDestination ? ' - ' + c.agenceDestination : ''));
+    drawInfoBox(mX, 'Client', 'Nom', c.nomClient, 'Tel', c.telephone);
+    drawInfoBox(mX + boxW + 4, 'Depositaire', 'Nom', c.nomDepositaire || c.nomClient, 'Tel', c.telephoneDepositaire || c.telephone);
+    y += boxH + 5;
 
-    // ---- Tableau du contenu (Article | Poids | Prix/kg | Sous-total) ----
+    // ============ TABLEAU CONTENU ============
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6.8);
+    doc.text('CONTENU DU COLIS', mX, y);
+    y += 4;
+
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
-    const tabX = leftX, tabW = largeurColGauche;
-    const colArticleW = tabW * 0.44, colPoidsW = tabW * 0.16, colPrixW = tabW * 0.18, colSousTotalW = tabW * 0.22;
-    if (lignesRecu.length) {
-      y += 1;
-      const limiteY = 104; // au-dela, on resume plutot que de deborder sur le bloc total
-      const hauteurLigneTexte = 3.4; // hauteur d'une sous-ligne de texte replie
-      const paddingVertical = 1.8;
+    const tabW = W - mX*2;
+    const colArticleW = tabW * 0.44, colPoidsW = tabW * 0.16, colPrixW = tabW * 0.18;
 
-      // En-tete du tableau
-      doc.setFillColor(navy);
-      doc.rect(tabX, y, tabW, 6, 'F');
-      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(7.5);
-      doc.text('ARTICLE', tabX + 2, y + 4.2);
-      doc.text('POIDS', tabX + colArticleW + colPoidsW - 2, y + 4.2, { align: 'right' });
-      doc.text('PRIX/KG', tabX + colArticleW + colPoidsW + colPrixW - 2, y + 4.2, { align: 'right' });
-      doc.text('SOUS-TOTAL', tabX + tabW - 2, y + 4.2, { align: 'right' });
-      y += 6;
+    // Zone reservee en bas (bande paiement/QR + ligne legale) pour calculer l'espace disponible du tableau
+    const footBarH = 28, legalH = 9;
+    const footBarY = H - legalH - footBarH;
+    const tableMaxY = footBarY - 3;
 
-      doc.setDrawColor(sand); doc.setLineWidth(0.3);
-      let nbAffiches = 0;
-      for (const l of lignesRecu) {
-        doc.setFontSize(8);
-        const lignesTexte = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4);
-        const rowH = Math.max(5.2, lignesTexte.length * hauteurLigneTexte + paddingVertical * 2);
-        if (y + rowH > limiteY) break; // ne rentre plus : on resume au lieu de deborder sur le bloc total
-        if (nbAffiches % 2 === 1) { doc.setFillColor('#F7F3EA'); doc.rect(tabX, y, tabW, rowH, 'F'); }
-        const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
-        doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(8);
-        lignesTexte.forEach((sousLigne, li) => {
-          doc.text(sousLigne, tabX + 2, y + paddingVertical + 1.8 + li * hauteurLigneTexte);
-        });
-        const yTexteMilieu = y + rowH/2 + 1.2;
-        doc.text(String(l.poids) + ' kg', tabX + colArticleW + colPoidsW - 2, yTexteMilieu, { align: 'right' });
-        doc.text(formatPdfNum(l.prixKg), tabX + colArticleW + colPoidsW + colPrixW - 2, yTexteMilieu, { align: 'right' });
-        doc.setFont(undefined,'bold');
-        doc.text(formatPdfNum(sousTotal) + ' MAD', tabX + tabW - 2, yTexteMilieu, { align: 'right' });
-        y += rowH;
-        doc.line(tabX, y, tabX + tabW, y);
-        nbAffiches++;
-      }
-      if (nbAffiches < lignesRecu.length) {
-        doc.setTextColor(muted); doc.setFont(undefined,'italic'); doc.setFontSize(7);
-        doc.text('(+ ' + (lignesRecu.length - nbAffiches) + ' autre(s) article(s) — liste complète dans l\'application)', tabX + 2, y + 4);
-        y += 5.5;
-      }
-      y += 4;
-    } else if (c.contenu) {
-      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
-      doc.text('Contenu', leftX, y);
-      y += 5.5;
-      doc.setTextColor(ink); doc.setFontSize(8.5);
-      const lignesDecoupees = doc.splitTextToSize(String(c.contenu), largeurColGauche);
-      lignesDecoupees.forEach(sousLigne => { doc.text(sousLigne, leftX + 4, y); y += 5; });
-      y += 1.5;
-    } else {
-      row('Contenu', '-');
+    doc.setFillColor(sand2); doc.rect(mX, y, tabW, 6, 'F');
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(6.5);
+    doc.text('ARTICLE', mX + 2, y + 4);
+    doc.text('POIDS', mX + colArticleW + colPoidsW - 2, y + 4, { align:'right' });
+    doc.text('PRIX/KG', mX + colArticleW + colPoidsW + colPrixW - 2, y + 4, { align:'right' });
+    doc.text('SOUS-TOTAL', mX + tabW - 2, y + 4, { align:'right' });
+    y += 6;
+
+    doc.setDrawColor(sand2); doc.setLineWidth(0.25);
+    const hauteurLigneTexte = 3.3, paddingV = 1.6;
+    let nbAffiches = 0;
+    for (const l of lignesRecu) {
+      doc.setFontSize(7.5);
+      const lignesTexte = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4);
+      const rowH = Math.max(5.8, lignesTexte.length * hauteurLigneTexte + paddingV * 2);
+      if (y + rowH > tableMaxY) break;
+      if (nbAffiches % 2 === 1) { doc.setFillColor(sand); doc.rect(mX, y, tabW, rowH, 'F'); }
+      const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
+      doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
+      lignesTexte.forEach((sousLigne, li) => { doc.text(sousLigne, mX + 2, y + paddingV + 1.6 + li * hauteurLigneTexte); });
+      const yMid = y + rowH/2 + 1.1;
+      doc.text(String(l.poids) + ' kg', mX + colArticleW + colPoidsW - 2, yMid, { align:'right' });
+      doc.text(formatPdfNum(l.prixKg), mX + colArticleW + colPoidsW + colPrixW - 2, yMid, { align:'right' });
+      doc.setFont(undefined,'bold');
+      doc.text(formatPdfNum(sousTotal) + ' MAD', mX + tabW - 2, yMid, { align:'right' });
+      y += rowH;
+      doc.line(mX, y, mX + tabW, y);
+      nbAffiches++;
+    }
+    if (nbAffiches < lignesRecu.length) {
+      doc.setTextColor(muted); doc.setFont(undefined,'italic'); doc.setFontSize(6.3);
+      doc.text('(+ ' + (lignesRecu.length - nbAffiches) + ' autre(s) article(s) — liste complète dans l\'application)', mX + 2, y + 3.5);
+      y += 5;
+    }
+    // Lignes vides : comble precisement l'espace restant jusqu'a la bande du bas
+    const ligneVideH = 6.2;
+    const nbLignesVides = Math.max(0, Math.floor((tableMaxY - y) / ligneVideH));
+    for (let i = 0; i < nbLignesVides; i++) {
+      if (i % 2 === (nbAffiches % 2)) { doc.setFillColor(sand); doc.rect(mX, y, tabW, ligneVideH, 'F'); }
+      y += ligneVideH;
+      doc.line(mX, y, mX + tabW, y);
     }
 
-    row('Paiement depart', c.statutPaiementDepart);
-    const yMaxAvantPiedDePage = (H - 18) - 19 - 4; // limite de securite prudente (boxH max possible = 19 avec conversion devise)
-    if (c.statutPaiementDepart === 'Partiel' && y < yMaxAvantPiedDePage) {
-      const avance = Number(c.montantAvance || 0);
-      const reste = Math.max(0, Number(c.total || 0) - avance);
-      row('Montant verse (avance)', formatPdfNum(avance) + ' MAD');
-      doc.setFillColor(gold);
-      doc.roundedRect(leftX-2, y-4, largeurColGauche - 6, 9, 1.5, 1.5, 'F');
-      doc.setTextColor('#FFFFFF'); doc.setFont(undefined,'bold'); doc.setFontSize(9.5);
-      doc.text('RESTE A PERCEVOIR : ' + formatPdfNum(reste) + ' MAD', leftX+2, y+2);
-      y += 9;
-      if (c.commentairePaiement && y < yMaxAvantPiedDePage) row('Commentaire', c.commentairePaiement);
-    }
-    if (y < yMaxAvantPiedDePage) row('Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD');
+    // ============ BANDE DU BAS : QR + PAIEMENT + TOTAL ============
+    doc.setFillColor(sand); doc.rect(0, footBarY, W, footBarH, 'F');
+    doc.setDrawColor(sand2); doc.setLineWidth(0.3); doc.line(0, footBarY, W, footBarY);
 
-    // Conversion devise destination (si renseignee dans NAHDA_DESTINATIONS)
+    const qrSize = 20, qx0 = mX, qy0 = footBarY + (footBarH - qrSize)/2;
+    if (qrCount) {
+      const cell = qrSize / qrCount, quiet = cell * 4;
+      doc.setFillColor('#FFFFFF'); doc.roundedRect(qx0 - quiet*0.3, qy0 - quiet*0.3, qrSize + quiet*0.6, qrSize + quiet*0.6, 1.5, 1.5, 'F');
+      doc.setDrawColor(gold); doc.setLineWidth(0.5);
+      doc.roundedRect(qx0 - quiet*0.3, qy0 - quiet*0.3, qrSize + quiet*0.6, qrSize + quiet*0.6, 1.5, 1.5, 'S');
+      doc.setFillColor('#000000');
+      for (let r = 0; r < qrCount; r++) for (let cI = 0; cI < qrCount; cI++) if (qr.isDark(r, cI)) doc.rect(qx0 + cI*cell, qy0 + r*cell, cell + 0.03, cell + 0.03, 'F');
+    }
+    const infoX = qx0 + qrSize + 5;
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.2);
+    doc.text('Scannez pour suivre', infoX, footBarY + 10.5);
+    doc.text('votre colis en temps reel', infoX, footBarY + 13.5);
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6);
+    doc.text('www.nahdabusiness.com', infoX, footBarY + 18);
+
+    // Colonne paiement (au milieu, avec separateurs)
+    const paieX = mX + qrSize + 34;
+    const paieW = 40;
+    doc.setDrawColor(sand2); doc.setLineWidth(0.3);
+    doc.line(paieX - 3, footBarY + 4, paieX - 3, footBarY + footBarH - 4);
+    const avance = Number(c.montantAvance || 0);
+    const reste = Math.max(0, Number(c.total || 0) - avance);
+    const paieLignes = [['Paiement depart', c.statutPaiementDepart || '-']];
+    if (c.statutPaiementDepart === 'Partiel') paieLignes.push(['Montant verse (avance)', formatPdfNum(avance) + ' MAD']);
+    paieLignes.push(['Valeur declaree', formatPdfNum(c.valeurDeclaree) + ' MAD']);
+    let yPaie = footBarY + 8;
+    paieLignes.forEach(([lbl, val]) => {
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6);
+      doc.text(lbl, paieX, yPaie);
+      doc.setTextColor(ink); doc.setFont(undefined,'bold'); doc.setFontSize(7);
+      doc.text(String(val), paieX, yPaie + 3.2);
+      yPaie += 7;
+    });
+
+    // Colonne total (a droite)
+    const totalX = W - mX;
+    doc.setDrawColor(sand2); doc.line(paieX + paieW - 3, footBarY + 4, paieX + paieW - 3, footBarY + footBarH - 4);
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.3);
+    doc.text('TOTAL A PAYER', totalX, footBarY + 8, { align:'right' });
+    doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(13);
+    doc.text(formatPdfNum(c.total) + ' MAD', totalX, footBarY + 15, { align:'right' });
+
     const destInfo = DESTINATIONS_CACHE.find(d => d.pays === c.paysDestination);
     const hasDevise = destInfo && destInfo.devise && destInfo.taux_mad && Number(destInfo.taux_mad) !== 1;
-    const montantConverti = hasDevise ? Number(c.total || 0) * Number(destInfo.taux_mad) : null;
-
-    // Bloc total (encadre, en bas de colonne gauche)
-    const boxH = hasDevise ? 19 : 14;
-    if (y > yMaxAvantPiedDePage) y = yMaxAvantPiedDePage;
-    doc.setFillColor(navy);
-    doc.roundedRect(leftX, y + 2, largeurColGauche, boxH, 2, 2, 'F');
-    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(11);
-    doc.text('TOTAL A PAYER', leftX + 5, y + 9.5);
-    doc.setTextColor('#FFFFFF'); doc.setFontSize(12.5);
-    doc.text(formatPdfNum(c.total) + ' MAD', leftX + largeurColGauche - 5, y + 9.5, { align: 'right' });
+    let yApresTotal = footBarY + 18.5;
     if (hasDevise) {
-      doc.setTextColor(sand); doc.setFont(undefined,'normal'); doc.setFontSize(8.5);
-      doc.text('soit environ ' + formatPdfNum(montantConverti) + ' ' + destInfo.devise + ' (taux indicatif)', leftX + largeurColGauche - 5, y + 16, { align: 'right' });
+      const montantConverti = Number(c.total || 0) * Number(destInfo.taux_mad);
+      doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(5.8);
+      doc.text('soit ' + formatPdfNum(montantConverti) + ' ' + destInfo.devise, totalX, yApresTotal, { align:'right' });
+      yApresTotal += 4;
+    }
+    if (c.statutPaiementDepart === 'Partiel') {
+      doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6.8);
+      doc.text('Reste : ' + formatPdfNum(reste) + ' MAD', totalX, yApresTotal, { align:'right' });
     }
 
-    // ---- Separateur vertical ----
-    doc.setDrawColor(sand); doc.setLineWidth(0.6);
-    doc.line(separateurX, 32, separateurX, H - 8);
-
-    // ---- Colonne droite : QR code reduit ----
-    const largeurColDroite = W - 8 - rightX;
-    const centreDroite = rightX + largeurColDroite / 2;
-
-    if (qrCount) {
-      const qrSize = 32, qx0 = centreDroite - qrSize/2, qy0 = 42;
-      const cell = qrSize / qrCount;
-      const quiet = cell * 4; // marge de silence conforme (4 modules), proportionnelle a la densite reelle
-      doc.setFillColor('#FFFFFF');
-      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'F');
-      doc.setDrawColor(gold); doc.setLineWidth(0.7);
-      doc.roundedRect(qx0 - quiet, qy0 - quiet, qrSize + quiet * 2, qrSize + quiet * 2, 2, 2, 'S');
-      doc.setFillColor('#000000');
-      for (let r = 0; r < qrCount; r++) {
-        for (let cI = 0; cI < qrCount; cI++) {
-          if (qr.isDark(r, cI)) {
-            doc.rect(qx0 + cI * cell, qy0 + r * cell, cell + 0.03, cell + 0.03, 'F');
-          }
-        }
-      }
-    }
-    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(7);
-    doc.text('Scannez pour suivre', centreDroite, 84, { align: 'center' });
-    doc.text('votre colis en temps reel', centreDroite, 88, { align: 'center' });
-
-    // ---- Lien du site web en texte simple (pas de QR redondant) ----
-    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(7.5);
-    doc.text('www.nahdabusiness.com', centreDroite, 98, { align: 'center' });
-
-    // ---- Pied de page ----
-    doc.setDrawColor(sand); doc.setLineWidth(0.4);
-    doc.line(8, H - 18, W - 8, H - 18);
-    doc.setTextColor(muted); doc.setFontSize(7);
-    doc.setFont(undefined,'bold');
-    doc.text(COMPANY_CONTACT.adresse, 8, H - 13);
-    doc.text('Tel : ' + COMPANY_CONTACT.telephone, 8, H - 9);
-    doc.setFont(undefined,'normal');
-    doc.text('Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), W - 8, H - 13, { align: 'right' });
-    doc.text('Document genere electroniquement, valable comme preuve de depot', W - 8, H - 9, { align: 'right' });
-
+    // ============ LIGNE LEGALE ============
+    const legalY = H - legalH;
+    doc.setDrawColor(sand2); doc.setLineWidth(0.3); doc.line(0, legalY, W, legalY);
+    doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(5.8);
+    doc.text('Document genere electroniquement, valable comme preuve de depot', mX, legalY + 5.5);
 
     doc.save('Recu_' + c.reference + '.pdf');
   }catch(e){ showToast('⚠️ Reçu PDF non généré (voir console)'); console.error(e); }
