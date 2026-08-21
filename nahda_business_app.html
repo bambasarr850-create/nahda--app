@@ -2622,37 +2622,60 @@ async function generateReceiptPDF(c){
     drawInfoBox(mX + boxW + 4, 'Depositaire', 'Nom', c.nomDepositaire || c.nomClient, 'Tel', c.telephoneDepositaire || c.telephone);
     y += boxH + 5;
 
-    // ============ TABLEAU CONTENU ============
+    // ============ TABLEAU CONTENU (bandes de fond verticales, une par colonne) ============
     doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6.8);
     doc.text('CONTENU DU COLIS', mX, y);
     y += 4;
 
     const lignesRecu = (c.lignesProduits && c.lignesProduits.length) ? c.lignesProduits : [];
     const tabW = W - mX*2;
-    const colArticleW = tabW * 0.44, colPoidsW = tabW * 0.16, colPrixW = tabW * 0.18;
+    const colArticleW = tabW * 0.54, colPoidsW = tabW * 0.12, colPrixW = tabW * 0.14, colSousTotalW = tabW - colArticleW - colPoidsW - colPrixW;
 
     // Zone reservee en bas (bande paiement/QR + ligne legale) pour calculer l'espace disponible du tableau
     const footBarH = 28, legalH = 9;
     const footBarY = H - legalH - footBarH;
     const tableMaxY = footBarY - 3;
 
-    doc.setFillColor(sand2); doc.rect(mX, y, tabW, 6, 'F');
+    const headerH = 6, hauteurLigneTexte = 3.3, paddingV = 1.6, ligneVideH = 6.2;
+
+    // ---- PASSE 1 : simulation (sans dessiner) pour connaitre la hauteur totale exacte du tableau ----
+    doc.setFontSize(7.5);
+    let ySim = y + headerH;
+    let nbAffichesSim = 0;
+    for (const l of lignesRecu) {
+      const lignesTexte = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4);
+      const rowH = Math.max(5.8, lignesTexte.length * hauteurLigneTexte + paddingV * 2);
+      if (ySim + rowH > tableMaxY) break;
+      ySim += rowH;
+      nbAffichesSim++;
+    }
+    const hauteurNoteTronquee = (nbAffichesSim < lignesRecu.length) ? 5 : 0;
+    const nbLignesVides = Math.max(0, Math.floor((tableMaxY - (ySim + hauteurNoteTronquee)) / ligneVideH));
+    const hauteurTotaleTableau = (ySim - y) + hauteurNoteTronquee + nbLignesVides * ligneVideH;
+
+    // ---- PASSE 2 : bandes de fond verticales, une teinte par colonne, sur toute la hauteur ----
+    const couleursCol = ['#FAF7F0', '#FFFFFF', '#FAF7F0', '#FFFFFF'];
+    const largeursCol = [colArticleW, colPoidsW, colPrixW, colSousTotalW];
+    let xCol = mX;
+    largeursCol.forEach((w, i) => { doc.setFillColor(couleursCol[i]); doc.rect(xCol, y, w, hauteurTotaleTableau, 'F'); xCol += w; });
+
+    // En-tete (par dessus les bandes de fond)
+    doc.setFillColor(sand2); doc.rect(mX, y, tabW, headerH, 'F');
     doc.setTextColor(navy); doc.setFont(undefined,'bold'); doc.setFontSize(6.5);
     doc.text('ARTICLE', mX + 2, y + 4);
     doc.text('POIDS', mX + colArticleW + colPoidsW - 2, y + 4, { align:'right' });
     doc.text('PRIX/KG', mX + colArticleW + colPoidsW + colPrixW - 2, y + 4, { align:'right' });
     doc.text('SOUS-TOTAL', mX + tabW - 2, y + 4, { align:'right' });
-    y += 6;
+    y += headerH;
 
+    // ---- Lignes de donnees (texte uniquement, le fond est deja pose) ----
     doc.setDrawColor(sand2); doc.setLineWidth(0.25);
-    const hauteurLigneTexte = 3.3, paddingV = 1.6;
     let nbAffiches = 0;
     for (const l of lignesRecu) {
       doc.setFontSize(7.5);
       const lignesTexte = doc.splitTextToSize(String(l.type||'-'), colArticleW - 4);
       const rowH = Math.max(5.8, lignesTexte.length * hauteurLigneTexte + paddingV * 2);
       if (y + rowH > tableMaxY) break;
-      if (nbAffiches % 2 === 1) { doc.setFillColor(sand); doc.rect(mX, y, tabW, rowH, 'F'); }
       const sousTotal = (Number(l.poids)||0) * (Number(l.prixKg)||0);
       doc.setTextColor(ink); doc.setFont(undefined,'normal'); doc.setFontSize(7.5);
       lignesTexte.forEach((sousLigne, li) => { doc.text(sousLigne, mX + 2, y + paddingV + 1.6 + li * hauteurLigneTexte); });
@@ -2670,11 +2693,8 @@ async function generateReceiptPDF(c){
       doc.text('(+ ' + (lignesRecu.length - nbAffiches) + ' autre(s) article(s) — liste complète dans l\'application)', mX + 2, y + 3.5);
       y += 5;
     }
-    // Lignes vides : comble precisement l'espace restant jusqu'a la bande du bas
-    const ligneVideH = 6.2;
-    const nbLignesVides = Math.max(0, Math.floor((tableMaxY - y) / ligneVideH));
+    // ---- Lignes vides : juste les separateurs, le fond par colonne est deja en place ----
     for (let i = 0; i < nbLignesVides; i++) {
-      if (i % 2 === (nbAffiches % 2)) { doc.setFillColor(sand); doc.rect(mX, y, tabW, ligneVideH, 'F'); }
       y += ligneVideH;
       doc.line(mX, y, mX + tabW, y);
     }
@@ -2696,7 +2716,7 @@ async function generateReceiptPDF(c){
     doc.setTextColor(muted); doc.setFont(undefined,'normal'); doc.setFontSize(6.2);
     doc.text('Scannez pour suivre', infoX, footBarY + 10.5);
     doc.text('votre colis en temps reel', infoX, footBarY + 13.5);
-    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(6);
+    doc.setTextColor(gold); doc.setFont(undefined,'bold'); doc.setFontSize(5.2);
     doc.text('www.nahdabusiness.com', infoX, footBarY + 18);
 
     // Colonne paiement (au milieu, avec separateurs)
