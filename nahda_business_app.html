@@ -2882,7 +2882,7 @@ function renderResultCard(c, showAdminActions, isPublic){
   const flagDest = DESTINATIONS_CACHE.find(d=>d.pays===c.pays_destination);
   const routeBlock = (c.pays_origine || c.pays_destination) ? `
     <div class="rc-route">
-      <div class="rc-route-city">${flagOrigine ? `<div class="rc-route-flag">${flagEmoji(flagOrigine.flag)}</div>` : ''}${c.pays_origine||'—'}</div>
+      <div class="rc-route-city">${flagOrigine ? `<div class="rc-route-flag">${flagEmoji(flagOrigine.flag)}</div>` : ''}${c.pays_origine||'—'}${c.agence_origine ? `<br><span style="font-weight:400;font-size:10.5px;color:var(--muted);">${c.agence_origine}</span>` : ''}</div>
       <div class="rc-route-arrow">✈</div>
       <div class="rc-route-city">${flagDest ? `<div class="rc-route-flag">${flagEmoji(flagDest.flag)}</div>` : ''}${c.pays_destination||'—'}${c.agence_destination ? `<br><span style="font-weight:400;font-size:10.5px;color:var(--muted);">${c.agence_destination}</span>` : ''}</div>
     </div>` : '';
@@ -2903,8 +2903,10 @@ function renderResultCard(c, showAdminActions, isPublic){
     </div>
 
     <div class="rc-section-title">👤 Client</div>
+    ${c.date_creation ? `<div class="result-row"><span class="k">Déposé le</span><span class="v">${new Date(c.date_creation).toLocaleDateString('fr-FR')}</span></div>` : ''}
     <div class="result-row"><span class="k">Nom</span><span class="v">${c.nom_client}</span></div>
     <div class="result-row"><span class="k">Téléphone</span><span class="v">${c.telephone||'—'}</span></div>
+    ${c.nom_depositaire ? `<div class="result-row"><span class="k">Déposant</span><span class="v">${c.nom_depositaire}${c.telephone_depositaire ? ' — '+c.telephone_depositaire : ''}</span></div>` : ''}
 
     <div class="rc-section-title">📦 Contenu</div>
     ${contenuBlock}
@@ -2915,6 +2917,7 @@ function renderResultCard(c, showAdminActions, isPublic){
 
     <div class="rc-section-title">💳 Paiement</div>
     <div class="result-row"><span class="k">Paiement départ</span><span class="v">${c.statut_paiement_depart}</span></div>
+    ${c.statut_paiement_depart === 'Partiel' && c.montant_avance ? `<div class="result-row"><span class="k">Versé (avance)</span><span class="v">${Number(c.montant_avance).toLocaleString('fr-FR')} MAD</span></div>` : ''}
     ${c.commentaire_paiement ? `<div class="result-row"><span class="k">Commentaire paiement</span><span class="v">${c.commentaire_paiement}</span></div>` : ''}
 
     ${(c.commentaire_arrivee || c.nom_retirant) && !isPublic ? `<div class="rc-section-title">📋 Suivi</div>` : ''}
