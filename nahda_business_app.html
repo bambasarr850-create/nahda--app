@@ -134,12 +134,21 @@
   body.desktop-mode #thread-modal.inline-desktop{position:static;background:none;display:flex;inset:auto;z-index:auto;height:100%;}
   body.desktop-mode #thread-modal.inline-desktop > div{width:100%;height:100%;max-height:none;border-radius:0;margin:0;}
 
-  body.desktop-mode #screen-bilan .scroll{max-width:1600px;margin:0 auto;width:100%;}
-  body.desktop-mode #screen-bilan #bilan-scroll{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:stretch;}
+  /* Bilan — mobile : conteneurs neutres, aucun changement visuel par rapport a avant */
+  .bilan-layout{display:block;}
+  .bilan-col-left, .bilan-col-right{display:block;}
+
+  /* Bilan — bureau uniquement : liste a gauche, detail a droite (comme Messages) */
+  body.desktop-mode #screen-bilan .scroll{max-width:1500px;margin:0 auto;width:100%;}
+  body.desktop-mode .bilan-layout{display:flex;gap:20px;align-items:flex-start;}
+  body.desktop-mode #screen-bilan .bilan-col-left{flex:0 0 460px;}
+  body.desktop-mode #screen-bilan .bilan-col-right{flex:1;min-height:65vh;max-height:65vh;background:var(--white);border-radius:16px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;padding:18px;min-width:0;}
+  body.desktop-mode #screen-bilan #bilan-scroll{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:stretch;}
   body.desktop-mode #screen-bilan #bilan-scroll .section-title{grid-column:1/-1;margin-top:6px;}
   body.desktop-mode #screen-bilan #bilan-scroll .banner-demo{grid-column:1/-1;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-card{margin-bottom:0;flex-direction:column-reverse;align-items:flex-start;gap:10px;}
-  body.desktop-mode #screen-bilan .date-nav, body.desktop-mode #screen-bilan #bilan-periode-wrap, body.desktop-mode #screen-bilan .btn-row{max-width:820px;margin-left:auto;margin-right:auto;}
+  body.desktop-mode #bilan-detail-modal.inline-desktop{position:static;background:none;display:flex;inset:auto;z-index:auto;height:100%;flex:1;align-items:stretch;justify-content:stretch;}
+  body.desktop-mode #bilan-detail-modal.inline-desktop > div{width:100%;height:100%;max-height:none;border-radius:0;margin:0;padding:0;}
 
   body.desktop-mode #screen-voyage .tabbar{max-width:820px;margin:0 auto 16px;}
   body.desktop-mode #screen-voyage #voyage-depart-panel, body.desktop-mode #screen-voyage #voyage-arrivee-panel{max-width:1000px;margin:0 auto;}
@@ -751,28 +760,38 @@
   <section class="screen" id="screen-bilan">
     <div class="topbar"><button class="back-btn" onclick="goto('screen-dashboard')">←</button><h1>Bilan Trésorerie</h1></div>
     <div class="scroll">
-      <div class="btn-row" style="margin-bottom:10px;">
-        <button class="btn btn-primary" id="bilan-mode-jour-btn" onclick="setBilanMode('jour')">📅 Jour</button>
-        <button class="btn btn-outline" id="bilan-mode-periode-btn" onclick="setBilanMode('periode')">🗓️ Période</button>
+      <div class="bilan-layout">
+        <div class="bilan-col-left">
+          <div class="btn-row" style="margin-bottom:10px;">
+            <button class="btn btn-primary" id="bilan-mode-jour-btn" onclick="setBilanMode('jour')">📅 Jour</button>
+            <button class="btn btn-outline" id="bilan-mode-periode-btn" onclick="setBilanMode('periode')">🗓️ Période</button>
+          </div>
+          <div class="date-nav" id="bilan-jour-wrap">
+            <button onclick="shiftBilanDate(-1)">‹</button>
+            <input type="date" id="bilan-date" onchange="renderBilan()">
+            <button onclick="shiftBilanDate(1)">›</button>
+            <button class="today-btn" onclick="setBilanToday()">Aujourd'hui</button>
+          </div>
+          <div id="bilan-periode-wrap" style="display:none;">
+            <div class="field"><label>Du</label><input type="date" id="bilan-date-debut" onchange="renderBilan()"></div>
+            <div class="field"><label>Au</label><input type="date" id="bilan-date-fin" onchange="renderBilan()"></div>
+          </div>
+          <div class="field" id="bilan-pays-wrap" style="display:none;">
+            <label>Filtrer par pays (admin)</label>
+            <select id="bilan-pays-filter" onchange="renderBilan()">
+              <option value="">🌍 Tous les pays (vue globale)</option>
+            </select>
+          </div>
+          <div id="bilan-scroll"></div>
+          <button class="btn btn-gold" id="bilan-pdf-btn" style="display:none;margin-top:8px;" onclick="generateBilanPDF()">📄 Générer le bilan en PDF</button>
+        </div>
+        <div class="bilan-col-right" id="bilan-detail-slot">
+          <div id="bilan-detail-placeholder" style="display:none;height:100%;align-items:center;justify-content:center;flex-direction:column;color:var(--muted);gap:10px;">
+            <div style="font-size:34px;">📊</div>
+            <div style="font-size:13px;">Sélectionne une catégorie à gauche pour voir le détail</div>
+          </div>
+        </div>
       </div>
-      <div class="date-nav" id="bilan-jour-wrap">
-        <button onclick="shiftBilanDate(-1)">‹</button>
-        <input type="date" id="bilan-date" onchange="renderBilan()">
-        <button onclick="shiftBilanDate(1)">›</button>
-        <button class="today-btn" onclick="setBilanToday()">Aujourd'hui</button>
-      </div>
-      <div id="bilan-periode-wrap" style="display:none;">
-        <div class="field"><label>Du</label><input type="date" id="bilan-date-debut" onchange="renderBilan()"></div>
-        <div class="field"><label>Au</label><input type="date" id="bilan-date-fin" onchange="renderBilan()"></div>
-      </div>
-      <div class="field" id="bilan-pays-wrap" style="display:none;">
-        <label>Filtrer par pays (admin)</label>
-        <select id="bilan-pays-filter" onchange="renderBilan()">
-          <option value="">🌍 Tous les pays (vue globale)</option>
-        </select>
-      </div>
-      <div id="bilan-scroll"></div>
-      <button class="btn btn-gold" id="bilan-pdf-btn" style="display:none;margin-top:8px;" onclick="generateBilanPDF()">📄 Générer le bilan en PDF</button>
     </div>
   </section>
 
@@ -1827,7 +1846,14 @@ function goto(id, fromPopstate){
   if(!fromPopstate) history.pushState({screen:id}, '', '#'+id);
   if(id==='screen-newcolis') prepNewColis();
   if(id==='screen-voyage') prepVoyage();
-  if(id==='screen-bilan') renderBilan();
+  if(id==='screen-bilan'){
+    if(document.body.classList.contains('desktop-mode')){
+      document.getElementById('bilan-detail-modal').style.display = 'none';
+      const placeholder = document.getElementById('bilan-detail-placeholder');
+      if(placeholder) placeholder.style.display = 'flex';
+    }
+    renderBilan();
+  }
   if(id==='screen-settings') prepSettings();
   if(id==='screen-retrait'){ document.getElementById('rt-fiche').innerHTML=''; document.getElementById('rt-ref').value=''; document.getElementById('rt-champs-retrait').style.display='none'; document.getElementById('rt-dispo-info').style.display='none'; }
   if(id==='screen-messages'){
@@ -1865,8 +1891,8 @@ function naviguerVersRetraitDepuisModal(reference){
 }
 function fermerModalesOuvertes(){
   const enModeBureau = document.body.classList.contains('desktop-mode');
-  const modales = ['bilan-detail-modal','confirm-modal','scanner-modal','lightbox','logout-confirm-modal','commentaire-modal','generic-confirm-modal','generic-prompt-modal','choix-agence-modal'];
-  if(!enModeBureau) modales.push('thread-modal');
+  const modales = ['confirm-modal','scanner-modal','lightbox','logout-confirm-modal','commentaire-modal','generic-confirm-modal','generic-prompt-modal','choix-agence-modal'];
+  if(!enModeBureau){ modales.push('thread-modal'); modales.push('bilan-detail-modal'); }
   let uneEtaitOuverte = false;
   modales.forEach(id=>{
     const el = document.getElementById(id);
@@ -4257,8 +4283,28 @@ let BILAN_DETAIL_CACHE = [];
 async function showBilanDetail(type, label){
   document.getElementById('bilan-detail-title').textContent = label;
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
-  pushModalHistoryState();
-  document.getElementById('bilan-detail-modal').style.display = 'flex';
+  const modal = document.getElementById('bilan-detail-modal');
+  if(document.body.classList.contains('desktop-mode')){
+    const slot = document.getElementById('bilan-detail-slot');
+    const placeholder = document.getElementById('bilan-detail-placeholder');
+    if(placeholder) placeholder.style.display = 'none';
+    if(slot && modal.parentElement !== slot) slot.appendChild(modal);
+    modal.classList.add('inline-desktop');
+    modal.style.position = 'static';
+    modal.style.background = 'none';
+    modal.style.inset = 'auto';
+    modal.style.zIndex = 'auto';
+    modal.style.flex = '1';
+    modal.style.height = 'auto';
+    modal.style.alignItems = 'stretch';
+    modal.style.justifyContent = 'stretch';
+    modal.style.display = 'flex';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = 'auto'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; }
+  } else {
+    pushModalHistoryState();
+    modal.style.display = 'flex';
+  }
   const destSelect = document.getElementById('bilan-detail-dest-filter');
   destSelect.style.display = '';
   destSelect.value = '';
@@ -4293,19 +4339,86 @@ function renderBilanDetailList(list, type){
   const montantAffiche = c => Number(c.montant_retrait||c.total||0);
   const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
   const totalMontant = list.reduce((s,c)=>s+montantAffiche(c),0);
+  const estPaiement = (type === 'payeDepart' || type === 'encaisseRetrait');
+
+  if(!estPaiement){
+    // Categories sans lien avec le paiement (En attente, En voyage, Arrives, Retires, Total colis) :
+    // affichage inchange, le moyen de paiement n'a pas de sens ici.
+    const versRetrait = type === 'arrives';
+    let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> · <b>${totalMontant.toLocaleString('fr-FR')} MAD</b> au total</div>`;
+    html += list.map(c => `
+      <div class="checklist-item" style="cursor:pointer;" onclick="${versRetrait ? `naviguerVersRetraitDepuisModal('${c.reference}')` : `naviguerVersColisDepuisModal('${c.reference}')`}">
+        <div class="txt">
+          <div class="r">${c.reference}${versRetrait ? ' <span style="color:var(--gold);font-size:11px;">→ Retrait</span>' : ''}</div>
+          <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${montantAffiche(c).toLocaleString('fr-FR')} MAD</div>
+      </div>`).join('');
+    box.innerHTML = html;
+    return;
+  }
+
+  // Categories liees au paiement (Paye au depart / Encaisse au retrait) :
+  // totaux par moyen de paiement + vrai tableau avec colonnes.
+  const totauxParMoyen = {};
+  list.forEach(c => {
+    const lignes = type === 'encaisseRetrait' ? (c.lignes_paiement||[]) : (c.lignes_paiement_depart||[]);
+    lignes.forEach(l => { const m = l.moyen || 'Non précisé'; totauxParMoyen[m] = (totauxParMoyen[m]||0) + Number(l.montant||0); });
+  });
+
   let html = `<div class="checklist-total">📦 ${list.length} colis · <b>${totalPoids.toLocaleString('fr-FR')} kg</b> · <b>${totalMontant.toLocaleString('fr-FR')} MAD</b> au total</div>`;
-  const versRetrait = type === 'arrives';
-  html += list.map(c=>`
-    <div class="checklist-item" style="cursor:pointer;" onclick="${versRetrait ? `naviguerVersRetraitDepuisModal('${c.reference}')` : `naviguerVersColisDepuisModal('${c.reference}')`}">
-      <div class="txt">
-        <div class="r">${c.reference}${versRetrait ? ' <span style="color:var(--gold);font-size:11px;">→ Retrait</span>' : ''}</div>
-        <div class="d">${c.nom_client||''} · ${c.pays_destination||''} · ${poidsAffiche(c)} kg</div>
-      </div>
-      <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:13px;">${montantAffiche(c).toLocaleString('fr-FR')} MAD</div>
-    </div>`).join('');
+  if(Object.keys(totauxParMoyen).length){
+    html += `<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;">`;
+    html += Object.entries(totauxParMoyen).map(([moyen,montant]) => `
+      <div style="background:var(--white);border:1px solid var(--line);border-radius:12px;padding:10px 14px;flex:1;min-width:140px;">
+        <div style="font-size:10.5px;color:var(--muted);">${moyen}</div>
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--navy);font-size:14px;">${Number(montant).toLocaleString('fr-FR')} MAD</div>
+      </div>`).join('');
+    html += `</div>`;
+  }
+
+  html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+    <thead><tr style="background:var(--sand-2);">
+      <td style="padding:8px;font-weight:700;color:var(--navy);">Nom</td>
+      <td style="padding:8px;font-weight:700;color:var(--navy);text-align:right;">Poids</td>
+      <td style="padding:8px;font-weight:700;color:var(--navy);text-align:right;">Prix/kg</td>
+      <td style="padding:8px;font-weight:700;color:var(--navy);text-align:right;">Total payé</td>
+      <td style="padding:8px;font-weight:700;color:var(--navy);">Moyen de paiement</td>
+    </tr></thead>
+    <tbody>`;
+  html += list.map((c,i) => {
+    const poids = poidsAffiche(c);
+    const montant = montantAffiche(c);
+    const prixKgMoyen = poids > 0 ? Math.round(montant / poids) : 0;
+    const lignesPaiement = type === 'encaisseRetrait' ? (c.lignes_paiement||[]) : (c.lignes_paiement_depart||[]);
+    const moyenTexte = lignesPaiement.length ? lignesPaiement.map(l=>l.moyen).join(' + ') : '—';
+    return `
+    <tr style="cursor:pointer;border-bottom:1px solid var(--sand-2);${i%2===1?'background:var(--sand);':''}" onclick="naviguerVersColisDepuisModal('${c.reference}')">
+      <td style="padding:8px;">${c.nom_client||''}<div style="font-size:10px;color:var(--muted);">${c.reference}</div></td>
+      <td style="padding:8px;text-align:right;">${poids} kg</td>
+      <td style="padding:8px;text-align:right;">${prixKgMoyen.toLocaleString('fr-FR')}</td>
+      <td style="padding:8px;text-align:right;font-weight:700;color:var(--navy);font-family:var(--font-mono);">${montant.toLocaleString('fr-FR')} MAD</td>
+      <td style="padding:8px;">${moyenTexte}</td>
+    </tr>`;
+  }).join('');
+  html += `</tbody></table></div>`;
   box.innerHTML = html;
 }
-function closeBilanDetail(){ document.getElementById('bilan-detail-modal').style.display = 'none'; if(history.state && history.state.modal) history.back(); }
+function closeBilanDetail(){
+  const modal = document.getElementById('bilan-detail-modal');
+  if(document.body.classList.contains('desktop-mode')){
+    modal.style.display = 'none';
+    modal.classList.remove('inline-desktop');
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; }
+    const placeholder = document.getElementById('bilan-detail-placeholder');
+    if(placeholder) placeholder.style.display = 'flex';
+    return;
+  }
+  modal.style.display = 'none';
+  if(history.state && history.state.modal) history.back();
+}
 
 /* ================= PARAMÈTRES (admin uniquement) ================= */
 /* ================= AFFICHE PROMOTIONNELLE (Parametres, admin) ================= */
