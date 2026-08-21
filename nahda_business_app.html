@@ -582,6 +582,12 @@
               <label style="margin-top:10px;">Commentaire (paiement partiel)</label>
               <textarea id="nc-commentaire-paiement" rows="2" placeholder="Ex : reste à régler à l'arrivée"></textarea>
             </div>
+            <div class="field" id="nc-paiement-repartition-wrap" style="display:none;">
+              <label>Répartition du paiement encaissé (espèces, mobile money...)</label>
+              <div id="nc-lignes-paiement"></div>
+              <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLignePaiementDepart()">+ Ajouter un moyen de paiement</button>
+              <div id="nc-paiement-total-info" style="font-size:11px;margin-top:6px;font-family:var(--font-mono);"></div>
+            </div>
 
             <div class="field">
               <label>Photos du colis (plusieurs prises autorisées)</label>
@@ -703,12 +709,12 @@
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;">Calculé automatiquement selon le poids retiré (prix moyen du colis) — non modifiable.</div>
                 <div id="rt-montant-devise" style="font-size:11.5px;color:var(--muted);margin-top:6px;font-family:var(--font-mono);"></div>
               </div>
-              <div class="retrait-field-pair">
-                <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
-                <div class="field">
-                  <label>Compte de retrait</label>
-                  <select id="rt-compte"><option>Caisse agence — Espèces</option><option>Mobile Money</option><option>Compte bancaire agence</option></select>
-                </div>
+              <div class="field"><label>Date de retrait</label><input id="rt-date" type="date"></div>
+              <div class="field">
+                <label>Répartition du paiement reçu</label>
+                <div id="rt-lignes-paiement"></div>
+                <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLignePaiementRetrait()">+ Ajouter un moyen de paiement</button>
+                <div id="rt-paiement-total-info" style="font-size:11px;margin-top:6px;font-family:var(--font-mono);"></div>
               </div>
               <div class="retrait-field-pair">
                 <div class="field">
@@ -1288,7 +1294,7 @@ async function apiSupabase(action, p){
         nom_depositaire: p.nomDepositaire || '', telephone_depositaire: p.telephoneDepositaire || '',
         pays_origine: p.paysOrigine || p.agentPays || '', montant_avance: p.montantAvance || 0,
         lignes_produits: lignes, date_creation: p.dateCreation || new Date().toISOString(),
-        agence_origine: p.agenceOrigine || ''
+        agence_origine: p.agenceOrigine || '', lignes_paiement_depart: p.lignesPaiementDepart || []
       });
       if(error) throw new Error(error.code==='23505' ? 'Ce numero de recu existe deja' : error.message);
       data = { reference: p.reference, photoUrl: p.photoUrls || '' };
@@ -1358,7 +1364,7 @@ async function apiSupabase(action, p){
         total: p.total, statut_paiement_depart: p.statutPaiementDepart,
         valeur_declaree: p.valeurDeclaree, commentaire_paiement: p.commentairePaiement,
         nom_depositaire: p.nomDepositaire, telephone_depositaire: p.telephoneDepositaire,
-        montant_avance: p.montantAvance
+        montant_avance: p.montantAvance, lignes_paiement_depart: p.lignesPaiementDepart
       };
       if(contenuResume !== undefined) champs.contenu = contenuResume;
       if(lignes !== undefined) champs.lignes_produits = lignes;
@@ -1456,9 +1462,10 @@ async function apiSupabase(action, p){
       if(errRpc) throw new Error(traduireErreur(errRpc.message));
 
       await sb.from('retraits').insert({
-        reference: p.reference, poids: poidsCetteFois, montant: Number(p.montant||0), compte: p.compte || '',
+        reference: p.reference, poids: poidsCetteFois, montant: Number(p.montant||0), compte: (p.lignesPaiement||[]).map(l=>l.moyen).join(', '),
         nom_retirant: p.retirantNom || '', telephone_retirant: p.retirantTel || '', commentaire: p.commentaire || '',
         agent_nom: p.agentNom || '', agent_pays: p.agentPays || '', lignes_retirees: p.lignesRetirees || [],
+        lignes_paiement: p.lignesPaiement || [],
         created_at: dateChoisie || new Date().toISOString()
       });
 
@@ -1656,6 +1663,16 @@ async function apiSupabase(action, p){
       const jourRetraitVisites = filtreActif ? visitesRetrait.filter(r=>dansPeriode(r.created_at, p.date, p.dateDebut, p.dateFin)) : visitesRetrait;
 
       if(action==='bilan'){
+        const repartitionParMoyen = (tableauDeLignes) => {
+          const totaux = {};
+          tableauDeLignes.forEach(lignes => {
+            (lignes||[]).forEach(l => {
+              const moyen = l.moyen || 'Non précisé';
+              totaux[moyen] = (totaux[moyen]||0) + Number(l.montant||0);
+            });
+          });
+          return totaux;
+        };
         data = {
           date: p.date || null,
           totalPayeDepart: jourCreation.reduce((s,c)=>{
@@ -1664,6 +1681,8 @@ async function apiSupabase(action, p){
             return s;
           },0),
           totalEncaisseRetrait: jourRetraitVisites.reduce((s,r)=>s+Number(r.montant||0),0),
+          repartitionPaiementDepart: repartitionParMoyen(jourCreation.map(c=>c.lignes_paiement_depart)),
+          repartitionPaiementRetrait: repartitionParMoyen(jourRetraitVisites.map(r=>r.lignes_paiement)),
           nbColisJour: jourCreation.length,
           nbRetraitsJour: jourRetraitVisites.length,
           totalColis: colisOrig.length,
@@ -2185,6 +2204,10 @@ function onDestChange(){
 function onStatutPaieChange(){
   const val = document.getElementById('nc-statutpaie').value;
   document.getElementById('nc-commentaire-wrap').style.display = (val==='Partiel') ? 'block' : 'none';
+  document.getElementById('nc-paiement-repartition-wrap').style.display = (val==='Non payé') ? 'none' : 'block';
+  if(val==='Non payé'){ newColisPaiementLignes = []; }
+  else if(!newColisPaiementLignes.length){ newColisPaiementLignes = [{ moyen:'Especes', montant:'' }]; }
+  renderLignesPaiementDepart();
   updateResteAPercevoir();
 }
 function updateResteAPercevoir(){
@@ -2192,6 +2215,56 @@ function updateResteAPercevoir(){
   const avance = parseFloat(document.getElementById('nc-montant-avance').value)||0;
   const reste = Math.max(0, total - avance);
   document.getElementById('nc-reste-info').textContent = 'Reste à percevoir au retrait : ' + reste.toLocaleString('fr-FR') + ' MAD';
+  updatePaiementTotalInfo();
+}
+let newColisPaiementLignes = [];
+function addLignePaiementDepart(){
+  newColisPaiementLignes.push({ moyen:'Especes', montant:'' });
+  renderLignesPaiementDepart();
+}
+function removeLignePaiementDepart(i){
+  newColisPaiementLignes.splice(i,1);
+  renderLignesPaiementDepart();
+}
+function updateLignePaiementDepart(i, field, value){
+  newColisPaiementLignes[i][field] = value;
+  updatePaiementTotalInfo();
+}
+function renderLignesPaiementDepart(){
+  const box = document.getElementById('nc-lignes-paiement');
+  if(!box) return;
+  box.innerHTML = newColisPaiementLignes.map((l,i)=>`
+    <div class="ligne-produit">
+      ${newColisPaiementLignes.length>1 ? `<button type="button" class="ligne-remove" onclick="removeLignePaiementDepart(${i})">×</button>` : ''}
+      <div class="ligne-row">
+        <select onchange="updateLignePaiementDepart(${i},'moyen',this.value)">
+          <option value="Especes" ${l.moyen==='Especes'?'selected':''}>Espèces</option>
+          <option value="Mobile Money" ${l.moyen==='Mobile Money'?'selected':''}>Mobile Money</option>
+          <option value="Compte bancaire" ${l.moyen==='Compte bancaire'?'selected':''}>Compte bancaire agence</option>
+        </select>
+        <input type="number" placeholder="Montant (MAD)" value="${l.montant}" oninput="updateLignePaiementDepart(${i},'montant',this.value)">
+      </div>
+    </div>`).join('');
+  updatePaiementTotalInfo();
+}
+function updatePaiementTotalInfo(){
+  const infoBox = document.getElementById('nc-paiement-total-info');
+  if(!infoBox) return;
+  const statutPaie = document.getElementById('nc-statutpaie').value;
+  if(statutPaie === 'Non payé'){ infoBox.textContent = ''; return; }
+  const totalColis = newColisLignes.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
+  const montantAttendu = statutPaie === 'Partiel' ? (parseFloat(document.getElementById('nc-montant-avance').value)||0) : totalColis;
+  const sommeLignes = newColisPaiementLignes.reduce((s,l)=>s+(parseFloat(l.montant)||0), 0);
+  const ecart = montantAttendu - sommeLignes;
+  if(Math.abs(ecart) < 0.01){
+    infoBox.style.color = 'var(--green)';
+    infoBox.textContent = '✓ Répartition complète (' + sommeLignes.toLocaleString('fr-FR') + ' MAD)';
+  } else {
+    infoBox.style.color = 'var(--red)';
+    infoBox.textContent = ecart > 0
+      ? '⚠️ Il manque ' + ecart.toLocaleString('fr-FR') + ' MAD dans la répartition'
+      : '⚠️ ' + Math.abs(ecart).toLocaleString('fr-FR') + ' MAD en trop dans la répartition';
+  }
 }
 let newColisLignes = [];
 function addLigneProduit(){
@@ -2317,7 +2390,7 @@ function renderPhotoGallery(){
     `<div class="gallery-thumb"><img src="${p}"><button onclick="removePhoto(${i})">×</button></div>`).join('');
 }
 function resetNewColis(){
-  newColisLignes=[]; newColisPhotos=[]; editingRef=null;
+  newColisLignes=[]; newColisPhotos=[]; newColisPaiementLignes=[]; editingRef=null;
   renderPhotoGallery(); renderLignesProduits();
   document.getElementById('nc-title').textContent = 'Nouveau Colis';
   document.getElementById('nc-save-btn').textContent = '💾 ENREGISTRER';
@@ -2344,6 +2417,17 @@ async function saveColis(){
   if(!telClientOk || !telDepositaireOk){ showToast('⚠️ Vérifie le(s) numéro(s) de téléphone (nombre de chiffres incorrect)'); return; }
   const lignesValides = newColisLignes.filter(l => l.type.trim() && parseFloat(l.poids)>0);
   if(!lignesValides.length){ showToast('⚠️ Ajoute au moins un produit avec un type et un poids'); return; }
+  const statutPaieVerif = document.getElementById('nc-statutpaie').value;
+  const lignesPaiementValides = newColisPaiementLignes.filter(l => parseFloat(l.montant) > 0);
+  if(statutPaieVerif !== 'Non payé'){
+    const totalColisVerif = lignesValides.reduce((s,l)=>s+(parseFloat(l.poids)||0)*(parseFloat(l.prixKg)||0), 0);
+    const montantAttenduVerif = statutPaieVerif === 'Partiel' ? (parseFloat(document.getElementById('nc-montant-avance').value)||0) : totalColisVerif;
+    const sommeVerif = lignesPaiementValides.reduce((s,l)=>s+(parseFloat(l.montant)||0), 0);
+    if(Math.abs(montantAttenduVerif - sommeVerif) > 0.01){
+      showToast('⚠️ La répartition du paiement ne correspond pas au montant encaissé');
+      return;
+    }
+  }
   saveBtn.disabled = true;
   setNewColisFieldsDisabled(true);
   const labelOrigine = saveBtn.textContent;
@@ -2368,6 +2452,7 @@ async function saveColis(){
     lignesProduits, total,
     statutPaiementDepart, valeurDeclaree: parseFloat(document.getElementById('nc-valeur').value)||0,
     commentairePaiement, montantAvance: parseFloat(document.getElementById('nc-montant-avance').value)||0,
+    lignesPaiementDepart: lignesPaiementValides.map(l=>({moyen:l.moyen, montant:parseFloat(l.montant)||0})),
     agentRole: currentAgent ? currentAgent.role : '', agentPays: currentAgent ? currentAgent.pays : '',
     agentId: currentAgent ? currentAgent.id : '', agentNom: currentAgent ? currentAgent.nom : '',
     dateCreation: dateCreationFinale, paysOrigine: currentAgent ? currentAgent.pays : '',
@@ -2935,6 +3020,7 @@ function renderResultCard(c, showAdminActions, isPublic){
         <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${r.nom_retirant||''} ${r.telephone_retirant?'· '+r.telephone_retirant:''}${r.compte?' · '+r.compte:''}</div>
         ${r.commentaire ? `<div style="font-size:11.5px;color:var(--ink);margin-top:3px;font-style:italic;">« ${r.commentaire} »</div>` : ''}
         ${(r.lignes_retirees||[]).length ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">${r.lignes_retirees.map(l=>l.type+' ('+l.poids+' kg)').join(' · ')}</div>` : ''}
+        ${(r.lignes_paiement||[]).length ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">💰 ${r.lignes_paiement.map(l=>l.moyen+' : '+Number(l.montant).toLocaleString('fr-FR')+' MAD').join(' · ')}</div>` : ''}
       </div>`).join('')}
     ` : ''}
 
@@ -2978,6 +3064,11 @@ async function editColis(c){
     : [{type: c.contenu || '', poids: c.poids || '', prixKg: c.prix_kg || 0, prixModifie:true}];
   renderLignesProduits();
   document.getElementById('nc-statutpaie').value = c.statut_paiement_depart;
+  document.getElementById('nc-montant-avance').value = c.montant_avance || '';
+  const lignesPaiementExistantes = c.lignes_paiement_depart || [];
+  newColisPaiementLignes = lignesPaiementExistantes.length
+    ? lignesPaiementExistantes.map(l=>({moyen:l.moyen, montant:l.montant}))
+    : [];
   onStatutPaieChange();
   document.getElementById('nc-commentaire-paiement').value = c.commentaire_paiement || '';
   document.getElementById('nc-valeur').value = c.valeur_declaree;
@@ -3697,6 +3788,7 @@ async function chargerRetrait(){
     document.getElementById('rt-commentaire').value = '';
     document.getElementById('rt-date').value = new Date().toISOString().slice(0,10);
     document.getElementById('rt-confirm-paiement').checked = false;
+    retraitPaiementLignes = [];
 
     const dispoBox = document.getElementById('rt-dispo-info');
     dispoBox.style.display = 'block';
@@ -3776,6 +3868,7 @@ function recalculerRetraitParLignes(){
   const labelMontant = document.getElementById('rt-confirm-montant');
   if(labelMontant) labelMontant.textContent = Math.round(montantTotal).toLocaleString('fr-FR') + ' MAD';
   retraitLignesSelectionnees = lignesRetenues;
+  ajusterLignePaiementRetraitUnique(Math.round(montantTotal));
   updateRetraitDevise();
 }
 let retraitLignesSelectionnees = [];
@@ -3797,6 +3890,61 @@ function clampInput(input, maxVal){
   if(!isNaN(v) && v > maxVal) input.value = maxVal;
   if(!isNaN(v) && v < 0) input.value = 0;
 }
+let retraitPaiementLignes = [];
+function ajusterLignePaiementRetraitUnique(montant){
+  if(retraitPaiementLignes.length <= 1){
+    retraitPaiementLignes = [{ moyen: (retraitPaiementLignes[0] && retraitPaiementLignes[0].moyen) || 'Especes', montant: montant }];
+    renderLignesPaiementRetrait();
+  } else {
+    updatePaiementTotalInfoRetrait();
+  }
+}
+function addLignePaiementRetrait(){
+  retraitPaiementLignes.push({ moyen:'Especes', montant:'' });
+  renderLignesPaiementRetrait();
+}
+function removeLignePaiementRetrait(i){
+  retraitPaiementLignes.splice(i,1);
+  renderLignesPaiementRetrait();
+}
+function updateLignePaiementRetrait(i, field, value){
+  retraitPaiementLignes[i][field] = value;
+  updatePaiementTotalInfoRetrait();
+}
+function renderLignesPaiementRetrait(){
+  const box = document.getElementById('rt-lignes-paiement');
+  if(!box) return;
+  box.innerHTML = retraitPaiementLignes.map((l,i)=>`
+    <div class="ligne-produit">
+      ${retraitPaiementLignes.length>1 ? `<button type="button" class="ligne-remove" onclick="removeLignePaiementRetrait(${i})">×</button>` : ''}
+      <div class="ligne-row">
+        <select onchange="updateLignePaiementRetrait(${i},'moyen',this.value)">
+          <option value="Especes" ${l.moyen==='Especes'?'selected':''}>Espèces</option>
+          <option value="Mobile Money" ${l.moyen==='Mobile Money'?'selected':''}>Mobile Money</option>
+          <option value="Compte bancaire" ${l.moyen==='Compte bancaire'?'selected':''}>Compte bancaire agence</option>
+        </select>
+        <input type="number" placeholder="Montant (MAD)" value="${l.montant}" oninput="updateLignePaiementRetrait(${i},'montant',this.value)">
+      </div>
+    </div>`).join('');
+  updatePaiementTotalInfoRetrait();
+}
+function updatePaiementTotalInfoRetrait(){
+  const infoBox = document.getElementById('rt-paiement-total-info');
+  if(!infoBox) return;
+  const montantAttendu = parseFloat(document.getElementById('rt-montant').value) || 0;
+  const sommeLignes = retraitPaiementLignes.reduce((s,l)=>s+(parseFloat(l.montant)||0), 0);
+  const ecart = montantAttendu - sommeLignes;
+  if(Math.abs(ecart) < 0.01){
+    infoBox.style.color = 'var(--green)';
+    infoBox.textContent = '✓ Répartition complète (' + sommeLignes.toLocaleString('fr-FR') + ' MAD)';
+  } else {
+    infoBox.style.color = 'var(--red)';
+    infoBox.textContent = ecart > 0
+      ? '⚠️ Il manque ' + ecart.toLocaleString('fr-FR') + ' MAD dans la répartition'
+      : '⚠️ ' + Math.abs(ecart).toLocaleString('fr-FR') + ' MAD en trop dans la répartition';
+  }
+}
+
 function updateMontantSelonPoids(){
   if(!retraitCourant){ return; }
   clampInput(document.getElementById('rt-poids-retrait'), retraitCourant.poidsDisponibleMax||0);
@@ -3808,6 +3956,7 @@ function updateMontantSelonPoids(){
   document.getElementById('rt-montant').value = montant;
   const labelMontant = document.getElementById('rt-confirm-montant');
   if(labelMontant) labelMontant.textContent = montant.toLocaleString('fr-FR') + ' MAD';
+  ajusterLignePaiementRetraitUnique(montant);
   updateRetraitDevise();
 }
 async function updateRetraitDevise(){
@@ -3827,44 +3976,13 @@ async function updateRetraitDevise(){
 }
 function updateRetireButtonState(){
   const btn = document.getElementById('rt-retire-btn');
-  const compteSelect = document.getElementById('rt-compte');
-  const OPTION_PAYE_DEPART = 'Payé au pays de départ';
-  const existeDeja = Array.from(compteSelect.options).some(o=>o.value===OPTION_PAYE_DEPART);
   if(!retraitCourant){
     btn.disabled = true;
-    if(existeDeja) compteSelect.remove(0);
     return;
   }
   btn.disabled = !document.getElementById('rt-confirm-paiement').checked;
-  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
-  if(paiementDepartOk && !existeDeja){
-    const opt = document.createElement('option');
-    opt.value = OPTION_PAYE_DEPART; opt.textContent = '✅ '+OPTION_PAYE_DEPART;
-    compteSelect.insertBefore(opt, compteSelect.firstChild);
-    compteSelect.value = OPTION_PAYE_DEPART;
-  } else if(!paiementDepartOk && existeDeja){
-    compteSelect.remove(0);
-  }
 }
 let retraitPaiementValide = false;
-async function validerPaiementRetrait(){
-  if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
-  const paiementDepartOk = retraitCourant.statut_paiement_depart === 'Payé' || retraitCourant.statut_paiement_depart === 'Paye';
-  if(paiementDepartOk){ showToast('ℹ️ Ce colis est déjà payé intégralement au départ — aucune validation nécessaire'); return; }
-  const montant = parseFloat(document.getElementById('rt-montant').value)||0;
-  if(montant <= 0){ showToast('⚠️ Renseigne un montant valide'); return; }
-  const attendu = Number(retraitCourant.resteAttendu || 0);
-  if(montant < attendu - 0.01){
-    showToast('⚠️ Montant insuffisant — '+attendu.toLocaleString('fr-FR')+' MAD attendus, seulement '+montant.toLocaleString('fr-FR')+' MAD saisis. Le retrait ne peut pas être validé partiellement.');
-    return;
-  }
-  try{
-    await api('validerPaiementRetrait', {reference: retraitCourant.reference, montant, compte: document.getElementById('rt-compte').value, agentRole: currentAgent.role, agentPays: currentAgent.pays});
-    showToast('💰 Paiement validé — '+montant.toLocaleString('fr-FR')+' MAD');
-    retraitPaiementValide = true;
-    updateRetireButtonState();
-  }catch(e){}
-}
 async function marquerRetire(){
   if(!retraitCourant){ showToast("⚠️ Chargez un colis d'abord"); return; }
   if(!document.getElementById('rt-confirm-paiement').checked){
@@ -3886,9 +4004,15 @@ async function marquerRetire(){
   const montant = parseFloat(document.getElementById('rt-montant').value) || 0;
   const commentaire = document.getElementById('rt-commentaire').value.trim();
   try{
+    const lignesPaiementValidesRetrait = retraitPaiementLignes.filter(l => parseFloat(l.montant) > 0);
+    const sommePaiementRetrait = lignesPaiementValidesRetrait.reduce((s,l)=>s+(parseFloat(l.montant)||0), 0);
+    if(Math.abs(montant - sommePaiementRetrait) > 0.01){
+      showToast('⚠️ La répartition du paiement ne correspond pas au montant du retrait');
+      return;
+    }
     const resultat = await api('enregistrerRetraitPartiel', {
       reference: retraitCourant.reference, poids: poidsARetirer, montant, lignesRetirees: retraitLignesSelectionnees,
-      compte: document.getElementById('rt-compte').value, retirantNom, retirantTel, commentaire,
+      lignesPaiement: lignesPaiementValidesRetrait, retirantNom, retirantTel, commentaire,
       date: document.getElementById('rt-date').value,
       agentRole: currentAgent.role, agentPays: currentAgent.pays, agentNom: currentAgent.nom
     });
@@ -4002,8 +4126,18 @@ async function renderBilan(){
     };
     document.getElementById('bilan-pdf-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
     box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
-      <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')"><div><div class="l">Payé au départ (période)</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div></div>
-      <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')"><div><div class="l">Encaissé au retrait (période)</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div></div>
+      <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')">
+        <div>
+          <div class="l">Payé au départ (période)</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div>
+          ${Object.keys(b.repartitionPaiementDepart||{}).length ? `<div style="font-size:10.5px;color:var(--muted);margin-top:4px;">${Object.entries(b.repartitionPaiementDepart).map(([m,v])=>m+' : '+Number(v).toLocaleString('fr-FR')+' MAD').join(' · ')}</div>` : ''}
+        </div><div class="ic">💵</div>
+      </div>
+      <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')">
+        <div>
+          <div class="l">Encaissé au retrait (période)</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div>
+          ${Object.keys(b.repartitionPaiementRetrait||{}).length ? `<div style="font-size:10.5px;color:var(--muted);margin-top:4px;">${Object.entries(b.repartitionPaiementRetrait).map(([m,v])=>m+' : '+Number(v).toLocaleString('fr-FR')+' MAD').join(' · ')}</div>` : ''}
+        </div><div class="ic">💰</div>
+      </div>
       <h2 class="section-title" style="margin-top:18px;">Vue d'ensemble (toutes dates)</h2>
       <div class="bilan-card" onclick="showBilanDetail('totalColis','Tous les colis')"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
       <div class="bilan-card" onclick="showBilanDetail('enAttente','Colis en attente')"><div><div class="l">Colis en attente</div><div class="v">${b.enAttente}</div></div><div class="ic">🕓</div></div>
