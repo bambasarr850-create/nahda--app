@@ -149,7 +149,7 @@
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-card{margin-bottom:0;flex-direction:column-reverse;align-items:flex-start;gap:10px;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-moyens-row{grid-column:1/-1;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-moyens-row .bilan-card{flex-direction:column;align-items:flex-start;}
-  body.desktop-mode #screen-bilan #bilan-scroll .bilan-totaux-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  body.desktop-mode #screen-bilan #bilan-scroll .bilan-totaux-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-totaux-row .bilan-card{padding:10px 8px;flex-direction:column;align-items:flex-start;gap:4px;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-totaux-row .bilan-card .l{font-size:10px;}
   body.desktop-mode #screen-bilan #bilan-scroll .bilan-totaux-row .bilan-card .v{font-size:13px;}
@@ -1739,7 +1739,7 @@ async function apiSupabase(action, p){
               .map(r=>({
                 reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
                 poids: r.poids, prix_kg: null, total: r.montant, montant_retrait: r.montant,
-                statut: 3, statut_paiement_depart: null, date_creation: r.created_at, lignes_paiement: r.lignes_paiement||[]
+                statut: 3, statut_paiement_depart: null, date_creation: r.created_at, lignes_paiement: r.lignes_paiement||[], origine: 'Retrait'
               }));
             dejaTraiteEncaisseRetrait = true;
             break;
@@ -1765,14 +1765,37 @@ async function apiSupabase(action, p){
                 poids: c.poids, prix_kg: c.prix_kg,
                 total: (c.lignes_paiement_depart||[]).filter(l=>l.moyen===p.moyen).reduce((s,l)=>s+Number(l.montant||0),0),
                 montant_retrait: null, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart,
-                lignes_paiement_depart: (c.lignes_paiement_depart||[]).filter(l=>l.moyen===p.moyen), date_creation: c.date_creation
+                lignes_paiement_depart: (c.lignes_paiement_depart||[]).filter(l=>l.moyen===p.moyen), date_creation: c.date_creation, origine: 'Départ'
               })),
               ...retraitsAvecMoyen.map(r=>({
                 reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
                 poids: r.poids, prix_kg: null,
                 total: (r.lignes_paiement||[]).filter(l=>l.moyen===p.moyen).reduce((s,l)=>s+Number(l.montant||0),0),
                 montant_retrait: r.montant, statut: 3, statut_paiement_depart: null,
-                lignes_paiement: (r.lignes_paiement||[]).filter(l=>l.moyen===p.moyen), date_creation: r.created_at
+                lignes_paiement: (r.lignes_paiement||[]).filter(l=>l.moyen===p.moyen), date_creation: r.created_at, origine: 'Retrait'
+              }))
+            ].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
+            dejaTraiteEncaisseRetrait = true;
+            break;
+          case 'tousPaiements':
+            // Combine TOUS les colis payes au depart et TOUTES les visites de retrait, sans filtrer par moyen
+            const colisPayes = jourCreation.filter(c => (c.lignes_paiement_depart||[]).length > 0);
+            const retraitsTous = jourRetraitVisites.filter(r => (r.lignes_paiement||[]).length > 0 || Number(r.montant) > 0);
+            data = [
+              ...colisPayes.map(c=>{
+                const montantOrigine = (c.statut_paiement_depart==='Partiel') ? Number(c.montant_avance||0) : Number(c.total||0);
+                return {
+                  reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
+                  poids: c.poids, prix_kg: c.prix_kg, total: montantOrigine,
+                  montant_retrait: null, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart,
+                  lignes_paiement_depart: c.lignes_paiement_depart||[], date_creation: c.date_creation, origine: 'Départ'
+                };
+              }),
+              ...retraitsTous.map(r=>({
+                reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
+                poids: r.poids, prix_kg: null, total: Number(r.montant||0),
+                montant_retrait: r.montant, statut: 3, statut_paiement_depart: null,
+                lignes_paiement: r.lignes_paiement||[], date_creation: r.created_at, origine: 'Retrait'
               }))
             ].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
             dejaTraiteEncaisseRetrait = true;
@@ -1789,7 +1812,7 @@ async function apiSupabase(action, p){
               reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
               poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
               montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart,
-              lignes_paiement_depart: c.lignes_paiement_depart||[]
+              lignes_paiement_depart: c.lignes_paiement_depart||[], origine: 'Départ'
             };
           });
         }
@@ -4203,6 +4226,9 @@ async function renderBilan(){
         <div class="bilan-card accent" onclick="showBilanDetail('encaisseRetrait','Encaissé au retrait')">
           <div><div class="l">Encaissé au retrait (période)</div><div class="v">${Number(b.totalEncaisseRetrait).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💰</div>
         </div>
+        <div class="bilan-card accent" onclick="showBilanDetail('tousPaiements','Tous les paiements')">
+          <div><div class="l">Tous les paiements</div><div class="v">${(Number(b.totalPayeDepart)+Number(b.totalEncaisseRetrait)).toLocaleString('fr-FR')} MAD</div></div><div class="ic">🧾</div>
+        </div>
       </div>
       <h2 class="section-title" style="margin-top:18px;">Vue d'ensemble (toutes dates)</h2>
       <div class="bilan-card" onclick="showBilanDetail('totalColis','Tous les colis')"><div><div class="l">Nombre total de colis</div><div class="v">${b.totalColis}</div></div><div class="ic">📦</div></div>
@@ -4379,7 +4405,7 @@ function renderBilanDetailList(list, type){
   const montantAffiche = c => Number(c.montant_retrait||c.total||0);
   const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
   const totalMontant = list.reduce((s,c)=>s+montantAffiche(c),0);
-  const estPaiement = (type === 'payeDepart' || type === 'encaisseRetrait' || type === 'moyenPaiement');
+  const estPaiement = (type === 'payeDepart' || type === 'encaisseRetrait' || type === 'moyenPaiement' || type === 'tousPaiements');
 
   if(!estPaiement){
     // Categories sans lien avec le paiement (En attente, En voyage, Arrives, Retires, Total colis) :
@@ -4424,6 +4450,7 @@ function renderBilanDetailList(list, type){
       <td style="padding:8px;font-weight:700;color:var(--navy);text-align:right;">Prix/kg</td>
       <td style="padding:8px;font-weight:700;color:var(--navy);text-align:right;">Total payé</td>
       <td style="padding:8px;font-weight:700;color:var(--navy);">Moyen de paiement</td>
+      <td style="padding:8px;font-weight:700;color:var(--navy);">Origine</td>
     </tr></thead>
     <tbody>`;
   html += list.map((c,i) => {
@@ -4432,6 +4459,7 @@ function renderBilanDetailList(list, type){
     const prixKgMoyen = poids > 0 ? Math.round(montant / poids) : 0;
     const lignesPaiement = (c.lignes_paiement && c.lignes_paiement.length) ? c.lignes_paiement : (c.lignes_paiement_depart||[]);
     const moyenTexte = lignesPaiement.length ? lignesPaiement.map(l=>l.moyen).join(' + ') : '—';
+    const origineTexte = c.origine || (type === 'encaisseRetrait' ? 'Retrait' : 'Départ');
     return `
     <tr style="cursor:pointer;border-bottom:1px solid var(--sand-2);${i%2===1?'background:var(--sand);':''}" onclick="naviguerVersColisDepuisModal('${c.reference}')">
       <td style="padding:8px;">${c.nom_client||''}<div style="font-size:10px;color:var(--muted);">${c.reference}</div></td>
@@ -4439,6 +4467,7 @@ function renderBilanDetailList(list, type){
       <td style="padding:8px;text-align:right;">${prixKgMoyen.toLocaleString('fr-FR')}</td>
       <td style="padding:8px;text-align:right;font-weight:700;color:var(--navy);font-family:var(--font-mono);">${montant.toLocaleString('fr-FR')} MAD</td>
       <td style="padding:8px;">${moyenTexte}</td>
+      <td style="padding:8px;"><span class="status-pill ${origineTexte==='Retrait'?'st-3':'st-1'}" style="font-size:10px;">${origineTexte}</span></td>
     </tr>`;
   }).join('');
   html += `</tbody></table></div>`;
