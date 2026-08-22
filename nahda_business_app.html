@@ -4152,7 +4152,7 @@ async function renderBilan(){
       scopeTexte: currentAgent.role!=='Admin' ? ('Trésorerie de : '+currentAgent.pays) : (paysChoisi ? ('Trésorerie filtrée : '+paysChoisi+' (Admin)') : 'Vue globale — tous pays (Admin)')
     };
     document.getElementById('bilan-pdf-btn').style.display = (currentAgent.role==='Admin') ? 'block' : 'none';
-    box.innerHTML = scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
+    box.innerHTML = `<div style="background:#000;color:#0f0;padding:10px;font-family:monospace;font-size:11px;white-space:pre-wrap;margin-bottom:10px;">DEBUG TEMPORAIRE — repartitionParMoyenGlobale : ${JSON.stringify(b.repartitionParMoyenGlobale)}</div>` + scopeLabel + `<h2 class="section-title">${jourLabel} — ${b.nbColisJour} colis créés · ${b.nbRetraitsJour} retraits</h2>` + `
       <div class="bilan-card accent" onclick="showBilanDetail('payeDepart','Payé au départ')">
         <div><div class="l">Payé au départ (période)</div><div class="v">${Number(b.totalPayeDepart).toLocaleString('fr-FR')} MAD</div></div><div class="ic">💵</div>
       </div>
