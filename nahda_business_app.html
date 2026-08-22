@@ -408,7 +408,7 @@
 
   .bilan-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:transform .12s;}
   .bilan-moyens-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
-  .bilan-moyens-row .bilan-card{margin-bottom:0;padding:10px 8px;cursor:default;flex-direction:column;align-items:flex-start;gap:4px;}
+  .bilan-moyens-row .bilan-card{margin-bottom:0;padding:10px 8px;flex-direction:column;align-items:flex-start;gap:4px;}
   .bilan-moyens-row .bilan-card .l{font-size:10px;}
   .bilan-moyens-row .bilan-card .v{font-size:13px;}
   .bilan-moyens-row .bilan-card .ic{font-size:16px;}
@@ -1739,7 +1739,7 @@ async function apiSupabase(action, p){
               .map(r=>({
                 reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
                 poids: r.poids, prix_kg: null, total: r.montant, montant_retrait: r.montant,
-                statut: 3, statut_paiement_depart: null, date_creation: r.created_at
+                statut: 3, statut_paiement_depart: null, date_creation: r.created_at, lignes_paiement: r.lignes_paiement||[]
               }));
             dejaTraiteEncaisseRetrait = true;
             break;
@@ -1755,6 +1755,28 @@ async function apiSupabase(action, p){
           case 'retires':
             result = colisDest.filter(c=>Number(c.statut)===3);
             break;
+          case 'moyenPaiement':
+            // Combine colis (depart) et visites de retrait ayant utilise ce moyen de paiement precis
+            const colisAvecMoyen = jourCreation.filter(c => (c.lignes_paiement_depart||[]).some(l=>l.moyen===p.moyen));
+            const retraitsAvecMoyen = jourRetraitVisites.filter(r => (r.lignes_paiement||[]).some(l=>l.moyen===p.moyen));
+            data = [
+              ...colisAvecMoyen.map(c=>({
+                reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
+                poids: c.poids, prix_kg: c.prix_kg,
+                total: (c.lignes_paiement_depart||[]).filter(l=>l.moyen===p.moyen).reduce((s,l)=>s+Number(l.montant||0),0),
+                montant_retrait: null, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart,
+                lignes_paiement_depart: (c.lignes_paiement_depart||[]).filter(l=>l.moyen===p.moyen), date_creation: c.date_creation
+              })),
+              ...retraitsAvecMoyen.map(r=>({
+                reference: r.reference, nom_client: r.nom_client, pays_destination: r.pays_destination,
+                poids: r.poids, prix_kg: null,
+                total: (r.lignes_paiement||[]).filter(l=>l.moyen===p.moyen).reduce((s,l)=>s+Number(l.montant||0),0),
+                montant_retrait: r.montant, statut: 3, statut_paiement_depart: null,
+                lignes_paiement: (r.lignes_paiement||[]).filter(l=>l.moyen===p.moyen), date_creation: r.created_at
+              }))
+            ].sort((a,b) => new Date(b.date_creation||0) - new Date(a.date_creation||0));
+            dejaTraiteEncaisseRetrait = true;
+            break;
           case 'totalColis':
           default:
             result = colisOrig;
@@ -1766,7 +1788,8 @@ async function apiSupabase(action, p){
             return {
               reference: c.reference, nom_client: c.nom_client, pays_destination: c.pays_destination,
               poids: c.poids, prix_kg: c.prix_kg, total: (p.type==='payeDepart'?montantOrigine:c.total),
-              montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart
+              montant_retrait: c.montant_retrait, statut: c.statut, statut_paiement_depart: c.statut_paiement_depart,
+              lignes_paiement_depart: c.lignes_paiement_depart||[]
             };
           });
         }
@@ -4170,7 +4193,7 @@ async function renderBilan(){
         ${['Especes','Mobile Money','Compte bancaire'].map(moyen=>{
           const montant = (b.repartitionParMoyenGlobale && b.repartitionParMoyenGlobale[moyen]) || 0;
           const icone = moyen==='Especes' ? '💵' : moyen==='Mobile Money' ? '📱' : '🏦';
-          return `<div class="bilan-card"><div><div class="l">${moyen}</div><div class="v">${Number(montant).toLocaleString('fr-FR')} MAD</div></div><div class="ic">${icone}</div></div>`;
+          return `<div class="bilan-card" onclick="showBilanDetail('moyenPaiement','${moyen}', '${moyen}')" style="cursor:pointer;"><div><div class="l">${moyen}</div><div class="v">${Number(montant).toLocaleString('fr-FR')} MAD</div></div><div class="ic">${icone}</div></div>`;
         }).join('')}
       </div>
       <div class="bilan-totaux-row">
@@ -4297,7 +4320,7 @@ function showDashboardDetail(type, label){
   showBilanDetail(type, label);
 }
 let BILAN_DETAIL_CACHE = [];
-async function showBilanDetail(type, label){
+async function showBilanDetail(type, label, moyen){
   document.getElementById('bilan-detail-title').textContent = label;
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
   const modal = document.getElementById('bilan-detail-modal');
@@ -4336,7 +4359,7 @@ async function showBilanDetail(type, label){
     }catch(e){}
   }
   try{
-    BILAN_DETAIL_CACHE = await api('bilanDetail', {...BILAN_FILTRE, type});
+    BILAN_DETAIL_CACHE = await api('bilanDetail', {...BILAN_FILTRE, type, moyen});
     BILAN_DETAIL_TYPE = type;
     renderBilanDetailList(BILAN_DETAIL_CACHE, type);
   }catch(e){
@@ -4356,7 +4379,7 @@ function renderBilanDetailList(list, type){
   const montantAffiche = c => Number(c.montant_retrait||c.total||0);
   const totalPoids = list.reduce((s,c)=>s+poidsAffiche(c),0);
   const totalMontant = list.reduce((s,c)=>s+montantAffiche(c),0);
-  const estPaiement = (type === 'payeDepart' || type === 'encaisseRetrait');
+  const estPaiement = (type === 'payeDepart' || type === 'encaisseRetrait' || type === 'moyenPaiement');
 
   if(!estPaiement){
     // Categories sans lien avec le paiement (En attente, En voyage, Arrives, Retires, Total colis) :
@@ -4379,7 +4402,7 @@ function renderBilanDetailList(list, type){
   // totaux par moyen de paiement + vrai tableau avec colonnes.
   const totauxParMoyen = {};
   list.forEach(c => {
-    const lignes = type === 'encaisseRetrait' ? (c.lignes_paiement||[]) : (c.lignes_paiement_depart||[]);
+    const lignes = (c.lignes_paiement && c.lignes_paiement.length) ? c.lignes_paiement : (c.lignes_paiement_depart||[]);
     lignes.forEach(l => { const m = l.moyen || 'Non précisé'; totauxParMoyen[m] = (totauxParMoyen[m]||0) + Number(l.montant||0); });
   });
 
@@ -4407,7 +4430,7 @@ function renderBilanDetailList(list, type){
     const poids = poidsAffiche(c);
     const montant = montantAffiche(c);
     const prixKgMoyen = poids > 0 ? Math.round(montant / poids) : 0;
-    const lignesPaiement = type === 'encaisseRetrait' ? (c.lignes_paiement||[]) : (c.lignes_paiement_depart||[]);
+    const lignesPaiement = (c.lignes_paiement && c.lignes_paiement.length) ? c.lignes_paiement : (c.lignes_paiement_depart||[]);
     const moyenTexte = lignesPaiement.length ? lignesPaiement.map(l=>l.moyen).join(' + ') : '—';
     return `
     <tr style="cursor:pointer;border-bottom:1px solid var(--sand-2);${i%2===1?'background:var(--sand);':''}" onclick="naviguerVersColisDepuisModal('${c.reference}')">
