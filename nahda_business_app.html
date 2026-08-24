@@ -476,6 +476,7 @@
             <option value="AG-CKY-01">Conakry — Agent</option>
             <option value="AG-OUA-01">Ouagadougou — Agent</option>
             <option value="AG-BKO-01">Bamako — Agent</option>
+            <option value="AG-NDJ-01">N'Djamena — Agent</option>
           </select>
         </div>
         <div class="field">
@@ -1067,7 +1068,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbzzIcC-2n0hyT8U9npYMxnS
 const SUPABASE_URL = 'https://kihsctmzwhzyzccadarv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KFyCbc_krhIF-1np5Q0kmw_uqwS7oxF';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const FLAG_EMOJI = {MA:'🇲🇦', CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳'};
+const FLAG_EMOJI = {MA:'🇲🇦', CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳', TD:'🇹🇩'};
 const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
 const APP_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/nahda_business_app.html'; // URL fixe - ne pas deduire de window.location (casse si ouvert via WhatsApp/webview)
 function formatPdfNum(n){
@@ -2205,9 +2206,9 @@ function openLightbox(url){
 function closeLightbox(){ document.getElementById('lightbox').style.display = 'none'; if(history.state && history.state.modal) history.back(); }
 
 /* ================= NOUVEAU COLIS ================= */
-const INDICATIF_PAYS = { 'Maroc':'212', "Cote d'Ivoire":'225', 'Guinee':'224', 'Burkina Faso':'226', 'Mali':'223', 'Senegal':'221' };
+const INDICATIF_PAYS = { 'Maroc':'212', "Cote d'Ivoire":'225', 'Guinee':'224', 'Burkina Faso':'226', 'Mali':'223', 'Senegal':'221', 'Tchad':'235' };
 // Nombre de chiffres attendus APRES l'indicatif pays, pour un numero de mobile standard
-const LONGUEUR_TEL_PAYS = { '212':9, '225':10, '224':9, '226':8, '223':8, '221':9 };
+const LONGUEUR_TEL_PAYS = { '212':9, '225':10, '224':9, '226':8, '223':8, '221':9, '235':8 };
 function validerTelephone(valeur){
   const brut = (valeur||'').replace(/[^\d+]/g,'');
   const chiffres = brut.replace(/\D/g,'');
@@ -4361,12 +4362,15 @@ async function showBilanDetail(type, label, moyen){
     modal.style.inset = 'auto';
     modal.style.zIndex = 'auto';
     modal.style.flex = '1';
-    modal.style.height = 'auto';
+    modal.style.height = '100%';
+    modal.style.minHeight = '0';
     modal.style.alignItems = 'stretch';
     modal.style.justifyContent = 'stretch';
     modal.style.display = 'flex';
     const inner = modal.querySelector(':scope > div');
-    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = 'auto'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; }
+    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = '100%'; inner.style.minHeight = '0'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; inner.style.display = 'flex'; inner.style.flexDirection = 'column'; }
+    const detailBody = document.getElementById('bilan-detail-body');
+    if(detailBody){ detailBody.style.minHeight = '0'; }
   } else {
     pushModalHistoryState();
     modal.style.display = 'flex';
