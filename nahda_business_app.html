@@ -4363,13 +4363,19 @@ async function showBilanDetail(type, label, moyen){
     if(detailBody){ detailBody.style.minHeight = '0'; }
   } else {
     // Pas d'emplacement en ligne disponible ici (ex: appel depuis le tableau de bord) -> fenetre modale classique
-    // IMPORTANT : restaurer les vraies valeurs d'origine (pas juste vider), sinon la fenetre perd
-    // son position:fixed et devient invisible au lieu de s'afficher en superposition.
+    // IMPORTANT : si la fenetre est restee coincee dans l'emplacement du Bilan (ecran actuellement cache),
+    // meme position:fixed ne suffit pas a l'afficher — un parent display:none bloque tout descendant.
+    // Il faut la sortir physiquement de cet emplacement avant de la reafficher.
+    if(modal.parentElement && modal.parentElement.id === 'bilan-detail-slot'){
+      document.body.appendChild(modal);
+    }
     modal.classList.remove('inline-desktop');
     modal.style.position = 'fixed'; modal.style.background = 'rgba(0,0,0,.5)'; modal.style.inset = '0'; modal.style.zIndex = '115';
     modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = 'flex-end'; modal.style.justifyContent = 'center';
     const inner = modal.querySelector(':scope > div');
-    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; inner.style.display = ''; inner.style.flexDirection = ''; }
+    if(inner){ inner.style.width = '100%'; inner.style.maxHeight = '75%'; inner.style.borderRadius = '20px 20px 0 0'; inner.style.padding = '18px'; inner.style.display = 'flex'; inner.style.flexDirection = 'column'; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.margin = ''; inner.style.background = 'var(--sand)'; }
+    const detailBody = document.getElementById('bilan-detail-body');
+    if(detailBody){ detailBody.style.minHeight = ''; }
     pushModalHistoryState();
     modal.style.display = 'flex';
   }
