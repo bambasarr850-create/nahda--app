@@ -465,20 +465,7 @@
         <div class="err-msg" id="login-err">Identifiant ou mot de passe incorrect.</div>
         <div class="field">
           <label>ID Agent</label>
-          <select id="in-agent-id">
-            <option value="">Sélectionner...</option>
-            <option value="AG-CAS-01">Casablanca — Admin</option>
-            <option value="AG-CAS-02">Casablanca — Caissier</option>
-            <option value="AG-CAS-03">Casablanca — Réceptionniste</option>
-            <option value="AG-CAS-04">Casablanca — Voyage</option>
-            <option value="AG-ABJ-01">Abidjan — Caissier</option>
-            <option value="AG-ABJ-02">Abidjan — Réceptionniste</option>
-            <option value="AG-ABJ-03">Abidjan — Voyage</option>
-            <option value="AG-CKY-01">Conakry — Agent</option>
-            <option value="AG-OUA-01">Ouagadougou — Agent</option>
-            <option value="AG-BKO-01">Bamako — Agent</option>
-            <option value="AG-NDJ-01">N'Djamena — Agent</option>
-          </select>
+          <input type="text" id="in-agent-id" placeholder="Ex : AG-CAS-01" autocapitalize="characters" style="text-transform:uppercase;">
         </div>
         <div class="field">
           <label>Mot de passe</label>
@@ -1060,6 +1047,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const FLAG_EMOJI = {MA:'🇲🇦', CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳', TD:'🇹🇩'};
 const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
 const APP_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/nahda_business_app.html'; // URL fixe - ne pas deduire de window.location (casse si ouvert via WhatsApp/webview)
+const SUIVI_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/suivi.html'; // page de suivi public separee, sans acces a l'application interne
 function formatPdfNum(n){
   // toLocaleString('fr-FR') utilise un espace insecable etroit (U+202F) non supporte par la police PDF -> glyphe casse ("/")
   return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -2637,7 +2625,7 @@ async function generateEtiquettePDF(c){
   if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
   if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
   try{
-    const trackingUrl = APP_BASE_URL + '?suivi=' + encodeURIComponent(c.reference);
+    const trackingUrl = SUIVI_BASE_URL + '?ref=' + encodeURIComponent(c.reference);
     const qr = qrcode(0, 'H');
     qr.addData(trackingUrl);
     qr.make();
@@ -2724,7 +2712,7 @@ async function generateReceiptPDF(c){
   if(typeof window.jspdf === 'undefined'){ showToast('⚠️ Librairie PDF non chargée — vérifie ta connexion'); return; }
   if(typeof qrcode === 'undefined'){ showToast('⚠️ Librairie QR non chargée — vérifie ta connexion'); return; }
   try{
-    const trackingUrl = APP_BASE_URL + '?suivi=' + encodeURIComponent(c.reference);
+    const trackingUrl = SUIVI_BASE_URL + '?ref=' + encodeURIComponent(c.reference);
     const qr = qrcode(0, 'H');
     qr.addData(trackingUrl);
     qr.make();
