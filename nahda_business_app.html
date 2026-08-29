@@ -4341,7 +4341,8 @@ async function showBilanDetail(type, label, moyen){
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
   const modal = document.getElementById('bilan-detail-modal');
   const slot = document.getElementById('bilan-detail-slot');
-  if(document.body.classList.contains('desktop-mode') && slot){
+  const ecranBilanActif = document.getElementById('screen-bilan') && document.getElementById('screen-bilan').classList.contains('active');
+  if(document.body.classList.contains('desktop-mode') && slot && ecranBilanActif){
     const placeholder = document.getElementById('bilan-detail-placeholder');
     if(placeholder) placeholder.style.display = 'none';
     if(modal.parentElement !== slot) slot.appendChild(modal);
@@ -4362,9 +4363,11 @@ async function showBilanDetail(type, label, moyen){
     if(detailBody){ detailBody.style.minHeight = '0'; }
   } else {
     // Pas d'emplacement en ligne disponible ici (ex: appel depuis le tableau de bord) -> fenetre modale classique
+    // IMPORTANT : restaurer les vraies valeurs d'origine (pas juste vider), sinon la fenetre perd
+    // son position:fixed et devient invisible au lieu de s'afficher en superposition.
     modal.classList.remove('inline-desktop');
-    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = '';
-    modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    modal.style.position = 'fixed'; modal.style.background = 'rgba(0,0,0,.5)'; modal.style.inset = '0'; modal.style.zIndex = '115';
+    modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = 'flex-end'; modal.style.justifyContent = 'center';
     const inner = modal.querySelector(':scope > div');
     if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; inner.style.display = ''; inner.style.flexDirection = ''; }
     pushModalHistoryState();
