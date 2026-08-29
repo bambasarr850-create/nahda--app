@@ -4357,6 +4357,7 @@ async function showBilanDetail(type, label, moyen){
     modal.style.alignItems = 'stretch';
     modal.style.justifyContent = 'stretch';
     modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
     const inner = modal.querySelector(':scope > div');
     if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = '100%'; inner.style.minHeight = '0'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; inner.style.display = 'flex'; inner.style.flexDirection = 'column'; }
     const detailBody = document.getElementById('bilan-detail-body');
@@ -4486,7 +4487,7 @@ function closeBilanDetail(){
   if(modal.classList.contains('inline-desktop')){
     modal.style.display = 'none';
     modal.classList.remove('inline-desktop');
-    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = ''; modal.style.flexDirection = '';
     const inner = modal.querySelector(':scope > div');
     if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; inner.style.display = ''; inner.style.flexDirection = ''; }
     const placeholder = document.getElementById('bilan-detail-placeholder');
@@ -4784,24 +4785,42 @@ async function ouvrirThread(colisReference, paysA, paysB){
   document.getElementById('thread-messages').innerHTML = skeletonHTML(2);
   document.getElementById('thread-input').value = '';
   const modal = document.getElementById('thread-modal');
-  if(document.body.classList.contains('desktop-mode')){
-    const slot = document.getElementById('messages-thread-slot');
+  const slotMsg = document.getElementById('messages-thread-slot');
+  const ecranMessagesActif = document.getElementById('screen-messages') && document.getElementById('screen-messages').classList.contains('active');
+  if(document.body.classList.contains('desktop-mode') && slotMsg && ecranMessagesActif){
     const placeholder = document.getElementById('messages-thread-placeholder');
     if(placeholder) placeholder.style.display = 'none';
-    if(slot && modal.parentElement !== slot) slot.appendChild(modal);
+    if(modal.parentElement !== slotMsg) slotMsg.appendChild(modal);
     modal.classList.add('inline-desktop');
     modal.style.position = 'static';
     modal.style.background = 'none';
     modal.style.inset = 'auto';
     modal.style.zIndex = 'auto';
     modal.style.flex = '1';
-    modal.style.height = 'auto';
+    modal.style.height = '100%';
+    modal.style.minHeight = '0';
     modal.style.alignItems = 'stretch';
     modal.style.justifyContent = 'stretch';
     modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
     const inner = modal.querySelector(':scope > div');
-    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = 'auto'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; }
+    if(inner){ inner.style.width = '100%'; inner.style.flex = '1'; inner.style.height = '100%'; inner.style.minHeight = '0'; inner.style.maxHeight = 'none'; inner.style.borderRadius = '0'; inner.style.margin = '0'; }
+    const threadMsgs = document.getElementById('thread-messages');
+    if(threadMsgs) threadMsgs.style.minHeight = '0';
   } else {
+    // Pas d'emplacement en ligne disponible ici -> fenetre modale classique
+    // Restaurer les vraies valeurs d'origine (pas juste vider), et sortir la fenetre d'un
+    // emplacement cache si elle y est restee coincee d'une precedente visite de l'ecran Messages.
+    if(modal.parentElement && modal.parentElement.id === 'messages-thread-slot'){
+      document.body.appendChild(modal);
+    }
+    modal.classList.remove('inline-desktop');
+    modal.style.position = 'fixed'; modal.style.background = 'rgba(0,0,0,.5)'; modal.style.inset = '0'; modal.style.zIndex = '117';
+    modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = 'flex-end'; modal.style.justifyContent = 'center'; modal.style.flexDirection = '';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = '100%'; inner.style.maxHeight = '85%'; inner.style.borderRadius = '20px 20px 0 0'; inner.style.padding = '18px'; inner.style.display = 'flex'; inner.style.flexDirection = 'column'; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.margin = ''; inner.style.background = 'var(--sand)'; }
+    const threadMsgs = document.getElementById('thread-messages');
+    if(threadMsgs) threadMsgs.style.minHeight = '';
     pushModalHistoryState();
     modal.style.display = 'flex';
   }
@@ -4870,12 +4889,14 @@ function supprimerConversationConfirm(){
 function closeThreadModal(){
   const modal = document.getElementById('thread-modal');
   threadActuel = null;
-  if(document.body.classList.contains('desktop-mode')){
+  if(modal.classList.contains('inline-desktop')){
     modal.style.display = 'none';
     modal.classList.remove('inline-desktop');
-    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = ''; modal.style.flexDirection = '';
     const inner = modal.querySelector(':scope > div');
-    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; }
+    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; }
+    const threadMsgs = document.getElementById('thread-messages');
+    if(threadMsgs) threadMsgs.style.minHeight = '';
     const placeholder = document.getElementById('messages-thread-placeholder');
     if(placeholder) placeholder.style.display = 'flex';
     renderConversations();
