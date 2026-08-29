@@ -584,14 +584,11 @@
             <div class="total-box"><div class="lbl">Total à payer</div><div class="val" id="nc-total">0 MAD</div></div>
             <div id="nc-total-devise" style="text-align:right;margin-top:-10px;margin-bottom:14px;font-size:11.5px;color:var(--muted);font-family:var(--font-mono);"></div>
 
-            <div class="retrait-field-pair">
-              <div class="field">
-                <label>Statut paiement départ</label>
-                <select id="nc-statutpaie" onchange="onStatutPaieChange()">
-                  <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
-                </select>
-              </div>
-              <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
+            <div class="field">
+              <label>Statut paiement départ</label>
+              <select id="nc-statutpaie" onchange="onStatutPaieChange()">
+                <option>Payé</option><option>Partiel</option><option selected>Non payé</option>
+              </select>
             </div>
             <div class="field" id="nc-commentaire-wrap" style="display:none;">
               <label>Montant versé en avance (MAD) — encaissé au pays de départ</label>
@@ -606,6 +603,7 @@
               <button type="button" class="btn btn-outline" style="margin-top:6px;" onclick="addLignePaiementDepart()">+ Ajouter un moyen de paiement</button>
               <div id="nc-paiement-total-info" style="font-size:11px;margin-top:6px;font-family:var(--font-mono);"></div>
             </div>
+            <div class="field"><label>Valeur déclarée du colis (MAD)</label><input id="nc-valeur" type="number" placeholder="0"></div>
 
             <div class="field">
               <label>Photos du colis (plusieurs prises autorisées)</label>
@@ -4341,11 +4339,11 @@ async function showBilanDetail(type, label, moyen){
   document.getElementById('bilan-detail-title').textContent = label;
   document.getElementById('bilan-detail-body').innerHTML = skeletonHTML(2);
   const modal = document.getElementById('bilan-detail-modal');
-  if(document.body.classList.contains('desktop-mode')){
-    const slot = document.getElementById('bilan-detail-slot');
+  const slot = document.getElementById('bilan-detail-slot');
+  if(document.body.classList.contains('desktop-mode') && slot){
     const placeholder = document.getElementById('bilan-detail-placeholder');
     if(placeholder) placeholder.style.display = 'none';
-    if(slot && modal.parentElement !== slot) slot.appendChild(modal);
+    if(modal.parentElement !== slot) slot.appendChild(modal);
     modal.classList.add('inline-desktop');
     modal.style.position = 'static';
     modal.style.background = 'none';
@@ -4362,6 +4360,12 @@ async function showBilanDetail(type, label, moyen){
     const detailBody = document.getElementById('bilan-detail-body');
     if(detailBody){ detailBody.style.minHeight = '0'; }
   } else {
+    // Pas d'emplacement en ligne disponible ici (ex: appel depuis le tableau de bord) -> fenetre modale classique
+    modal.classList.remove('inline-desktop');
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = '';
+    modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    const inner = modal.querySelector(':scope > div');
+    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; inner.style.display = ''; inner.style.flexDirection = ''; }
     pushModalHistoryState();
     modal.style.display = 'flex';
   }
@@ -4469,12 +4473,12 @@ function renderBilanDetailList(list, type){
 }
 function closeBilanDetail(){
   const modal = document.getElementById('bilan-detail-modal');
-  if(document.body.classList.contains('desktop-mode')){
+  if(modal.classList.contains('inline-desktop')){
     modal.style.display = 'none';
     modal.classList.remove('inline-desktop');
-    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
+    modal.style.position = ''; modal.style.background = ''; modal.style.inset = ''; modal.style.zIndex = ''; modal.style.flex = ''; modal.style.height = ''; modal.style.minHeight = ''; modal.style.alignItems = ''; modal.style.justifyContent = '';
     const inner = modal.querySelector(':scope > div');
-    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; }
+    if(inner){ inner.style.width = ''; inner.style.flex = ''; inner.style.height = ''; inner.style.minHeight = ''; inner.style.maxHeight = ''; inner.style.borderRadius = ''; inner.style.margin = ''; inner.style.display = ''; inner.style.flexDirection = ''; }
     const placeholder = document.getElementById('bilan-detail-placeholder');
     if(placeholder) placeholder.style.display = 'flex';
     return;
