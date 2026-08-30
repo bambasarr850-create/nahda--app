@@ -1047,7 +1047,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const FLAG_EMOJI = {MA:'🇲🇦', CI:'🇨🇮', ML:'🇲🇱', BF:'🇧🇫', SN:'🇸🇳', TG:'🇹🇬', NE:'🇳🇪', GN:'🇬🇳', TD:'🇹🇩'};
 const COMPANY_CONTACT = { adresse: '38 Rue Moussa El Ayoubi, Bourgogne, Casablanca', telephone: '+212 6 29 20 43 75 / +212 6 69 79 05 18' };
 const APP_BASE_URL = 'https://bambasarr850-create.github.io/nahda--app/nahda_business_app.html'; // URL fixe - ne pas deduire de window.location (casse si ouvert via WhatsApp/webview)
-const SUIVI_BASE_URL = 'https://bambasarr850-create.github.io/nahda-suivi/suivi.html'; // page de suivi public separee (depot GitHub distinct), sans acces a l'application interne
+const SUIVI_BASE_URL = 'https://bambasarr850-create.github.io/nahda-suivi-colis/suivi.html'; // page de suivi public separee (depot GitHub distinct), sans acces a l'application interne
 function formatPdfNum(n){
   // toLocaleString('fr-FR') utilise un espace insecable etroit (U+202F) non supporte par la police PDF -> glyphe casse ("/")
   return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
